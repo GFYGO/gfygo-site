@@ -1,0 +1,68 @@
+/* 通用样式 */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #fff;
+}
+
+/* 导航栏样式 */
+.header-nav {
+    background: linear-gradient(to right, #f8eb36, #298dde);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+}
+
+    /* 标题样式 */
+    .header-nav h2 a {
+        margin: 0;
+        padding: 0;
+        font-size: 24px;
+        font-style: italic; /* 斜体 */
+        color: #3e8e41; /* 绿色 */
+    }
+
+/* 导航选项样式 */
+.nav {
+    display: flex;
+    align-items: center;
+}
+
+nav a {
+    text-decoration: none;
+    margin: 0 15px;
+}
+
+    /* 分别为不同的导航选项设置颜色 */
+    nav a:nth-child(1) {
+        color: #e723ac; /* 标准粉色 */
+    }
+
+    nav a:nth-child(2) {
+        color: #fff046; /* 微淡黄色 */
+    }
+
+    nav a:nth-child(3) {
+        color: #6b6b6b; /* 淡灰色 */
+    }
+
+    nav a:hover {
+        text-decoration: underline;
+    }
+
+/* 主内容区样式 */
+.main-content {
+    text-align: center;
+    padding: 20px;
+}
+
+.minecraft_page q {
+    background-color:#44ff00
+}
+
+/*图片为容器高度*/
+.minecrat {
+    width: 100%;}
