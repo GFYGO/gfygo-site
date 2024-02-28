@@ -85,11 +85,16 @@ nav a:hover {
     height: auto;
     color: #000000;
 }
+.description{
+    
+}
 .dir{
+    float: left;
+    height: auto;
     text-align: center;
     box-sizing:border-box;   
     font-size: small;
-    color:#298dde;
+    color:#000000;
 }
 .free_page{
     background-color: #6fff00;
