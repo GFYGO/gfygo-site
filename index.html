@@ -1,65 +1,73 @@
 <!DOCTYPE html>
 <html lang="zh-cn">
-
 <head>
     <meta charset="UTF-8">
+    <meta name="author" content="谷(GFYGO)">
+    <meta name="copyright" content="个人编写的网页及后端，部分素材来自于网络（在bing上搜索）"> 
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes">
+    <meta name="format-detection" content="telephone=no email=no">
+    <!--<link rel="preload" href="styles.css" as="style">预加载-->
     <title>GFYGO's Site</title>
-    <!--indexhtmlcsslinkStart -->
-    <link rel="stylesheet" href="css/index.css">
-    <!-- indexhtmlcsslinkEnd -->
-
-    <link rel="icon" href=".\photo\head.jpg" type="image/jpg">
-    <link rel="stylesheet" href=".\css\main.css"> <!-- 链接到外部的main.css文件 -->
+    <link rel="icon" href="./photo/head.jpg" type="image/jpg">
+    <link rel="stylesheet" href="./css/gfygo.css"> <!-- 链接到外部的main.css文件 -->
+    <meta name="description" content="一个初中生在为数不多的时间里编写的个人主页和他圈子的网站">
 </head>
 
-<body class="main">
-    <!--indexhtmlhtmlStart-->
+<body>
+<!-- 导航栏 -->
+<div class="header-nav">
+    <h2 id="head"><a href="https://rapid-cardinal-seriously.ngrok-free.app">GFYGO's Site</a></h2>
+    <nav class="nav">
+        <a href="https://space.bilibili.com/1050561625">bilibili</a>
+        <a href="./gwl/">GWL-org</a>
+        <a href="./home/">more</a>
+    </nav>
+</div>
 
-    <div id="defaultId1" class=" defBord  ">
-        <div id="idOBk3sE" class="container defBord  ">
-            <div id="id92TiaW" class="header-nav defBord  ">
-                <h2 id="idKBGQoW" class=" defBord  ">
-                    <a id="idh2vnEd" class=" defBord  " href=".homehome.html">GFYGO's Site
-                    </a>
-                </h2>
-                <nav id="idzpLRvu" class="nav defBord  ">
-                    <a id="id2aMzvd" class=" defBord  " href=".index.html">home
-                    </a>
-                    <a id="idRFephQ" class=" defBord  " href="https://space.bilibili.com/1050561625">bilibili
-                    </a>
-                    <a id="idNgnfXW" class=" defBord  " href=".gwlgwl.html">GWL-org
-                    </a>
-                    <a id="idWL3ldH" class=" defBord  " href=".homehome.html">more
-                    </a>
-                </nav>
-            </div>
-            <div id="idnQj4VU" class="minecraft_page defBord  ">
-                <div id="idHqv42t" class=" defBord  usRtnIA">
-                    <h3 id="idtCsgJN" class=" defBord  ">超多免费的资源
-                    </h3>
-                    <>
-
-                </div>
-                <img id="idQpHvjI" class="minecraft defBord  uCRX4Rj" src=".photominecraft.png" alt="It's a minecraft loge photo" title="只是一个图片而已" />
-                >
-
+<div class="main"><!--正文-->
+        <!--主页-->
+        <div class="index" id="index">
+            <div style="float:none;" class="h">
+                <h1>
+                    这是<em><strong>GFYGO</strong></em>主页----
+                    <div class="dir">
+                        <ul style="float: left;">
+                            <li><a href="#free">资源页</a></li>
+                            <li><a href="#gwl">gwl页</a></li>
+                            <li><a href="#scratch">猫页</a></li>
+                            <li><a href="#http">网站</a></li>
+                        </ul>
+                    </div>
+                </h1>
             </div>
         </div>
-        <footer id="id8BU3xa" class=" defBord  ">
-            <a id="idNtCsk7" class=" defBord  uG9nOhR" href="index.html">快速回城
+        <!--minecraft-->
+        <div class="free_page" id="free" >
+            <!--左侧介绍-->                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       >
+            <div style="float:left" class="free_page_txt">
+                <h3>强大的“白嫖”能力</h3>
+                <span>
+                    <q>
+                        吾已在网络上获得了许多<a href="./home/">领域</a>的<a href="./home/resource/">资源</a>，有<a href="gwl/">Minecraft</a>，<a>AI，<a>Adobe，<a>编程，<a>Windows，<a href="./internet/">http-sever</a><a>等【🤪】
+                    </q>
+                </span> 
+            </div>
+            
+            <div style="float:right;">
+            <!--右侧minecraft.jpg-->
+            <a href="https://minecraft.net">
+                <img src="./photo/minecraft.png" alt="It's a minecraft loge photo" class="minecraft_img" title="只是一个图片而已" style="width: 45vw; float: right; width:4.5cm; height: 4.5cm;">
             </a>
-            <p id="idbnVemJ" class=" defBord  udgMee4">© 2023 GFYGO's Site. All rights reserved.
-            </p>
+            </div>
+        </div>
+
+
+        <footer style="display: flex; justify-content: center; align-items: center;">
+            <a href="https://rapid-cardinal-seriously.ngrok-free.app" style="float:inline-start">快速回城</a>
+            <p style="float:right,inline-end">&copy; 2023 GFYGO's Site. All rights reserved.</p>
         </footer>
-        <script id="idA5SvPc" class=" defBord  " src=".jsmain.js">
-        </script>
-    </div>
-    <!--indexhtmlhtmlEnd-->
-
+    <script src="main.js"></script> <!-- 链接到外部的main.js文件 -->
+</div>
 </body>
-<!--indexhtmljslinkStart -->
-<script src="js/index.js"></script>
-<!-- indexhtmljslinkEnd -->
-
-
 </html>
