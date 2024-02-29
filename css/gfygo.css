@@ -85,15 +85,12 @@ nav a:hover {
     height: auto;
     color: #000000;
 }
-.description{
-    
-}
+
 .dir{
     float: left;
     height: auto;
     text-align: center;
     box-sizing:border-box;   
-    font-size: small;
     color:#000000;
 }
 .free_page{
