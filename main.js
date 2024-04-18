@@ -1,7 +1,7 @@
 //变量
 console.log("start")
 var notice = document.querySelector('.notice');
-var screenHeight = window.innerHeight;
+const index_url = 'https://gwl.net.cn'
 /////////////////////////////网络交互函数///////////////////////////////////////
 
 function get(information) {
