@@ -1,5 +1,7 @@
 //变量
 console.log("start")
+const fs = require('fs');
+console.log("import sf")
 const index_url = 'https://gwl.net.cn'
 /////////////////////////////网络交互函数///////////////////////////////////////
 
@@ -30,13 +32,15 @@ function post(information) {
 
 ///////////////////////////////页面函数（下面）/////////////////////////////////////
 function getTXT(dir){
-    document.getElementById('txt') = main.txt
+    var txt = fs.readFileSync(dir,'utf-8');
+    console.log('read mian.txt')
+    return txt
 }
 
 
 ///////////////////main/////////////////////////////////////////////////////////
 function mian(){
-    
+    document.getElementById('txt').innerText = getTXT('main.txt')
 }
 mian()
 
