@@ -41,7 +41,7 @@ async function handleNotice() {
     let data = await get({'type':'notice'})
     var noticeElement = document.getElementById('notice');
 
-    if (data.notice == '') {
+    if (data.notice == 'none') {
         closeNotice(); // 如果通知信息为 "node"，则调用关闭通知的函数
     } else {
         noticeElement.getElementsByTagName('h2')[0].getElementsByTagName('span')[0].innerText = data.h; // 更新标题内容
