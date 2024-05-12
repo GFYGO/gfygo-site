@@ -5,18 +5,18 @@ const index_url = 'https://gwl.net.cn'
 /////////////////////////////网络交互函数///////////////////////////////////////
 
 function get(information) {
-    fetch('http://localhost:81',{
+    fetch(index_url+'/back',{
     headers:information => information.json()})
         .then(response => response.json())
         .then(data => {
             console.log(data.message); // 在控制台中打印
-        return data
+        return data //
         });
 }
 
 
 function post(information) {
-    fetch('http://localhost:81/', {
+    fetch(index_url+'/back', {
         method: 'POST',
         headers: information=>information.json(),
         body: JSON.stringify(information),
@@ -24,7 +24,7 @@ function post(information) {
     .then(response => response.json())
     .then(data => {
         console.log(data.message); // 在控制台中打印添加成功的消息
-        return data
+        return data //
     });
 }
 
@@ -44,15 +44,17 @@ async function handleNotice() {
     if (data.notice == 'none') {
         closeNotice(); // 如果通知信息为 "node"，则调用关闭通知的函数
     } else {
-        noticeElement.getElementsByTagName('h2')[0].getElementsByTagName('span')[0].innerText = data.h; // 更新标题内容
-        noticeElement.getElementsByTagName('a')[0].getElementsByTagName('span')[0].innerText = data.txt; // 更新链接文本
+        noticeElement.getElementsByTagName('h2')[0].getElementsByTagName('span')[0].innerText = get({'notice':'h'}); // 更新标题内容
+        noticeElement.getElementsByTagName('a')[0].getElementsByTagName('span')[0].innerText = get({'notice':'txt'}); // 更新链接文本
     }
 }
-function f4()
-    
+function f4(){
+    location.reload();
+    mian_()
+}
 ///////////////////main/////////////////////////////////////////////////////////
-function mian(){
+function mian_(){
     handleNotice()
 }
-mian()
+mian_()
 

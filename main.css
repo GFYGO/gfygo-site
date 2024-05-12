@@ -139,3 +139,17 @@ nav a:hover {
     font-size: 20px;
     line-height: 5px;
 }
+.f4{
+    background-color: #6e6e6e;
+    
+   
+    width: auto; 
+    margin: 5px auto;
+    padding: 20px;
+    border: 2px solid #000000;
+    border-radius: 10px;
+    box-sizing: border-box;
+    overflow: hidden;
+    height: auto;
+}
+}
