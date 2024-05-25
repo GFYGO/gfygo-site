@@ -1,1 +1,4 @@
- 
+AuthType Basic
+AuthName "验证：l1_admin"
+AuthUserFile password\admin\.htpasswd
+Require valid-user
