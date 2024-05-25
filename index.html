@@ -10,7 +10,7 @@
     <!--<link rel="preload" href="styles.css" as="style">预加载-->
     <title>GFYGO's Site!(开发中)</title>
     <link rel="icon" href="./photo/head.jpg" type="image/jpg">
-    <link rel="stylesheet" href="./css/gfygo.css"> <!-- 链接到外部的main.css文件 -->
+    <link rel="stylesheet" href="./main.css"> <!-- 链接到外部的main.css文件 -->
     <meta name="description" content="GFYGO's site!这里有Minecraft、IT技术等丰富资源，都是我个人分享整理，致力于打造一个公益性质的网站。如果您有想法或建议，随时与我们联系!">
 </head>
 
@@ -34,16 +34,17 @@
                 </h1>
             </div>
             <div class="description" id="index_description">
-                <a>
+                <a style="word-wrap: break-word;">
                     这里有Minecraft、IT技术等丰富资源，都是我个人分享整理，致力于打造一个公益性质的网站。如果您有想法或建议，随时与我们联系!
                 </a>
             </div>
             <div class="dir" id = "dir">
-                <ul style="float: left;">
+                <h3><a class="dir_h" href="#dir"><em>目录</em></a></h3>
+                <ul class="dir_list">
                     <li><a href="#free">资源页</a></li>
                     <li><a href="#gwl">GWL-org页</a></li>
-                    <li><a href="#http">网站</a></li>
-                    <li><a href="#scratch">scratch页</a></li>
+                    <li><a href="#website">这个网站</a></li>
+                    <li><a href="#scratch">技术页</a></li>
                     
                 </ul>
             </div>
@@ -65,25 +66,24 @@
             <a href="https://minecraft.net">
                 <img src="./photo/minecraft.png" alt="It's a minecraft loge photo" class="minecraft_img" title="只是一个图片而已" style="width: 45vw; float: right; width:4.5cm; height: 4.5cm;">
             </a>
-            </div><!--#free-->
-
+            </div><!--#minecraft.jpg-->
+        </div><!--1-->
 
 
         <!--底部-->
-        </div>
         <footer style="display: flex; justify-content: center; align-items: center;">
-            <a href="https://rapid-cardinal-seriously.ngrok-free.app" style="float:inline-start">快速回城</a>
+            <a href="https://gwl.net.cn/map" style="float:inline-start">快速回城</a>
             <p style="float:right,inline-end">&copy; 2023 GFYGO's Site. All rights reserved.</p>
-            <a onclick="f4()">↺</a>
+            <a class="f4" id="f4" onclick="f2()"> ↺刷新</a>
         </footer>
     <script src="main.js"></script> <!-- 链接到外部的main.js文件 -->
 </div><!--mian-->
 
 <!--通知（在main外）-->
 <div class="notice" id="notice" style="float: right;">
-    <h2><span></span></h2>
-    <a><span></span></a>
     <span class="close-btn" onclick="closeNotice()">×</span> <!-- 添加关闭按钮 -->
+    <h3 id="notice_h"></h3>
+    <a id="notice_txt"></a>
 </div>
 
 </div><!--i-->

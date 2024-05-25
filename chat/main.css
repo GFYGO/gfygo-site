@@ -58,7 +58,7 @@ nav a:hover {
 /**/
 .index{
     background-color: #ffff00;
-    width: 100%; /* 修改此处 */
+    width: 99%; /* 修改此处 */
     height: 75vh;
     margin: 5px auto;
     padding: 20px;
@@ -96,7 +96,7 @@ nav a:hover {
     overflow:hidden
 }
 /*-----------------------*/
-.free_page{
+.chat_page{
     background-color: #6fff00;
     width: 100%; /* 修改此处 */
     height: auto;
@@ -107,43 +107,16 @@ nav a:hover {
     box-sizing: border-box; /* 添加此行 */
     overflow:hidden
 }
-.free_page_txt {
-    width: 45%;
-    float: left;
+.chat_page_txt {
     box-sizing: border-box; /* 添加此行 */
 }
 
-.minecraft_img {
-    float: right;
-    width: 50%;
-    box-sizing: border-box; /* 添加此行 */
-}
+
 .i {
     position: relative; /* 设为相对定位 */
 }
 /*---------------------------*/
-.notice {
-    background-color: rgb(235,23,5);
-    position: absolute; /* 绝对定位 */
-    top: 0; /* 距离顶部的距离为0 */
-    right: 1%; /* 距离右侧的距离为0 */
-    width: 9%; 
-    margin: 5px auto;
-    padding: 5px;
-    border: 2px solid #000000;
-    border-radius: 10px;
-    box-sizing: border-box;
-    overflow: hidden;
-    height: auto;
-    word-wrap: break-word;
-}
-.close-btn {
-    cursor: pointer;
-    float: right;
-    font-size: 20px;
-    line-height: 5px;
-    box-sizing: border-box;
-}
+
 .f4{
     background-color: #929292;
     width: auto; 

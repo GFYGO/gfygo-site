@@ -3,9 +3,10 @@ console.log("start")
 const fs = require('fs');
 console.log("import sf")
 const index_url = 'https://gwl.net.cn'
+const back_url = 'https://back.gwl.net.cn'
 /////////////////////////////网络交互函数///////////////////////////////////////
 
-function get(information) {
+function get(url,information) {
     fetch('',{
     headers:information => information.json()})
         .then(response => response.json())
@@ -16,7 +17,7 @@ function get(information) {
 }
 
 
-function post(information) {
+function post(url,information) {
     fetch('https://back.gwl.net.cn', {
         method: 'POST',
         headers: information=>information.json(),
@@ -31,16 +32,12 @@ function post(information) {
 
 
 ///////////////////////////////页面函数（下面）/////////////////////////////////////
-function getTXT(dir){
-    var txt = fs.readFileSync(dir,'utf-8');
-    console.log('read mian.txt')
-    return txt
-}
+
 
 
 ///////////////////main/////////////////////////////////////////////////////////
 function mian(){
-    document.getElementById('txt').innerText = getTXT('main.txt')
+    document.getElementById('txt').innerText = get(index_url+'/main.txt')
 }
 mian()
 
