@@ -50,11 +50,32 @@
         <!--1.资源页-->
         <div class="chat" id="chat" >
             <!--左侧介绍-->                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       >
-            <div class="chat_page_txt">
-                <h3><em>愉快的聊天吧</em></h3>
-                
-                <iframe src="https://chitchatter.im/public/Gwl-Chat--Made-In-Chitchatter-im?embed=1" allow="camera;microphone;display-capture;fullscreen" height="450" width="90%" />
-            </div>
+        
+    <!--左侧介绍-->
+    <div class="chat_page_txt">
+        <h3><em>愉快的聊天吧</em></h3>
+        <div id="iframeContainer"></div>
+    </div>
+
+
+<script>
+    // 创建iframe元素
+    var iframe = document.createElement('iframe');
+    
+    // 设置iframe的src属性
+    iframe.src = "https://安全的网址";
+    
+    // 设置允许的权限
+    iframe.allow = "camera;microphone";
+    
+    // 设置iframe的高度和宽度
+    iframe.height = "450";
+    iframe.width = "90%";
+    
+    // 将iframe添加到页面中
+    document.getElementById('iframeContainer').appendChild(iframe);
+</script>
+
         </div><!--1-->
 
 
