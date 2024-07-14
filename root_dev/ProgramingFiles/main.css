@@ -1,0 +1,117 @@
+﻿/* 通用样式 */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #36fa24;
+}
+
+/* 导航栏样式 */
+.header-nav {
+    background: linear-gradient(to right, #f8eb36, #298dde);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+}
+
+/* 标题样式 */
+.header-nav h2 a {
+    margin: 0;
+    padding: 0;
+    font-size: 24px;
+    font-style: italic; /* 斜体 */
+    color: #3e8e41; /* 绿色 */
+}
+
+/* 导航选项样式 */
+.nav {
+    display: flex;
+    align-items: center;
+}
+
+nav a {
+    text-decoration: none;
+    margin: 0 15px;
+}
+
+nav a:nth-child(1) {
+    color: #e723ac; /* 标准粉色 */
+}
+
+nav a:nth-child(2) {
+    color: #fff046; /* 微淡黄色 */
+}
+
+nav a:nth-child(3) {
+    color: #6b6b6b; /* 淡灰色 */
+}
+
+nav a:hover {
+    text-decoration: underline;
+}
+.footer {
+    clear: both;
+    text-align: center;
+}
+.main { 
+    text-align: center; 
+    width: 75%;
+    margin: 0 auto;
+    border: 2px solid #000000;
+    border-radius: 10px;
+    padding: 5px;
+}
+
+.index{
+    background-color: #ffff00;
+    width: 100%; /* 修改此处 */
+    height: 75vh;
+    margin: 5px auto;
+    padding: 20px;
+    border: 2px solid #000000;
+    border-radius: 10px;
+    box-sizing: border-box; /* 添加此行 */
+    overflow: hidden
+}
+.h {
+    margin: 0 auto;
+    box-sizing:content-box; /* 添加此行 */
+    text-align:center;
+    display:flex;
+    justify-content: center;
+    align-items: center;
+    height: auto;
+    color: #000000;
+}
+
+.dir{
+    float: left;
+    height: auto;
+    text-align: center;
+    box-sizing:border-box;   
+    color:#000000;
+}
+.free_page{
+    background-color: #6fff00;
+    width: 100%; /* 修改此处 */
+    height: auto;
+    margin: 5px auto;
+    padding: 20px;
+    border: 2px solid black;
+    border-radius: 10px;
+    box-sizing: border-box; /* 添加此行 */
+    overflow:hidden
+}
+.free_page_txt {
+    width: 45%;
+    float: left;
+    box-sizing: border-box; /* 添加此行 */
+}
+
+.minecraft_img {
+    float: right;
+    width: 50%;
+    box-sizing: border-box; /* 添加此行 */
+}
