@@ -1,33 +1,3 @@
-<<<<<<< Updated upstream
-document.getElementById("https://rapid-cardinal-seriously.ngrok-free.app/") = index_url
-var screenHeight = window.innerHeight;
-get()
-
-function get() {
-    fetch('http://localhost:81')
-        .then(response => response.json())
-        .then(data => {
-            console.log(); // 在控制台中打印
-            // 可以在这里添加其他页面更新逻辑
-        });
-}
-
-
-function main() {
-    fetch('http://localhost:81/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(),
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log(data.message); // 在控制台中打印添加成功的消息
-        // 可以在这里添加其他页面更新逻辑
-    });
-}
-=======
 //变量
 console.log("start")
 var notice = document.querySelector('.notice');
@@ -35,34 +5,41 @@ const index_url = 'https://gwl.net.cn'
 const back_url = 'https://back.gwl.net.cn'
 const api_url = 'https://api.gwl.net.cn'
 /////////////////////////////////////网络交互函数/////////////////////////////////////////////////
-
-function get(url,head) {
-    fetch(url,{})
+//GET
+async function get(url,head) {
+    console.log('GET',data,'to',url);
+    fetch(url,{
+        method:'GET',
+        headers:head
+    })
     .then(response => response.json())
     .then(data => {
-        console.log('get',data,'from',url);
-        return data
+        console.log('success:', data); // 处理响应数据
+        return data;
     })
     .catch(error => {
-        console.error('请求出错：', error);
+        console.error('ERROR', error);
+        return Node;
     });
 }
 
-function post(url,head) {
-    fetch('http://localhost:5000/api/data', {
-    method: 'POST', // 请求方法
-    headers: {
-        'Content-Type': 'application/json', // 请求头，指明发送的数据类型
-    },
-    body: JSON.stringify({ key: 'value' }) // 请求体，发送的数据
-})
-.then(response => response.json()) // 解析响应为JSON
-.then(data => {
-    console.log('成功:', data); // 处理响应数据
-})
-.catch(error => {
-    console.error('错误:', error); // 处理错误
-});
+//POST
+async function post(url,head,body) {
+    console.log('POST',head,'to',url);
+    fetch(url, {
+        method: 'POST', // 请求方法
+        headers: JSON.stringify(head),
+        body: JSON.stringify(body) // 请求体，发送的数据
+    })
+    .then(response => response.json()) // 解析响应为JSON
+    .then(data => {
+        console.log('success:', data); // 处理响应数据
+        return data;
+    })
+    .catch(error => {
+        console.error('ERROE:', error); // 处理错误
+        return Node;
+    });
 }
 
 
@@ -77,11 +54,11 @@ function handleNotice() {
     let data = get(back_url,{'type':'notice'})
     var noticeElement = document.getElementById('notice');
 
-    if (data.notice == 'none' )or(data.notice == Node) ;{
+    if (data.notice == 'none' || data.notice == Node) {
         closeNotice(); // 如果通知信息为 "none"，则调用关闭通知的函数
-        } else {
-        noticeElement.getElementsByTagName('h3')[0].getElementsByTagName('span')[0].innerText = get(back_url,{'type':'notice','notice':'h'}); // 更新标题内容
-        noticeElement.getElementsByTagName('a')[0].getElementsByTagName('span')[0].innerText = get(back_url,{'type':'notice','notice':'txt'}); // 更新链接文本
+    } else {
+        noticeElement.getElementsByTagName('h3')[0].getElementsByTagName('span')[0].innerText = get(back_url, {'type': 'notice', 'notice': 'h'}); // 更新标题内容
+        noticeElement.getElementsByTagName('a')[0].getElementsByTagName('span')[0].innerText = get(back_url, {'type': 'notice', 'notice': 'txt'}); // 更新链接文本
     }
 }
 //刷新
@@ -101,4 +78,3 @@ noticeElement.querySelector('a').innerText = "12345"; // 更新链接文本
 }
 mian_()
 
->>>>>>> Stashed changes
