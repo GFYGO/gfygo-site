@@ -10,21 +10,21 @@
     <!--<link rel="preload" href="styles.css" as="style">预加载-->
     <title>GFYGO's Site!(开发中)</title>
     <link rel="icon" href="./photo/head.jpg" type="image/jpg">
-    <link rel="stylesheet" href="./css/gfygo.css"> <!-- 链接到外部的main.css文件 -->
+    <link rel="stylesheet" href="./main.css"> <!-- 链接到外部的main.css文件 -->
     <meta name="description" content="GFYGO's site!这里有Minecraft、IT技术等丰富资源，都是我个人分享整理，致力于打造一个公益性质的网站。如果您有想法或建议，随时与我们联系!">
 </head>
 
 <body>
 <!-- 导航栏 -->
 <div class="header-nav">
-    <h2 id="head"><a href="https://rapid-cardinal-seriously.ngrok-free.app">GFYGO's Site</a></h2>
+    <h2 id="head"><a href="https://gwl.net.cn">GFYGO's Site</a></h2>
     <nav class="nav">
         <a href="https://space.bilibili.com/1050561625">bilibili</a>
         <a href="./gwl/">GWL-org</a>
         <a href="./home/">more</a>
     </nav>
 </div>
-
+<div class="i">
 <div class="main"><!--正文-->
         <!--主页-->
         <div class="index" id="index">
@@ -34,45 +34,58 @@
                 </h1>
             </div>
             <div class="description" id="index_description">
-                <a>
+                <a style="word-wrap: break-word;">
                     这里有Minecraft、IT技术等丰富资源，都是我个人分享整理，致力于打造一个公益性质的网站。如果您有想法或建议，随时与我们联系!
                 </a>
             </div>
-            <div class="dir">
-                <ul style="float: left;">
+            <div class="dir" id = "dir">
+                <h3><a class="dir_h" href="#dir"><em>目录</em></a></h3>
+                <ul class="dir_list">
                     <li><a href="#free">资源页</a></li>
-                    <li><a href="#gwl">gwl页</a></li>
-                    <li><a href="#scratch">猫页</a></li>
-                    <li><a href="#http">网站</a></li>
+                    <li><a href="#gwl">GWL-org页</a></li>
+                    <li><a href="#website">这个网站</a></li>
+                    <li><a href="#scratch">技术页</a></li>
+                    
                 </ul>
             </div>
         </div>
-        <!--minecraft-->
+
+        <!--1.资源页-->
         <div class="free_page" id="free" >
             <!--左侧介绍-->                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       >
             <div style="float:left" class="free_page_txt">
-                <h3>强大的“白嫖”能力</h3>
+                <h3>“白嫖”</h3>
                 <span>
                     <q>
-                        吾已在网络上获得了许多<a href="./home/">领域</a>的<a href="./home/resource/">资源</a>，有<a href="gwl/">Minecraft</a>，<a>AI，<a>Adobe，<a>编程，<a>Windows，<a href="./internet/">http-sever</a><a>等【🤪】
+                        拥有了许多<a href="./map/">领域</a>免费的<a href="./map/go-download/">资源</a>，列如 <a href="gwl/">Minecraft</a>，<a>AI，<a>Adobe，<a>编程，<a>Windows，<a href="./development/">http-sever</a>（除了这个域名【🤪】 。更多请查看 <a href="./map/">导航页</a>
                     </q>
                 </span> 
             </div>
-            
-            <div style="float:right;">
             <!--右侧minecraft.jpg-->
+            <div style="float:right;">
             <a href="https://minecraft.net">
                 <img src="./photo/minecraft.png" alt="It's a minecraft loge photo" class="minecraft_img" title="只是一个图片而已" style="width: 45vw; float: right; width:4.5cm; height: 4.5cm;">
             </a>
-            </div>
-        </div>
+            </div><!--#minecraft.jpg-->
+        </div><!--1-->
 
 
+        <!--底部-->
         <footer style="display: flex; justify-content: center; align-items: center;">
-            <a href="https://rapid-cardinal-seriously.ngrok-free.app" style="float:inline-start">快速回城</a>
+            <a href="https://gwl.net.cn/map" style="float:inline-start">快速回城</a>
             <p style="float:right,inline-end">&copy; 2023 GFYGO's Site. All rights reserved.</p>
+            <a class="f4" id="f4" onclick="f2()"> ↺刷新</a>
         </footer>
     <script src="main.js"></script> <!-- 链接到外部的main.js文件 -->
+</div><!--mian-->
+
+<!--通知（在main外）-->
+<div class="notice" id="notice" style="float: right;">
+    <span class="close-btn" onclick="closeNotice()">×</span> <!-- 添加关闭按钮 -->
+    <h3 id="notice_h"></h3>
+    <a id="notice_txt"></a>
 </div>
+</div>
+</div><!--i-->
 </body>
 </html>
