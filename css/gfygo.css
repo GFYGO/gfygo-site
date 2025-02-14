@@ -48,6 +48,10 @@ nav a:nth-child(3) {
     color: #6b6b6b; /* 淡灰色 */
 }
 
+nav a:nth-child(4) {
+    color: #212ec3; /* 淡灰色 */
+}
+
 nav a:hover {
     text-decoration: underline;
 }

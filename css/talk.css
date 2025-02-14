@@ -71,7 +71,7 @@ nav a:hover {
 .index{
     background-color: #ffff00;
     width: 100%; /* 修改此处 */
-    height: 75vh;
+    height: auto;
     margin: 5px auto;
     padding: 20px;
     border: 2px solid #000000;
@@ -95,7 +95,7 @@ nav a:hover {
     font-size: small;
     color:#298dde;
 }
-.free_page{
+.talk_page{
     background-color: #6fff00;
     width: 100%; /* 修改此处 */
     height: auto;
@@ -107,13 +107,9 @@ nav a:hover {
     overflow:hidden
 }
 .free_page_txt {
-    width: 45%;
+    width:95%;
     float: left;
     box-sizing: border-box; /* 添加此行 */
 }
 
-.minecraft_img {
-    float: right;
-    width: 50%;
-    box-sizing: border-box; /* 添加此行 */
-}
+
