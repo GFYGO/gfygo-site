@@ -8,19 +8,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes">
     <meta name="format-detection" content="telephone=no email=no">
     <!--<link rel="preload" href="styles.css" as="style">预加载-->
-    <title>GFYGO|Chat!</title>
+    <title>NEW_PAGE___</title>
     <link rel="icon" href="./../photo/head.jpg" type="image/jpg">
-    
-    <link rel="stylesheet" href="./../css/talk.css"> <!-- 链接到外部的main.css文件 -->
+    <link rel="stylesheet" href="./main.css"> <!-- 链接到外部的main.css文件 -->
     <meta name="description" content="一个初中生在为数不多的时间里编写的个人主页和他圈子的网站">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 
 <body>
 <!-- 导航栏 -->
 <div class="header-nav">
-    <h2 id="head"><a href="https://rapid-cardinal-seriously.ngrok-free.app">Chat!</a></h2>
+    <h2 id="head"><a href="">登录</a></h2>
     <nav class="nav">
-        <a href=""></a>
+        <a href="https://gwl.net.cn/register">注册</a>
         <a href=""></a>
         <a href=""></a>
     </nav>
@@ -28,31 +28,42 @@
 
 <div class="main"><!--正文-->
         <!--主页-->
-        <div class="index" id="index">
+        <div class="one" id="one">
             <div style="float:none;" class="h">
                 <h1>
-                    这是<em><strong>聊天</strong></em>页面----
+                    <em><strong>注册/登记</strong></em>
                 </h1>
             </div>
-        </div><!--index-->
-        <!--minecraft-->
-        <div class="talk_page" id="free" >
-            <!--左侧介绍-->                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       >
-            <div style="float:left" class="free_page_txt">
-                <h3>聊天室</h3>
-                <span>
-                    <q>
-                        <iframe src="https://chitchatter.im/public/gwl-net-cn?embed=1" allow="camera;microphone;display-capture;fullscreen" style="height:15cm;width: 85%;"  />
-                    </q>
-                </span> 
-            </div>
         </div>
+
+
+        <!--minecraft-->
+        <div class="two" id="two" >
+            <!--左侧介绍-->                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       >
+            <div>
+                <form action="https://back.gwl.net.cn/register" method="POST" class="reg_form">
+                    用户名
+                    <input type="text" name="username">
+                    <br>
+                    邮箱
+                    <input type="email" name="email">
+                    <br>
+                    密码
+                    <input type="password" name="password">
+                    <br>
+                    <div class="cf-turnstile" data-sitekey="0x4AAAAAABs6a1WlAXmVstmB"></div>
+                    <button type="submit" class="reg_subnit">Submit</button>
+                </form>
+            </div>
+            
+        </div>
+
+        
         <footer style="display: flex; justify-content: center; align-items: center;">
             <a href="https://rapid-cardinal-seriously.ngrok-free.app" style="float:inline-start">MODE</a>
             <p style="float:right,inline-end">&copy; 2023 GFYGO's Site. All rights reserved.</p>
         </footer>
     <script src="main.js"></script> <!-- 链接到外部的main.js文件 -->
-
-</div><!--mian-->
+</div>
 </body>
 </html>

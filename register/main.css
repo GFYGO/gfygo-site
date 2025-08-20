@@ -67,7 +67,7 @@ nav a:hover {
 .one{
     background-color: #ffff00;
     width: 100%; /* 修改此处 */
-    height: 75vh;
+    height: auto;
     margin: 5px auto;
     padding: 20px;
     border: 2px solid #000000;
