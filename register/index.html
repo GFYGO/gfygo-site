@@ -10,16 +10,17 @@
     <!--<link rel="preload" href="styles.css" as="style">预加载-->
     <title>NEW_PAGE___</title>
     <link rel="icon" href="./../photo/head.jpg" type="image/jpg">
-    <link rel="stylesheet" href="./../css/main.css"> <!-- 链接到外部的main.css文件 -->
+    <link rel="stylesheet" href="./main.css"> <!-- 链接到外部的main.css文件 -->
     <meta name="description" content="一个初中生在为数不多的时间里编写的个人主页和他圈子的网站">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 
 <body>
 <!-- 导航栏 -->
 <div class="header-nav">
-    <h2 id="head"><a href="https://rapid-cardinal-seriously.ngrok-free.app">NEW___PAGE___</a></h2>
+    <h2 id="head"><a href="">登录</a></h2>
     <nav class="nav">
-        <a href=""></a>
+        <a href="https://gwl.net.cn/register">注册</a>
         <a href=""></a>
         <a href=""></a>
     </nav>
@@ -27,39 +28,34 @@
 
 <div class="main"><!--正文-->
         <!--主页-->
-        <div class="one" id="index">
+        <div class="one" id="one">
             <div style="float:none;" class="h">
                 <h1>
-                    这是<em><strong>___</strong></em>___----
-                    <div class="dir">
-                        <ul style="float: left;">
-                            <li><a href="#"></a></li>
-                            <li><a href="#"></a></li>
-                            <li><a href="#"></a></li>
-                            <li><a href="#"></a></li>
-                        </ul>
-                    </div>
+                    <em><strong>注册/登记</strong></em>
                 </h1>
             </div>
         </div>
+
+
         <!--minecraft-->
-        <div class="two" id="free" >
+        <div class="two" id="two" >
             <!--左侧介绍-->                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       >
-            <div style="float:left" class="free_page_txt">
-                <h3>TITLE</h3>
-                <span>
-                    <q>
-                        ______________________________________
-                    </q>
-                </span> 
+            <div>
+                <form action="https://back.gwl.net.cn/register" method="POST" class="reg_form">
+                    用户名
+                    <input type="text" name="username">
+                    <br>
+                    邮箱
+                    <input type="email" name="email">
+                    <br>
+                    密码
+                    <input type="password" name="password">
+                    <br>
+                    <div class="cf-turnstile" data-sitekey="0x4AAAAAABs6a1WlAXmVstmB"></div>
+                    <button type="submit" class="reg_subnit">Submit</button>
+                </form>
             </div>
             
-            <div style="float:right;">
-            <!--右侧minecraft.jpg-->
-            <a href="https://minecraft.net">
-                <img src="./../photo/minecraft.png" alt="NAME___" class="minecraft_img" title="只是一个图片而已(MOUSE)" style="width: 45vw; float: right; width:4.5cm; height: 4.5cm;">
-            </a>
-            </div>
         </div>
 
         
