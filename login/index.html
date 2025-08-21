@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="author" content="谷(GFYGO)">
+    <meta name="copyright" content="个人编写的网页及后端，部分素材来自于网络（在bing上搜索）"> 
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes">
+    <meta name="format-detection" content="telephone=no email=no">
+    <!--<link rel="preload" href="styles.css" as="style">预加载-->
+    <title>GWL|登录</title>
+    <link rel="icon" href="./../photo/head.jpg" type="image/jpg">
+    <link rel="stylesheet" href="./main.css"> <!-- 链接到外部的main.css文件 -->
+    <meta name="description" content="一个初中生在为数不多的时间里编写的个人主页和他圈子的网站">
+</head>
+
+<body>
+<!-- 导航栏 -->
+<div class="header-nav">
+    <h2 id="head"><a href="https://rapid-cardinal-seriously.ngrok-free.app">登录</a></h2>
+    <nav class="nav">
+        <a href="https://s.gwl.net.cn"></a>GWL-CHAT[不用登录，点击即聊]
+        <a href=""></a>
+        <a href=""></a>
+    </nav>
+</div>
+
+<div class="main"><!--正文-->
+        <!--主页-->
+        <div class="one" id="index">
+            <div style="float:none;" class="h">
+                <h1>
+                    <em><strong>登录</strong></em>
+                </h1>
+            </div>
+        </div>
+        <!--minecraft-->
+        <div class="two" id="free" >
+            <!--左侧介绍-->                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       >
+            <div class="login_form">
+                <form method="POST"  id="reg_form">
+                    用户名<a id="username" style="color: red;"></a>
+                    <input type="text" name="username" class="input-place">
+                    <br><a id="pwd" style="color: red; " ></a>
+                    密码
+                    <input type="password" name="password" class="input-place">
+                    <br>
+                    <div class="cf-turnstile" data-sitekey="0x4AAAAAABs6a1WlAXmVstmB"></div>
+                    <a href="./forget/index.html" style="color: dimgray;font-size: small;">忘记密码?</a>
+                    <button type="submit" class="login_submit">Submit</button>
+                </form>
+            </div>
+            
+           <div id="success-message" style="display: none; text-align: center; padding: 20px;">
+            <h2>🎉 登录成功！</h2>
+        </div>
+        </div>
+
+        
+        <footer style="display: flex; justify-content: center; align-items: center;">
+            <a href="https://s.gwl.net.cn" style="float:inline-start">Chat!</a>
+            <p style="float:right,inline-end">&copy; 2023 GFYGO's Site. All rights reserved.</p>
+        </footer>
+    <script src="main.js"></script> <!-- 链接到外部的main.js文件 -->
+</div>
+</body>
+</html>
