@@ -116,7 +116,7 @@ regForm.addEventListener('submit', async function (event) {
         } else if (result.status === 'error') {
             // 根据错误字段显示错误信息到指定位置
             const errorMessage = result.message || '操作失败';
-            switch (result.field) {
+            switch (result.wrong) {
                 case 'username':
                     if (usernameErrorMsg) {
                         usernameErrorMsg.textContent = errorMessage;
