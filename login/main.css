@@ -20,9 +20,11 @@ body {
 .header-nav h2 a {
     margin: 0;
     padding: 0;
-    font-size: 24px;
-    font-style: italic; /* 斜体 */
-    color: #3e8e41; /* 绿色 */
+    font-size: large;
+    font-style: italic;
+    /* 斜体 */
+    color: #3e8e41;
+    /* 绿色 */
 }
 
 /* 导航选项样式 */
@@ -37,26 +39,31 @@ nav a {
 }
 
 nav a:nth-child(1) {
-    color: #e723ac; /* 标准粉色 */
+    color: #e723ac;
+    /* 标准粉色 */
 }
 
 nav a:nth-child(2) {
-    color: #fff046; /* 微淡黄色 */
+    color: #fff046;
+    /* 微淡黄色 */
 }
 
 nav a:nth-child(3) {
-    color: #6b6b6b; /* 淡灰色 */
+    color: #6b6b6b;
+    /* 淡灰色 */
 }
 
 nav a:hover {
     text-decoration: underline;
 }
+
 .footer {
     clear: both;
     text-align: center;
 }
-.main { 
-    text-align: center; 
+
+.main {
+    text-align: center;
     width: 90%;
     margin: 0 auto;
     border: 2px solid #000000;
@@ -64,41 +71,152 @@ nav a:hover {
     padding: 5px;
 }
 
-.one{
+.one {
     background-color: #ffff00;
-    width: 100%; /* 修改此处 */
-    height: 75vh;
+    width: 100%;
+    /* 修改此处 */
+    height: auto;
     margin: 5px auto;
     padding: 20px;
     border: 2px solid #000000;
     border-radius: 10px;
-    box-sizing: border-box; /* 添加此行 */
+    box-sizing: border-box;
+    /* 添加此行 */
     overflow: hidden
 }
+
 .h {
     margin: 0 auto;
-    box-sizing:content-box; /* 添加此行 */
-    text-align:center;
-    display:flex;
+    box-sizing: content-box;
+    /* 添加此行 */
+    text-align: center;
+    display: flex;
     justify-content: center;
     align-items: center;
     height: auto;
     color: #000000;
-    font-size:x-large;
+    font-size: x-large;
 }
 
 
-.two{
+.two {
     background-color: #417df6;
-    width: 100%; /* 修改此处 */
+    width: 100%;
+    /* 修改此处 */
     height: auto;
     margin: 5px auto;
     padding: 20px;
     border: 2px solid black;
     border-radius: 10px;
-    box-sizing: border-box; /* 添加此行 */
-    overflow:hidden
+    box-sizing: border-box;
+    /* 添加此行 */
+    overflow: hidden
 }
 
 
+.login_form {
+    text-align: right;
+}
 
+.input-place {
+    /* 宽度占满父容器 */
+    width: 30%;
+
+    padding: 8px 8px;
+    /* 内边距，提供舒适的点击区域 */
+    margin-bottom: 16px;
+    /* 与下方元素的间距 */
+    box-sizing: border-box;
+    /* 确保 padding 和 border 包含在 width 内 */
+
+    /* 边框与外观 */
+    border: 2px solid #d1d5db;
+    /* 浅灰色边框 */
+    border-radius: 6px;
+    /* 圆角 */
+    background-color: #ffffff;
+    /* 白色背景 */
+    outline: none;
+    /* 移除默认的焦点轮廓 (我们将自定义) */
+
+    /* 文本样式 */
+    font-size: medium;
+    /* 字体大小 */
+    color: #1f2937;
+    /* 深灰色文字 */
+    font-family: inherit;
+    /* 继承父元素字体 */
+
+    /* 过渡效果 - 平滑变化 */
+    transition: all 0.2s ease-in-out;
+}
+
+.input-place:focus {
+    border-color: #3b82f6;
+    /* 聚焦时边框变为蓝色 */
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    /* 蓝色外发光阴影 */
+    transform: translateY(-1px);
+    /* 微微上移，增加立体感 */
+}
+
+.login_submit {
+    /* 宽度占满父容器 */
+    padding: 14px 24px;
+    /* 内边距，提供舒适的点击区域 */
+    margin-top: 8px;
+    /* 与上方元素的间距 */
+
+    /* 背景与边框 */
+    background-color: #ff8133;
+    /* 蓝色背景 */
+    color: #ffffff;
+    /* 白色文字 */
+    border: none;
+    /* 移除边框 */
+    border-radius: 8px;
+    /* 圆角，与输入框匹配 */
+    cursor: pointer;
+    /* 鼠标悬停时显示手型 */
+
+    /* 文本样式 */
+    font-size: 16px;
+    font-weight: 600;
+    /* 稍粗的字体 */
+    text-transform: uppercase;
+    /* 大写字母，增加按钮感 */
+    letter-spacing: 0.5px;
+    /* 字母间距 */
+
+    /* 阴影 */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    /* 轻微阴影 */
+
+    /* 过渡效果 */
+    transition: all 0.2s ease;
+}
+
+.login_submit:hover {
+    background-color: #2563eb;
+    /* 悬停时颜色变深蓝 */
+    transform: translateY(-1px);
+    /* 微微上移 */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    /* 阴影加深 */
+}
+
+.two {
+    background-color: #417df6;
+    width: 100%;
+    /* 修改此处 */
+    height: auto;
+    margin: 5px auto;
+    padding: 20px;
+    border: 2px solid black;
+    border-radius: 10px;
+    box-sizing: border-box;
+    /* 添加此行 */
+    overflow: hidden;
+
+
+}
