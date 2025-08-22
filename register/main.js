@@ -101,9 +101,6 @@ regForm.addEventListener('submit', async function (event) {
         const response = await fetch('https://back.gwl.net.cn/register/', {
 
             method: 'POST',
-            headers:{
-                'Content-Type':'application/x-www-form-urlencoded'
-            },
             body: formData
         });
 
