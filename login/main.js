@@ -88,11 +88,7 @@ document.getElementById('reg_form').addEventListener('submit', async function(e)
     try {
         const response = await fetch('https://back.gwl.net.cn/login/', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
             body: formData,
-            credentials: 'include'  // 允许携带 Cookie（如果需要）
         });
 
         const result = await response.json();
