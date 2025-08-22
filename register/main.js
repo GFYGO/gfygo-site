@@ -53,7 +53,7 @@ function post(url,information) {
 // 获取表单元素
 const regForm = document.getElementById('reg_form');
 const usernameMsg = document.getElementById('username');
-const emailMsg = document.getElementById('email'); // 注意：HTML 中 id 是 "eamil" (拼写错误？应为 "email")
+const emailMsg = document.getElementById('email'); 
 const pwdMsg = document.getElementById('pwd');
 
 // 监听表单提交
@@ -76,8 +76,11 @@ regForm.addEventListener('submit', async function(event) {
         const formData = new FormData(regForm); // 传入表单元素 regForm
 
         // 2. 发送 POST 请求
-        const response = await fetch(back_url + '/register/', {
+        const response = await fetch('https://back.gwl.net.cn/register/', {
             method: 'POST',
+            headers:{
+                'Content-Type':'application/x-www-form-urlencoded'
+            },
             body: formData
         });
 
