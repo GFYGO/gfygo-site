@@ -167,7 +167,7 @@ regForm.addEventListener('submit', async function (event) {
                     } else {
                          console.warn('General error element not found. Message:', errorMessage);
                     }
-                    console.warn('Unknown error field:', result.field, 'Message:', errorMessage);
+                    console.warn('Unknown error field:', result.wrong, 'Message:', errorMessage);
             }
         } else {
             // 处理非标准格式响应
