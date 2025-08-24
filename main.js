@@ -66,6 +66,20 @@ function f2(){
     location.reload();
     mian_()
 }
+ function getAllCookies() {
+        const cookieArr = document.cookie.split("; ");
+        const cookieObj = {};
+        for (let i = 0; i < cookieArr.length; i++) {
+            if (cookieArr[i]) { // 检查是否为空字符串
+                const cookiePair = cookieArr[i].split("=");
+                // 解码 cookie 名称和值
+                const cookieName = decodeURIComponent(cookiePair[0]);
+                const cookieValue = decodeURIComponent(cookiePair[1] || ""); // 处理没有 '=' 的情况
+                cookieObj[cookieName] = cookieValue;
+            }
+        }
+        return cookieObj;
+    }
 ////////////////////////////main/////////////////////////////////////////////////////////
 function mian_(){
 
@@ -75,6 +89,9 @@ function mian_(){
 noticeElement.querySelector('a').innerText = "12345"; // 更新链接文本
 
     handleNotice()
+    if (getAllCookies()['checkid']) {
+    document.getElementById('user').innerHTML = '<a id="user" href="./user/">user</a>'
+    }
 }
 mian_()
 

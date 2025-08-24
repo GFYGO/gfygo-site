@@ -58,7 +58,6 @@ if (!generalErrorMsg) {
         submitButton.parentNode.insertBefore(generalErrorMsg, submitButton);
     }
 }
-
 // --- 提交处理 ---
 regForm.addEventListener('submit', async function (event) {
     event.preventDefault();
@@ -82,7 +81,7 @@ regForm.addEventListener('submit', async function (event) {
 
 
         // 2. 发送 POST 请求
-        const response = await fetch('https://back.gwl.net.cn/register/', {
+        const response = await fetch(`https://back.gwl.net.cn/account/${usernameMsg}/ch_pwd`, {
 
             method: 'POST',
             body: formData

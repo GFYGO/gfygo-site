@@ -98,7 +98,7 @@ document.getElementById('reg_form').addEventListener('submit', async function(e)
             const checkId = result.check_id;
 
             // ✅ 将 check_id 保存到 Cookie
-            setCookie('check_id', checkId, 7); // 保存 7 天
+            setCookie('check_id', checkId, 14); // 保存 7 天
 
             alert('登录成功！');
             // 可选：跳转到首页或用户中心
