@@ -65,25 +65,8 @@ function post(url,information) {
 // mian_()
 
 document.getElementById('reg_form').addEventListener('submit', async function(e) {
-    e.preventDefault(); // 阻止默认提交
-
-    const username = this.username.value.trim();
-    const password = this.password.value;
-    
-    // 简单校验
-    if (!username || !password) {
-        document.getElementById('username').textContent = ' 请填写完整信息';
-        return;
-    }
-
-    // 清除之前的错误提示
-    document.getElementById('username').textContent = '';
-    document.getElementById('pwd').textContent = '';
-
-    // 准备表单数据
-    const formData = new URLSearchParams();
-    formData.append('username', username);
-    formData.append('password', password);
+const regForm = document.getElementById('reg_form');
+const formData = new FormData(regForm);
 
     try {
         const response = await fetch('https://back.gwl.net.cn/login/', {
