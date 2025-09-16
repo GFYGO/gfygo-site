@@ -81,7 +81,7 @@ regForm.addEventListener('submit', async function (event) {
 
 
         // 2. 发送 POST 请求
-        const response = await fetch(`https://back.gwl.net.cn/account/${usernameMsg}/ch_pwd`, {
+        const response = await fetch(`https://back.gwl.net.cn/account/${formData.get('username')}/ch_pwd`, {
 
             method: 'POST',
             body: formData
