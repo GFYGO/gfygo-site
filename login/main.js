@@ -85,7 +85,7 @@ const formData = new FormData(regForm);
 
             alert('登录成功！');
             // 可选：跳转到首页或用户中心
-            window.location.href = '/account'; // 或其他页面
+            //window.location.href = '/account'; // 或其他页面
 
         } else if (result.status === 'error') {
             if (result.wrong === 'wrong_username') {
