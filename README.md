@@ -1,2 +1,0 @@
-# GFYGO-site
-my wedsite
