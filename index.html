@@ -11,27 +11,26 @@
 <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 <body>
   <!-- Header -->
-  <header class="header">
-    <div class="header__logo">GWL Works Lab</div>
-    <button class="header__toggle" id="menuToggle">☰</button>
-    <nav class="header__nav">
-      <a href="./document.html">文档</a>
-      <a href="./login.html">登录</a>
-      <a href="./register.html">注册</a>
-    </nav>
-    
-  <div class="header__right">
-    <!-- 任务 FE-JS-02: 用户信息挂载点 -->
-    <div id="auth-container">
-      <!-- JS 会在此处动态渲染 .user-info 或 .login-link -->
+    <header class="header">
+        <div class="header__logo">GWL Works Lab</div>
+        
+        <!-- 任务 FE-CSS-01: 添加用户信息容器 -->
+        <div id="auth-container" class="auth-container">
+            <!-- JS 将在这里渲染登录链接或用户头像 -->
+        </div>
+
+        <button class="header__toggle" id="menuToggle">☰</button>
+        <nav class="header__nav">
+            <a href="./document.html">文档</a>
+            <a href="./login.html">登录</a>
+            <a href="./register.html">注册</a>
+        </nav>
+    </header>
+
+    <!-- 任务 FE-CSS-02: 添加全局通知容器 -->
+    <div id="global-notifications-container" class="notification-toast">
+        <!-- JS 将在这里渲染通知内容 -->
     </div>
-    <!-- 任务 FE-JS-03: 全局通知挂载点 -->
-    <div id="global-notifications-container">
-      <!-- JS 会在此处动态渲染 .notification-toast -->
-    </div>
-  </div>
-  <button class="header__toggle" id="menuToggle">☰</button>
-  </header>
 
   <!-- Homepage Sections (FE-UI-01) -->
   <main>
@@ -76,5 +75,6 @@
     &copy; 2026 GFYGO. All rights reserved.
   </footer>
   <script src="./theme.js"></script>
+  <script src="./index.js"></script>
 </body>
 </html>
