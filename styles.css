@@ -34,7 +34,7 @@ body.theme-green {
 body.theme-light {
   --color-primary: #4f46e5;
   --color-primary-hover: #4338ca;
-  --color-bg-body: #f8fafc;
+  --color-bg-body: #aad5ff;
   --color-bg-white: #ffffff;
   --color-bg-section-alt: #f1f5f9;
   --color-text-main: #1e293b;
@@ -380,3 +380,20 @@ body.theme-gray .header {
     padding: 16px;
   }
 }
+
+/* =========================================
+   11. Feature Tile Link Reset
+   ========================================= */
+/* 确保作为 <a> 标签时，继承原有的 Flexbox 布局 */
+a.feature-tile {
+  text-decoration: none; /* 移除下划线 */
+  color: inherit;        /* 继承父级字体颜色，防止变成默认蓝色 */
+  display: flex;         /* 保持原有的 Flex 布局 */
+}
+
+/* 确保内部文字颜色不受全局 a:hover 影响 */
+a.feature-tile:hover .feature-tile__title,
+a.feature-tile:hover .feature-tile__desc {
+  color: inherit;
+}
+
