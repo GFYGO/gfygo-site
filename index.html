@@ -3,37 +3,61 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>全局模板与首页</title>
+  <title>GWL|个人学习平台</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="favicon.ico">
 </head>
+<!-- 主题切换悬浮按钮 -->
+<button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 <body>
   <!-- Header -->
   <header class="header">
-    <div class="header__logo">MyApp</div>
+    <div class="header__logo">GWL Works Lab</div>
     <button class="header__toggle" id="menuToggle">☰</button>
     <nav class="header__nav">
-      <a href="index.html">首页</a>
+      <a href="document.html">文档</a>
       <a href="login.html">登录</a>
-      <a href="profile.html">个人主页</a>
+      <a href="register.html">注册</a>
     </nav>
   </header>
 
   <!-- Homepage Sections (FE-UI-01) -->
   <main>
     <section class="home-section">
-      <h1 class="home-section__title">欢迎来到我们的平台</h1>
-      <p class="home-section__desc">这是一个使用 Flexbox 居中、圆角设计的现代化首页板块，具备极佳的视觉层次感。</p>
+      <h1 class="home-section__title">GWL</h1>
+      <p class="home-section__desc">GWL Works Lab 是由一个高中生建立，旨在提高我们学习兴趣，通过各式的学习工具辅助促进能力增长。</p>
     </section>
     
     <section class="home-section home-section--alt">
       <h2 class="home-section__title">核心功能</h2>
-      <p class="home-section__desc">应用了不同的背景色以区分内容层级，确保多端响应式良好，细节处彰显品质。</p>
+
+
+      <!-- 平铺视图网格容器 -->
+  <div class="feature-grid" herf="https://www.bilibili.com/video/BV1g34y1j7e5/">
+    <!-- 示例块 1 -->
+    <div class="feature-tile">
+      <div class="feature-tile__img">📚</div> <!-- 可替换为 <img> 标签 -->
+      <div class="feature-tile__content">
+        <div class="feature-tile__title">惊喜</div>
+        <div class="feature-tile__desc">查看完整的学习文档与API接口说明</div>
+      </div>
+    </div>
+    
+    <!-- 示例块 2 -->
+    <div class="feature-tile">
+      <div class="feature-tile__img">1</div>
+      <div class="feature-tile__content">
+        <div class="feature-tile__title">网站未完成</div>
+        <div class="feature-tile__desc">只需三步即可搭建你的专属学习平台</div>
+      </div>
+    </div>
     </section>
   </main>
 
   <!-- Footer -->
   <footer class="footer">
-    &copy; 2026 MyApp. All rights reserved.
+    &copy; 2026 GFYGO. All rights reserved.
   </footer>
+  <script src="theme.js"></script>
 </body>
 </html>

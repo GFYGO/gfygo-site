@@ -2,6 +2,16 @@
    1. CSS Variables (Design Tokens)
    ========================================= */
 :root {
+  /* 颜色系统 */
+  --color-primary: #4f46e5;
+  --color-primary-hover: #4338ca;
+  --color-bg-body: #f8fafc;
+  --color-bg-white: #ffffff;
+  --color-bg-section-alt: #f1f5f9;
+  --color-text-main: #1e293b;
+  --color-text-muted: #64748b;
+  --color-border: #e2e8f0;
+
   /* 圆角与阴影 */
   --radius-md: 8px;
   --radius-lg: 16px;
@@ -16,57 +26,6 @@
 }
 
 /* =========================================
-   1.1 主题色彩系统 (Theme Colors)
-   ========================================= */
-/* 默认主题：绿色 (Green) - 调亮、调绿 */
-body.theme-green {
-  --color-primary: #10b981;
-  --color-primary-hover: #059669;
-  --color-bg-body: #8aff92;       /* 更绿、更清新的背景底色 */
-  --color-bg-white: #ffffff;
-  --color-bg-section-alt: #aeffd5; /* 更明显的绿色交替区块 */
-  --color-text-main: #064e3b;
-  --color-text-muted: #047857;
-  --color-border: #a7f3d0;
-}
-
-/* 白色主题 (Light) */
-body.theme-light {
-  --color-primary: #4f46e5;
-  --color-primary-hover: #4338ca;
-  --color-bg-body: #f8fafc;
-  --color-bg-white: #ffffff;
-  --color-bg-section-alt: #f1f5f9;
-  --color-text-main: #1e293b;
-  --color-text-muted: #64748b;
-  --color-border: #e2e8f0;
-}
-
-/* 灰色主题 (Gray) - 灰色背景 + 白色字体 */
-body.theme-gray {
-  --color-primary: #60a5fa;       /* 灰色背景下使用亮蓝色作为主色调更醒目 */
-  --color-primary-hover: #3b82f6;
-  --color-bg-body: #374151;       /* 深灰色背景 */
-  --color-bg-white: #4b5563;      /* 卡片背景使用稍浅的灰色 */
-  --color-bg-section-alt: #1f2937;/* 交替区块使用更深的灰色 */
-  --color-text-main: #ffffff;     /* 主字体为纯白色 */
-  --color-text-muted: #e5e7eb;    /* 辅助文字为浅灰色 */
-  --color-border: #4b5563;
-}
-
-/* 蓝绿主题 (Dark Green / Teal) */
-body.theme-dark_green {
-  --color-primary: #2dd4bf;
-  --color-primary-hover: #14b8a6;
-  --color-bg-body: #0f172a;
-  --color-bg-white: #1e293b;
-  --color-bg-section-alt: #020617;
-  --color-text-main: #f8fafc;
-  --color-text-muted: #94a3b8;
-  --color-border: #334155;
-}
-
-/* =========================================
    2. Reset & Base
    ========================================= */
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -75,7 +34,6 @@ body {
   color: var(--color-text-main); 
   background-color: var(--color-bg-body); 
   line-height: 1.6; 
-  transition: background-color 0.3s ease, color 0.3s ease;
 }
 a { text-decoration: none; color: inherit; transition: color 0.2s ease; }
 
@@ -84,7 +42,7 @@ a { text-decoration: none; color: inherit; transition: color 0.2s ease; }
    ========================================= */
 .header {
   height: var(--header-height);
-  background: rgba(255, 255, 255, 0.85); 
+  background: rgba(255, 255, 255, 0.85); /* 毛玻璃效果 */
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--color-border);
   display: flex;
@@ -94,14 +52,7 @@ a { text-decoration: none; color: inherit; transition: color 0.2s ease; }
   position: sticky;
   top: 0;
   z-index: 100;
-  transition: background 0.3s ease, border-color 0.3s ease;
 }
-/* 适配深色主题下的 Header 背景 */
-body.theme-dark_green .header,
-body.theme-gray .header {
-  background: rgba(30, 41, 59, 0.85);
-}
-
 .header__logo { font-size: 1.35rem; font-weight: 800; color: var(--color-primary); letter-spacing: -0.5px; }
 .header__nav a { margin-left: 28px; color: var(--color-text-muted); font-weight: 500; font-size: 0.95rem; }
 .header__nav a:hover { color: var(--color-primary); }
@@ -159,8 +110,6 @@ body.theme-gray .header {
   outline: none;
   font-size: 1rem;
   transition: border-color 0.2s, box-shadow 0.2s;
-  background: var(--color-bg-white);
-  color: var(--color-text-main);
 }
 .form-group input:focus { 
   border-color: var(--color-primary); 
@@ -222,50 +171,27 @@ body.theme-gray .header {
 .profile-avatar {
   width: 40px; height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--color-primary), #818cf8); 
+  background: linear-gradient(135deg, var(--color-primary), #818cf8); /* 美观的渐变头像占位 */
 }
 .profile-content { flex: 1; padding: 40px; overflow-y: auto; max-width: 900px; }
 
 /* =========================================
-   7. Theme Switcher Button
+   7. Responsive Design (移动端适配)
    ========================================= */
-.theme-switcher {
-  position: fixed;
-  bottom: 32px;
-  right: 32px;
-  width: 48px;
-  height: 48px;
-  background-color: var(--color-primary);
-  border: none;
-  border-radius: var(--radius-md); /* 正方形圆角 */
-  cursor: pointer;
-  box-shadow: var(--shadow-lg);
-  z-index: 200;
-  transition: background-color 0.3s ease, transform 0.2s ease;
-}
-.theme-switcher:hover {
-  background-color: var(--color-primary-hover);
-  transform: translateY(-2px);
-}
-.theme-switcher:active {
-  transform: translateY(0);
-}
-
-/* =========================================
-   8. Responsive Design (移动端适配)
-   ========================================= */
+/* 移动端汉堡按钮 (默认隐藏) */
 .header__toggle { display: none; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--color-text-main); }
 
 @media (max-width: 768px) {
   .header { padding: 0 16px; }
   .header__toggle { display: block; }
-  .header__nav { display: none; } 
+  .header__nav { display: none; } /* 简化处理：移动端隐藏顶部导航，依靠侧边栏 */
   
   .home-section { padding: 48px 20px; }
   .home-section__title { font-size: 1.75rem; }
   
   .login-card { padding: 32px 24px; }
 
+  /* 侧边栏抽屉模式 */
   .profile-sidebar {
     display: none; 
     position: fixed;
@@ -278,6 +204,7 @@ body.theme-gray .header {
   }
   .profile-sidebar--open { display: flex; }
   
+  /* 遮罩层 */
   .sidebar-overlay {
     display: none;
     position: fixed;
@@ -287,96 +214,4 @@ body.theme-gray .header {
     z-index: 98;
   }
   .sidebar-overlay--visible { display: block; }
-
-  /* 移动端主题按钮稍微缩小并调整位置 */
-  .theme-switcher {
-    bottom: 20px;
-    right: 20px;
-    width: 40px;
-    height: 40px;
-  }
-}
-
-
-/* =========================================
-   9. Feature Grid / Explorer Tiles View
-   ========================================= */
-/* 网格容器：类似 Explorer 平铺视图，自动适应列数 */
-.feature-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 24px;
-  width: 100%;
-  max-width: 1200px; /* 限制最大宽度，防止超宽屏幕下块被拉得过长 */
-  margin-top: 32px;
-}
-
-/* 单个平铺块 */
-.feature-tile {
-  display: flex;
-  align-items: center;
-  background-color: var(--color-bg-white);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 20px;
-  gap: 16px; /* 图片与文字之间的间距 */
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  cursor: pointer;
-}
-
-/* 悬浮微交互 */
-.feature-tile:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--color-primary);
-}
-
-/* 左侧图片预留区 */
-.feature-tile__img {
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0; /* 防止图片被压缩 */
-  border-radius: var(--radius-md);
-  background-color: var(--color-bg-section-alt);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-primary);
-  font-weight: bold;
-}
-
-/* 右侧文字内容 */
-.feature-tile__content {
-  flex: 1;
-  min-width: 0; /* 防止文字过长撑破布局 */
-}
-
-.feature-tile__title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--color-text-main);
-  margin-bottom: 4px;
-}
-
-.feature-tile__desc {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis; /* 文字过长时显示省略号 */
-}
-
-/* =========================================
-   10. Responsive Adjustments for Tiles
-   ========================================= */
-@media (max-width: 768px) {
-  /* 移动端强制单列，确保至少能完整显示一个块 */
-  .feature-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-  
-  .feature-tile {
-    padding: 16px;
-  }
 }
