@@ -1,32 +1,22 @@
-/* login.css */
+/* =========================================
+   登录页专属样式调整
+   ========================================= */
 
-/* 
- * 登录页容器
- * 负责将登录卡片在页面中垂直和水平居中
- */
+/* 调整登录卡片内部标题的样式 */
+.login-card__title {
+  font-size: 1.75rem;
+  margin-bottom: 32px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--color-text-main);
+}
+
+/* 确保表单内的按钮宽度占满 */
+.login-card .btn-primary {
+  width: 100%;
+}
+
+/* 登录页的表单区域需要减去 Header 的高度，以确保垂直居中时不被遮挡 */
 .login-page {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    background-color: var(--color-bg-body); /* 使用主题背景色 */
-}
-
-/* 
- * 登录卡片
- * 复用 styles.css 中的 .login-card 样式，此处可添加覆盖样式
- */
-.login-card {
-    width: 100%;
-    max-width: 400px; /* 限制最大宽度 */
-}
-
-/* 
- * 响应式调整
- */
-@media (max-width: 480px) {
-    .login-card {
-        padding: 32px 24px;
-    }
+  min-height: calc(100vh - var(--header-height));
 }

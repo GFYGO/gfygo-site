@@ -1,7 +1,4 @@
-/**
- * theme.js
- * 主题切换引擎
- */
+
 
 // 定义支持的主题列表，方便循环切换
 const THEME_LIST = ['green', 'light', 'gray', 'dark_green'];
@@ -84,7 +81,20 @@ const ThemeEngine = {
 // 页面加载时初始化
 document.addEventListener('DOMContentLoaded', () => {
     ThemeEngine.init();
-    ThemeEngine.bindSwitchEvent();
+    
+    // 增加防御性判断，确保按钮存在再绑定
+    const switcherBtn = document.getElementById('theme-selector');
+    if (switcherBtn) {
+        switcherBtn.addEventListener('click', () => {
+            const currentTheme = localStorage.getItem('app_theme') || 'green';
+            const THEME_LIST = ['green', 'light', 'gray', 'dark_green'];
+            const currentIndex = THEME_LIST.indexOf(currentTheme);
+            const nextIndex = (currentIndex + 1) % THEME_LIST.length;
+            ThemeEngine.applyTheme(THEME_LIST[nextIndex]);
+        });
+    } else {
+        console.warn('[ThemeEngine] 未找到 #theme-selector 按钮，主题切换未绑定');
+    }
 });
 
 window.ThemeEngine = ThemeEngine;
