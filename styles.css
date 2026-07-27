@@ -398,102 +398,85 @@ a.feature-tile:hover .feature-tile__desc {
 }
 
 /* =========================================
-   12. Auth Container (FE-CSS-01)
+   12. Header User Info & Notifications (FE-CSS-01, FE-CSS-02)
    ========================================= */
-.auth-container {
+
+/* --- FE-CSS-01: 右上角用户信息样式 --- */
+/* 容器：用于在 Header 右侧水平排列通知和用户信息 */
+.header__actions {
   display: flex;
   align-items: center;
-  margin-right: 20px; /* 与右侧导航或切换按钮保持距离 */
+  gap: 20px; /* 通知与用户信息之间的间距 */
 }
 
-/* 登录/注册链接样式 */
-.auth-container .login-link {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--color-primary);
-  padding: 8px 16px;
-  border: 1px solid var(--color-primary);
-  border-radius: var(--radius-md);
-  transition: all 0.2s ease;
-}
-
-.auth-container .login-link:hover {
-  background-color: var(--color-primary);
-  color: #fff;
-}
-
-/* 已登录状态：用户信息组合 */
+/* 用户信息块 */
 .user-info {
   display: flex;
   align-items: center;
-  gap: 8px; /* 头像与文字间距 */
-  cursor: pointer;
+  gap: 10px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--color-text-main);
 }
 
+/* 用户头像 */
 .user-avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%; /* 圆形头像 */
-  object-fit: cover;
-  border: 2px solid var(--color-primary);
-  background-color: var(--color-bg-section-alt);
+  object-fit: cover; /* 确保图片按比例填充，不变形 */
+  border: 1px solid var(--color-border);
 }
 
-.username {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--color-text-main);
-  display: none; /* 默认隐藏用户名，节省空间 */
+/* 登录/注册链接 */
+.login-link {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
 }
 
-/* 桌面端显示用户名 */
-@media (min-width: 769px) {
-  .username {
-    display: block;
-  }
+.login-link:hover {
+  color: var(--color-primary);
 }
 
-/* =========================================
-   13. Notification Toast (FE-CSS-02)
-   ========================================= */
+/* --- FE-CSS-02: 通知弹窗样式 --- */
 .notification-toast {
   position: fixed;
-  top: 80px; /* 位于 Header 下方 */
+  top: 20px;
   right: 20px;
-  z-index: 1000; /* 最高层级 */
+  z-index: 1000; /* 确保层级最高，悬浮在所有元素之上 */
   display: flex;
   flex-direction: column;
   gap: 10px;
-  pointer-events: none; /* 允许点击穿透空白区域 */
+  max-width: 320px;
+  pointer-events: none; /* 允许点击穿透到下层元素（如果通知本身不可交互） */
 }
 
 .notification-item {
   background-color: var(--color-bg-white);
-  border-left: 4px solid var(--color-primary);
-  padding: 16px;
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  min-width: 280px;
-  max-width: 320px;
-  pointer-events: auto; /* 恢复内容区域的可点击性 */
-  animation: slideIn 0.3s ease-out forwards;
   border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto; /* 恢复通知自身的交互能力 */
+  animation: slideIn 0.3s ease-out forwards;
+  border-left: 4px solid var(--color-primary); /* 左侧高亮条，增强视觉 */
 }
 
 .notification-item h3 {
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--color-text-main);
   margin-bottom: 4px;
 }
 
 .notification-item p {
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
-/* 入场动画 */
+/* 简单的进入动画 */
 @keyframes slideIn {
   from {
     transform: translateX(100%);
@@ -502,5 +485,19 @@ a.feature-tile:hover .feature-tile__desc {
   to {
     transform: translateX(0);
     opacity: 1;
+  }
+}
+
+/* --- 移动端适配 --- */
+@media (max-width: 768px) {
+  .header__actions {
+    gap: 12px;
+  }
+  
+  .notification-toast {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
   }
 }

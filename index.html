@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head class="header">
+<head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GWL|个人学习平台</title>
@@ -11,26 +11,36 @@
 <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 <body>
   <!-- Header -->
-    <header class="header">
-        <div class="header__logo">GWL Works Lab</div>
+  <header class="header">
+    <div class="header__logo">GWL Works Lab</div>
+    
+    <!-- 导航链接 -->
+    <nav class="header__nav">
+        <a href="./document.html">文档</a>
+        <a href="./login.html">登录</a>
+        <a href="./register.html">注册</a>
+    </nav>
+
+    <!-- 右侧操作区：包含通知和用户信息 -->
+    <div class="header__actions">
+        <!-- 通知容器 (由 JS 动态填充) -->
+        <div id="global-notifications-container" class="notification-toast"></div>
         
-        <!-- 任务 FE-CSS-01: 添加用户信息容器 -->
-        <div id="auth-container" class="auth-container">
-            <!-- JS 将在这里渲染登录链接或用户头像 -->
+        <!-- 用户信息容器 (由 JS 动态填充) -->
+        <div id="auth-container">
+            <!-- 示例：未登录时显示 -->
+            <!-- <a href="login.html" class="login-link">登录/注册</a> -->
+            
+            <!-- 示例：已登录时显示 -->
+            <!-- <div class="user-info">
+                <img src="avatar.jpg" alt="用户名" class="user-avatar">
+                <span class="username">用户名</span>
+            </div> -->
         </div>
-
-        <button class="header__toggle" id="menuToggle">☰</button>
-        <nav class="header__nav">
-            <a href="./document.html">文档</a>
-            <a href="./login.html">登录</a>
-            <a href="./register.html">注册</a>
-        </nav>
-    </header>
-
-    <!-- 任务 FE-CSS-02: 添加全局通知容器 -->
-    <div id="global-notifications-container" class="notification-toast">
-        <!-- JS 将在这里渲染通知内容 -->
     </div>
+
+    <button class="header__toggle" id="menuToggle">☰</button>
+</header>
 
   <!-- Homepage Sections (FE-UI-01) -->
   <main>
