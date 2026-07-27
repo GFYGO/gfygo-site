@@ -8,7 +8,6 @@ const API_BASE_URL = "https://back.gwl.net.cn";
 
 // Token 相关常量
 const TOKEN_KEY = 'auth_token';
-const DEFAULT_TOKEN_EXPIRE_MS = 50 * 60 * 60 * 1000; // 默认 50 小时
 
 /**
  * 任务 FE-JS-01: Token 读取与过期拦截逻辑
@@ -26,7 +25,12 @@ const AuthGuard = {
         return tokenData.token;
     },
 
-    setToken(token, expiresInSec = 180000) {
+    /**
+     * 存储 Token
+     * @param {string} token JWT Token
+     * @param {number} expiresInSec 有效期，单位：秒
+     */
+    setToken(token, expiresInSec) {
         const expiresInMs = expiresInSec * 1000;
         localStorage.setItem(TOKEN_KEY, JSON.stringify({ 
             token, 
