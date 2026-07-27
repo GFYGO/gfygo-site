@@ -2,13 +2,13 @@
 
 // 定义支持的主题列表，方便循环切换
 const THEME_LIST = ['green', 'light', 'gray', 'dark_green'];
-const THEME_KEY = 'app_theme'; // 定义 localStorage 的 Key
+const THEME_KEY_ = 'app_theme'; // 定义 localStorage 的 Key
 
 const ThemeEngine = {
     // 初始化主题
     init: function() {
         // 优先读取 LocalStorage，其次默认为 'green' (绿色)
-        const savedTheme = localStorage.getItem(THEME_KEY) || 'green';
+        const savedTheme = localStorage.getItem(THEME_KEY_) || 'green';
         this.applyTheme(savedTheme);
     },
 
@@ -26,7 +26,7 @@ const ThemeEngine = {
         body.classList.add(themeClass);
         
         // 更新 LocalStorage
-        localStorage.setItem(THEME_KEY, themeName);
+        localStorage.setItem(THEME_KEY_, themeName);
         
         // 更新 UI 控件状态 (如果是下拉框)
         const selector = document.getElementById('theme-selector');
@@ -42,7 +42,7 @@ const ThemeEngine = {
             // 监听点击事件
             switcherBtn.addEventListener('click', () => {
                 // 获取当前主题
-                const currentTheme = localStorage.getItem(THEME_KEY) || 'green';
+                const currentTheme = localStorage.getItem(THEME_KEY_) || 'green';
                 
                 // 计算下一个主题的索引
                 const currentIndex = THEME_LIST.indexOf(currentTheme);
