@@ -461,3 +461,136 @@ a.feature-tile:hover .feature-tile__desc {
   transform: translateX(0);
   opacity: 1;
 }
+
+/* =========================================
+   12. Header Right Section: Auth & Notifications
+   ========================================= */
+
+/* 确保 Header 右侧内容区对齐 */
+.header__right {
+  display: flex;
+  align-items: center;
+  gap: 16px; /* 用户信息与通知之间的间距 */
+}
+
+/* --- FE-CSS-01: 右上角用户信息样式 --- */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  transition: background-color 0.2s ease;
+}
+
+.user-info:hover {
+  background-color: var(--color-bg-section-alt);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%; /* 圆形头像 */
+  object-fit: cover;
+  background-color: var(--color-border); /* 图片加载前的占位背景 */
+}
+
+.username {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text-main);
+  white-space: nowrap;
+}
+
+/* 未登录时的链接样式 */
+.login-link {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  transition: background-color 0.2s ease;
+}
+
+.login-link:hover {
+  background-color: var(--color-bg-section-alt);
+}
+
+/* --- FE-CSS-02: 通知弹窗样式 (Toast) --- */
+.notification-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999; /* 确保层级最高 */
+  
+  background-color: var(--color-bg-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 16px 20px;
+  min-width: 280px;
+  max-width: 360px;
+  
+  /* 进场动画 */
+  animation: toastSlideIn 0.3s ease forwards;
+}
+
+.notification-item {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.notification-item:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.notification-item h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-main);
+  margin-bottom: 4px;
+}
+
+.notification-item p {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+/* Toast 进场动画 */
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* =========================================
+   13. Responsive Adjustments for Header Right
+   ========================================= */
+@media (max-width: 768px) {
+  /* 移动端隐藏用户名，只显示头像，节省空间 */
+  .username {
+    display: none;
+  }
+  
+  .user-info {
+    padding: 4px;
+  }
+  
+  /* 移动端通知框宽度自适应 */
+  .notification-toast {
+    left: 20px;
+    right: 20px;
+    min-width: auto;
+    max-width: none;
+  }
+}
