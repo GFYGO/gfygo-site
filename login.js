@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. 获取 Turnstile Token
         const turnstileToken = window.turnstile.getResponse();
         if (!turnstileToken) {
-            alert('请完成人机验证');
+            Toast.show('请完成人机验证');
             return;
         }
 
@@ -39,16 +39,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok && data.code === 200) {
                 // 4. 登录成功：存储 Token 并跳转
                 AuthGuard.setToken(data.token);
-                window.location.href = 'dashboard.html';
+                // 修改：登录成功也可以给个提示
+                Toast.show('登录成功，正在跳转...', 'success');
+                setTimeout(() => {
+                     window.location.href = 'dashboard.html';
+                }, 800);
             } else {
                 // 5. 登录失败：提示错误信息
-                alert(data.msg || '登录失败');
+                Toast.show(data.msg || '登录失败，请重试');
                 // 重置 Turnstile
                 window.turnstile.reset();
             }
         } catch (error) {
             console.error('登录请求异常:', error);
-            alert('网络错误，请稍后重试');
+            Toast.show('网络错误，请稍后重试');
         }
     });
 });
