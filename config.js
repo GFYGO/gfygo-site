@@ -7,6 +7,9 @@
 // 修正：使用完整的 HTTPS 地址，避免在 GitHub Pages 等环境下出现相对路径请求错误
 const API_BASE_URL = "https://back.gwl.net.cn";
 
+// 路径前缀：子目录页面用 '..'，根目录页面用 '.'
+const BASE_PATH = window.location.pathname.includes('/user/') ? '..' : '.';
+
 // Token 相关常量
 const TOKEN_KEY = 'auth_token';
 

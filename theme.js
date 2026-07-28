@@ -43,17 +43,17 @@ const ThemeEngine = {
             switcherBtn.addEventListener('click', () => {
                 // 获取当前主题
                 const currentTheme = localStorage.getItem(THEME_KEY_) || 'green';
-                
+
                 // 计算下一个主题的索引
                 const currentIndex = THEME_LIST.indexOf(currentTheme);
                 const nextIndex = (currentIndex + 1) % THEME_LIST.length;
                 const nextTheme = THEME_LIST[nextIndex];
-                
+
                 // 应用新主题
                 this.applyTheme(nextTheme);
-                
+
                 // 如果是已登录状态，同步到后端
-                const token = window.AuthUtil ? window.AuthUtil.getToken() : null;
+                const token = (typeof AuthGuard !== 'undefined') ? AuthGuard.getToken() : null;
                 if (token) {
                     this.syncThemeToServer(nextTheme, token);
                 }
@@ -64,7 +64,7 @@ const ThemeEngine = {
     // 同步主题到后端
     syncThemeToServer: async function(theme, token) {
         try {
-            await fetch(`${window.API_BASE_URL}/api/v1/user/theme`, {
+            await fetch(`${API_BASE_URL}/api/v1/user/theme`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -81,20 +81,7 @@ const ThemeEngine = {
 // 页面加载时初始化
 document.addEventListener('DOMContentLoaded', () => {
     ThemeEngine.init();
-    
-    // 增加防御性判断，确保按钮存在再绑定
-    const switcherBtn = document.getElementById('theme-selector');
-    if (switcherBtn) {
-        switcherBtn.addEventListener('click', () => {
-            const currentTheme = localStorage.getItem('app_theme') || 'green';
-            const THEME_LIST = ['green', 'light', 'gray', 'dark_green'];
-            const currentIndex = THEME_LIST.indexOf(currentTheme);
-            const nextIndex = (currentIndex + 1) % THEME_LIST.length;
-            ThemeEngine.applyTheme(THEME_LIST[nextIndex]);
-        });
-    } else {
-        console.warn('[ThemeEngine] 未找到 #theme-selector 按钮，主题切换未绑定');
-    }
+    ThemeEngine.bindSwitchEvent();
 });
 
 window.ThemeEngine = ThemeEngine;

@@ -19,6 +19,10 @@
         <nav class="header__nav">
             <a href="./../index.html">首页</a>
         </nav>
+        <!-- 右侧操作区：用户信息（由 JS 动态填充） -->
+        <div class="header__actions">
+            <div id="auth-container"></div>
+        </div>
     </header>
 
     <!-- 个人主页布局 -->
@@ -60,8 +64,10 @@
     </div>
 
     <!-- 页面特有逻辑 -->
+    <script src="./../config.js"></script>
     <script src="./../theme.js"></script>
     <script src="./../toast.js"></script>
     <script src="./../index.js"></script>
+    <script src="./dashboard.js"></script>
 </body>
 </html>

@@ -455,6 +455,26 @@ a.feature-tile:hover .feature-tile__desc {
   color: var(--color-primary);
 }
 
+/* 用户名链接 */
+.username {
+  color: var(--color-text-main);
+  font-weight: 500;
+}
+.username:hover {
+  color: var(--color-primary);
+}
+
+/* 退出登录链接 */
+.logout-link {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  padding-left: 8px;
+  border-left: 1px solid var(--color-border);
+}
+.logout-link:hover {
+  color: #ef4444;
+}
+
 /* --- FE-CSS-02: 通知弹窗样式 --- */
 .notification-toast {
   position: fixed;

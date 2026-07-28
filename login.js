@@ -39,9 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.ok && data.code === 200) {
                 // 4. 登录成功：存储 Token 并跳转
-                // 修正：根据 API 契约，传入 expires_in (秒)
-                AuthGuard.setToken(data.token, data.expires_in);
-                
+                AuthGuard.setToken(data.data.access_token, data.data.expires_in);
+
                 Toast.show('登录成功，正在跳转...', 'success');
                 setTimeout(() => {
                      window.location.href = './user/dashboard.html';

@@ -44,20 +44,20 @@ async function fetchAuthStatus() {
     return;
   }
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/auth/status`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    const data = await response.json();
-    if (response.ok && data.code === 200) {
-      renderAuthStatus(data.data);
-    } else {
-      // 如果 token 无效或过期，按未登录状态处理
-      console.warn('认证状态检查失败:', data.msg);
-      renderAuthStatus(null);
-    }
+        const response = await fetch(`${API_BASE_URL}/api/v1/auth/status`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        const data = await response.json();
+        if (response.ok && data.code === 200) {
+            renderAuthStatus(data.data.user);
+        } else {
+            // 如果 token 无效或过期，按未登录状态处理
+            console.warn('认证状态检查失败:', data.msg);
+            renderAuthStatus(null);
+        }
   } catch (error) {
     console.error('检查认证状态时发生网络错误:', error);
     renderAuthStatus(null);
@@ -94,8 +94,9 @@ function renderGlobalNotifications(notifications) {
 
 /**
  * 渲染右上角用户状态
- * ✅ 任务 FE-JS-02: 修复此函数以正确显示用户信息
- * @param {Object|null} userInfo 用户信息对象，未登录时为 null
+ * 已登录 → 显示头像 + 用户名 + 退出链接
+ * 未登录 → 显示「登录/注册」链接
+ * @param {Object|null} userInfo 用户信息对象 (data.data.user)，未登录时为 null
  */
 function renderAuthStatus(userInfo) {
   const authContainer = document.getElementById('auth-container');
@@ -105,18 +106,32 @@ function renderAuthStatus(userInfo) {
   authContainer.innerHTML = '';
 
   if (userInfo) {
-    // ✅ 任务 FE-JS-02: 已登录状态 - 创建包含头像和用户名的结构
+    // 从 profile 中取头像，无则用默认 favicon
+    const avatar = (userInfo.profile && userInfo.profile.avatar) ? userInfo.profile.avatar : '';
+    const defaultAvatar = `${BASE_PATH}/favicon.png`;
+
     const userEl = document.createElement('div');
     userEl.className = 'user-info';
     userEl.innerHTML = `
-      <img src="${userInfo.avatar}" alt="${userInfo.username}" class="user-avatar">
-      <span class="username">${userInfo.username}</span>
+      <img src="${avatar || defaultAvatar}" alt="${userInfo.username}" class="user-avatar" onerror="this.src='${defaultAvatar}'">
+      <a href="${BASE_PATH}/user/dashboard.html" class="username">${userInfo.username}</a>
+      <a href="#" class="logout-link" id="logoutBtn">退出</a>
     `;
     authContainer.appendChild(userEl);
+
+    // 绑定退出登录
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        AuthGuard.clearToken();
+        window.location.href = `${BASE_PATH}/index.html`;
+      });
+    }
   } else {
-    // 任务 FE-JS-02: 未登录状态
+    // 未登录状态
     const loginLink = document.createElement('a');
-    loginLink.href = 'login.html';
+    loginLink.href = `${BASE_PATH}/login.html`;
     loginLink.textContent = '登录/注册';
     loginLink.className = 'login-link';
     authContainer.appendChild(loginLink);
