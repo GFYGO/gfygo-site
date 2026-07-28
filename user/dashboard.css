@@ -1,37 +1,47 @@
-/* 
- * Dashboard 页面特有样式 
- * 依赖 styles.css 中的变量
+/*
+ * Dashboard 页面样式
+ * 依赖 styles.css 中的 CSS 变量
  */
 
-/* 布局容器 */
-.profile-layout {
+/* ========== 整体布局 ========== */
+.dashboard-layout {
     display: flex;
-    max-width: 1200px;
-    margin: 2rem auto;
-    padding: 0 1rem;
-    gap: 2rem;
-    position: relative; /* 为遮罩层定位提供上下文 */
+    min-height: 100vh;
+    background-color: var(--color-bg-body);
 }
 
-/* 侧边栏样式 */
-.profile-sidebar {
+/* ========== 左侧侧边栏 ========== */
+.dashboard-sidebar {
     width: 260px;
     flex-shrink: 0;
     background: var(--color-bg-white);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
-    border: 1px solid var(--color-border);
-    padding: 1.5rem;
-    height: fit-content;
+    border-right: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
     position: sticky;
-    top: 100px; /* 距离顶部一定距离，避开header */
+    top: 0;
+    height: 100vh;
+    z-index: 100;
+    transition: transform 0.3s ease;
 }
 
-/* 侧边栏关闭按钮（移动端） */
+.sidebar__header {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--color-border);
+    position: relative;
+}
+
+.sidebar__logo {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--color-primary);
+    letter-spacing: -0.5px;
+}
+
 .sidebar-close {
     position: absolute;
-    top: 12px;
-    right: 12px;
+    top: 16px;
+    right: 16px;
     background: none;
     border: none;
     font-size: 1.5rem;
@@ -39,115 +49,630 @@
     color: var(--color-text-muted);
     line-height: 1;
     padding: 4px 8px;
+    display: none;
 }
+
 .sidebar-close:hover {
     color: var(--color-text-main);
 }
 
-/* 导航链接 */
-.profile-nav__item {
-    display: block;
-    padding: 0.75rem 1rem;
-    color: var(--color-text-primary);
-    text-decoration: none;
-    border-radius: var(--radius-md);
-    margin-bottom: 0.5rem;
-    transition: all 0.2s;
+/* 导航 */
+.sidebar__nav {
+    flex: 1;
+    padding: 16px 12px;
+    overflow-y: auto;
 }
 
-.profile-nav__item:hover {
-    background-color: var(--color-bg-main);
+.sidebar__nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    color: var(--color-text-muted);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+    transition: all 0.2s ease;
+}
+
+.sidebar__nav-item:hover {
+    background-color: var(--color-bg-section-alt);
     color: var(--color-primary);
 }
 
-.profile-nav__item.active {
+.sidebar__nav-item.active {
     background-color: var(--color-primary);
-    color: var(--color-text-white);
+    color: #fff;
 }
 
-/* 底部用户信息 */
-.profile-sidebar__bottom {
-    margin-top: 2rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--color-border);
+.sidebar__nav-icon {
+    font-size: 1.1rem;
+    width: 24px;
     text-align: center;
 }
 
-.profile-avatar img {
-    width: 64px;
-    height: 64px;
+.sidebar__nav-text {
+    flex: 1;
+}
+
+/* 底部用户区 */
+.sidebar__footer {
+    padding: 16px;
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.sidebar__user {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.sidebar__avatar {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
     border-radius: 50%;
-    object-fit: cover;
-    margin-bottom: 0.75rem;
+    overflow: hidden;
     border: 2px solid var(--color-primary);
 }
 
-.profile-username {
-    display: block;
-    font-weight: 600;
-    color: var(--color-text-primary);
+.sidebar__avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
-/* 主内容区 */
-.profile-content {
+.sidebar__user-info {
     flex: 1;
-    min-width: 0; /* 防止flex溢出 */
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
 }
 
-.content-placeholder {
-    height: 400px;
-    margin-top: 24px;
-    background: var(--color-bg-white);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
+.sidebar__username {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--color-text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar__user-role {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.sidebar__settings-btn {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border: none;
+    background: var(--color-bg-section-alt);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: 1rem;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.sidebar__settings-btn:hover {
+    background: var(--color-primary);
+    transform: rotate(30deg);
+}
+
+/* ========== 主内容区 ========== */
+.dashboard-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 顶部栏 */
+.dashboard-header {
+    height: 64px;
+    background: var(--color-bg-white);
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+.dashboard-header__menu-btn {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--color-text-main);
+    padding: 4px 8px;
+}
+
+.dashboard-header__right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* 权限等级按钮组 */
+.permission-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.perm-btn {
+    width: 36px;
+    height: 36px;
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-white);
+    color: var(--color-text-muted);
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.perm-btn:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.perm-btn--current {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+}
+
+.perm-btn--current:hover {
+    background: var(--color-primary-hover);
+    border-color: var(--color-primary-hover);
+    color: #fff;
+}
+
+/* 内容区 */
+.dashboard-content {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+}
+
+.profile-home {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* ========== 用户主页：横幅 ========== */
+.profile-banner {
+    width: 100%;
+    height: 240px;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    position: relative;
+    background: linear-gradient(135deg, var(--color-primary), #818cf8);
+    margin-bottom: 60px;
+}
+
+.profile-banner img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* ========== 用户主页：头像和信息 ========== */
+.profile-header {
+    display: flex;
+    gap: 24px;
+    align-items: flex-end;
+    margin-top: -80px;
+    padding: 0 24px;
+    margin-bottom: 32px;
+    position: relative;
+}
+
+.profile-avatar-large {
+    width: 120px;
+    height: 120px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 4px solid var(--color-bg-white);
+    box-shadow: var(--shadow-md);
+    background: var(--color-bg-white);
+}
+
+.profile-avatar-large img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-info {
+    flex: 1;
+    min-width: 0;
+    padding-bottom: 8px;
+}
+
+.profile-info__top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.profile-username {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--color-text-main);
+    margin: 0;
+}
+
+.profile-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.profile-intro {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+    margin-bottom: 12px;
+    line-height: 1.5;
+}
+
+.profile-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.profile-tag {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    background: var(--color-bg-section-alt);
     color: var(--color-text-muted);
     border: 1px solid var(--color-border);
-    font-size: 1.1rem;
 }
 
-/* 移动端遮罩层 */
+/* ========== 卡片网格 ========== */
+.profile-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    grid-auto-flow: dense;
+}
+
+.card {
+    background: var(--color-bg-white);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.card--wide {
+    grid-column: span 2;
+}
+
+.card--tall {
+    grid-row: span 2;
+}
+
+.card__title {
+    padding: 16px 20px;
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--color-text-main);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.card__content {
+    padding: 16px 20px;
+}
+
+/* 数据统计卡片 */
+.card-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-number {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    margin-bottom: 4px;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+}
+
+/* 最近活动卡片 */
+.card-activity {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.activity-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+}
+
+.activity-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    flex-shrink: 0;
+}
+
+.activity-text {
+    flex: 1;
+    color: var(--color-text-main);
+}
+
+.activity-time {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+}
+
+/* 账户信息卡片 */
+.card-account {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.account-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.account-label {
+    color: var(--color-text-muted);
+}
+
+.account-value {
+    color: var(--color-text-main);
+    font-weight: 500;
+}
+
+/* 成就徽章卡片 */
+.card-badges {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-content: start;
+}
+
+.badge-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    border-radius: var(--radius-md);
+    background: var(--color-bg-section-alt);
+    transition: transform 0.2s ease;
+}
+
+.badge-item:hover {
+    transform: scale(1.05);
+}
+
+.badge-icon {
+    font-size: 2rem;
+}
+
+.badge-name {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    text-align: center;
+}
+
+/* 更多功能卡片 */
+.card-features {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 16px;
+}
+
+.feature-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 8px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.feature-item:hover {
+    background: var(--color-bg-section-alt);
+    transform: translateY(-2px);
+}
+
+.feature-icon {
+    font-size: 1.75rem;
+}
+
+.feature-name {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    text-align: center;
+}
+
+/* 遮罩层 */
 .sidebar-overlay {
-    display: none; /* 默认隐藏 */
+    display: none;
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background: rgba(0, 0, 0, 0.5);
-    z-index: 998;
+    z-index: 99;
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-    .profile-layout {
-        padding: 0;
-        margin: 0;
+.sidebar-overlay--visible {
+    display: block;
+}
+
+/* ========== 响应式设计 ========== */
+@media (max-width: 1024px) {
+    .profile-cards {
+        grid-template-columns: repeat(2, 1fr);
     }
 
-    .profile-sidebar {
+    .card--wide {
+        grid-column: span 2;
+    }
+
+    .card--tall {
+        grid-row: span 1;
+    }
+
+    .card-features {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-sidebar {
         position: fixed;
         top: 0;
-        left: -280px; /* 隐藏在屏幕外 */
+        left: 0;
         height: 100vh;
         width: 280px;
-        border-radius: 0;
-        z-index: 999;
-        transition: transform 0.3s ease;
-        margin: 0;
+        z-index: 101;
+        transform: translateX(-100%);
     }
 
-    .profile-sidebar--open {
-        transform: translateX(280px); /* 滑入屏幕 */
+    .dashboard-sidebar--open {
+        transform: translateX(0);
     }
 
-    .sidebar-overlay--visible {
-        display: block; /* 激活时显示遮罩 */
+    .sidebar-close {
+        display: block;
     }
 
-    .profile-content {
-        padding: 20px 16px;
+    .dashboard-header__menu-btn {
+        display: block;
+    }
+
+    .dashboard-content {
+        padding: 16px;
+    }
+
+    .profile-banner {
+        height: 180px;
+        margin-bottom: 50px;
+    }
+
+    .profile-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        margin-top: -60px;
+        padding: 0 16px;
+        gap: 16px;
+    }
+
+    .profile-avatar-large {
+        width: 100px;
+        height: 100px;
+    }
+
+    .profile-info {
+        padding-bottom: 0;
+    }
+
+    .profile-info__top {
+        justify-content: center;
+    }
+
+    .profile-tags {
+        justify-content: center;
+    }
+
+    .profile-username {
+        font-size: 1.5rem;
+    }
+
+    .profile-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .card--wide {
+        grid-column: span 1;
+    }
+
+    .card-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .card-features {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .permission-buttons {
+        gap: 6px;
+    }
+
+    .perm-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .card-features {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .dashboard-header {
+        padding: 0 16px;
     }
 }
