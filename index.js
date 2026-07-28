@@ -104,6 +104,11 @@ async function fetchAuthStatus() {
     const data = await response.json();
     if (response.ok && data.code === 200) {
       renderAuthStatus(data.data.user);
+      // 已登录用户访问登录/注册页面时，自动重定向到 dashboard
+      const currentPath = window.location.pathname;
+      if (currentPath.endsWith('/login.html') || currentPath.endsWith('/register.html')) {
+        window.location.href = `${BASE_PATH}/user/dashboard.html`;
+      }
     } else {
       // 如果 token 无效或过期，按未登录状态处理
       console.warn('认证状态检查失败:', data.msg);
@@ -155,8 +160,8 @@ function renderAuthStatus(userInfo) {
 
   authContainer.innerHTML = '';
 
-  const navLoginLink = document.querySelector('.header__nav a[href*="login"]');
-  const navRegisterLink = document.querySelector('.header__nav a[href*="register"]');
+  const navLoginLinks = document.querySelectorAll('.header__nav a[href*="login"]');
+  const navRegisterLinks = document.querySelectorAll('.header__nav a[href*="register"]');
 
   if (userInfo) {
     const avatar = (userInfo.profile && userInfo.profile.avatar) ? userInfo.profile.avatar : '';
@@ -187,8 +192,8 @@ function renderAuthStatus(userInfo) {
 
     authContainer.appendChild(userEl);
 
-    if (navLoginLink) navLoginLink.style.display = 'none';
-    if (navRegisterLink) navRegisterLink.style.display = 'none';
+    navLoginLinks.forEach(link => link.style.display = 'none');
+    navRegisterLinks.forEach(link => link.style.display = 'none');
 
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
@@ -199,7 +204,7 @@ function renderAuthStatus(userInfo) {
       });
     }
   } else {
-    if (navLoginLink) navLoginLink.style.display = '';
-    if (navRegisterLink) navRegisterLink.style.display = '';
+    navLoginLinks.forEach(link => link.style.display = '');
+    navRegisterLinks.forEach(link => link.style.display = '');
   }
 }
