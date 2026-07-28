@@ -509,3 +509,90 @@ a.feature-tile:hover .feature-tile__desc {
     max-width: none;
   }
 }
+/* =========================================
+   13. Toast 提示弹窗样式 (配合 toast.js)
+   ========================================= */
+
+/* Toast 容器：固定在右上角，层级最高 */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999; /* 确保在所有元素之上 */
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none; /* 允许点击穿透到下层元素 */
+}
+
+/* 单个 Toast 提示 */
+.toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 280px;
+  max-width: 350px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-white);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-lg);
+  color: var(--color-text-main);
+  font-size: 0.95rem;
+  pointer-events: auto; /* 恢复自身交互 */
+  
+  /* 初始状态：透明且向右偏移，用于触发进入动画 */
+  opacity: 0;
+  transform: translateX(100%);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* 激活进入动画 */
+.toast-show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* 错误提示（默认状态）：左侧红色高亮条 */
+.toast-error {
+  border-left: 4px solid #ef4444;
+}
+
+/* 成功提示：左侧绿色高亮条 */
+.toast-success {
+  border-left: 4px solid var(--color-primary);
+}
+
+/* 提示文字 */
+.toast-message {
+  flex: 1;
+}
+
+/* 关闭按钮 */
+.toast-close {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  margin-left: 12px;
+  padding: 0;
+  line-height: 1;
+}
+.toast-close:hover {
+  color: var(--color-text-main);
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .toast-container {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+  }
+  .toast {
+    min-width: auto;
+    max-width: none;
+    width: 100%;
+  }
+}
