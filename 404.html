@@ -3,18 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>404 - 页面未找到</title>
-    <!-- 引入全局样式 -->
+    <title>404 - 页面未找到 | GWL</title>
     <link rel="stylesheet" href="./styles.css">
+    <link rel="icon" href="./favicon.png" type="image/png">
     <style>
-        /* 404页面特有样式，复用全局变量 */
         .error-page {
-            background-color: var(--color-bg-main);
-            height: 100vh;
+            min-height: calc(100vh - var(--header-height));
             display: flex;
             align-items: center;
             justify-content: center;
-            color: var(--color-text-primary);
+            text-align: center;
         }
         .error-code {
             font-size: 6rem;
@@ -31,6 +29,16 @@
     </style>
 </head>
 <body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header__logo">GWL Works Lab</div>
+        <button class="header__toggle" id="menuToggle" aria-label="切换菜单">☰</button>
+        <nav class="header__nav" id="headerNav">
+            <a href="./index.html">首页</a>
+            <a href="./document.html">文档</a>
+        </nav>
+    </header>
+
     <div class="error-page">
         <div class="error-content">
             <h1 class="error-code">404</h1>
@@ -38,5 +46,11 @@
             <a href="./index.html" class="btn btn-primary" style="margin-top: 20px; display: inline-block;">返回首页</a>
         </div>
     </div>
+
+    <!-- 主题切换悬浮按钮 -->
+    <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
+
+    <script src="./config.js"></script>
+    <script src="./theme.js"></script>
 </body>
 </html>

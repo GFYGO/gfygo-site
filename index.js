@@ -1,9 +1,15 @@
 /**
  * index.js
- * 首页初始化脚本
+ * 首页初始化脚本 + 全局公共逻辑（移动端菜单、侧边栏）
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+  // 初始化移动端汉堡菜单
+  initMobileMenu();
+
+  // 初始化移动端侧边栏（dashboard 页面）
+  initMobileSidebar();
+
   // 任务 FE-JS-01: 页面加载时并发请求
   Promise.all([
     fetchGlobalNotifications(),
@@ -13,6 +19,62 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error('首页初始化请求发生异常:', error);
   });
 });
+
+/**
+ * 移动端汉堡菜单切换
+ */
+function initMobileMenu() {
+  const menuToggle = document.getElementById('menuToggle');
+  const headerNav = document.getElementById('headerNav');
+
+  if (menuToggle && headerNav) {
+    menuToggle.addEventListener('click', () => {
+      headerNav.classList.toggle('header__nav--open');
+    });
+
+    // 点击导航链接后自动收起菜单
+    headerNav.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        headerNav.classList.remove('header__nav--open');
+      });
+    });
+  }
+}
+
+/**
+ * 移动端侧边栏切换（dashboard 页面）
+ */
+function initMobileSidebar() {
+  const menuToggle = document.getElementById('menuToggle');
+  const sidebar = document.getElementById('profileSidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  const sidebarClose = document.getElementById('sidebarClose');
+
+  if (!sidebar) return;
+
+  // 汉堡菜单打开侧边栏
+  if (menuToggle) {
+    menuToggle.addEventListener('click', () => {
+      sidebar.classList.add('profile-sidebar--open');
+      if (overlay) overlay.classList.add('sidebar-overlay--visible');
+    });
+  }
+
+  // 关闭按钮
+  if (sidebarClose) {
+    sidebarClose.addEventListener('click', closeSidebar);
+  }
+
+  // 点击遮罩层关闭
+  if (overlay) {
+    overlay.addEventListener('click', closeSidebar);
+  }
+
+  function closeSidebar() {
+    sidebar.classList.remove('profile-sidebar--open');
+    if (overlay) overlay.classList.remove('sidebar-overlay--visible');
+  }
+}
 
 /**
  * 获取全局通知
@@ -94,8 +156,8 @@ function renderGlobalNotifications(notifications) {
 
 /**
  * 渲染右上角用户状态
- * 已登录 → 显示头像 + 用户名 + 退出链接
- * 未登录 → 显示「登录/注册」链接
+ * 已登录 → 显示头像 + 用户名 + 退出链接，隐藏导航中的「登录/注册」
+ * 未登录 → auth-container 留空（导航栏已有登录/注册链接）
  * @param {Object|null} userInfo 用户信息对象 (data.data.user)，未登录时为 null
  */
 function renderAuthStatus(userInfo) {
@@ -105,8 +167,12 @@ function renderAuthStatus(userInfo) {
   // 清空容器
   authContainer.innerHTML = '';
 
+  // 获取导航栏中的登录/注册链接
+  const navLoginLink = document.querySelector('.header__nav a[href*="login"]');
+  const navRegisterLink = document.querySelector('.header__nav a[href*="register"]');
+
   if (userInfo) {
-    // 从 profile 中取头像，无则用默认 favicon
+    // --- 已登录：显示头像 + 用户名 + 退出 ---
     const avatar = (userInfo.profile && userInfo.profile.avatar) ? userInfo.profile.avatar : '';
     const defaultAvatar = `${BASE_PATH}/favicon.png`;
 
@@ -119,6 +185,10 @@ function renderAuthStatus(userInfo) {
     `;
     authContainer.appendChild(userEl);
 
+    // 隐藏导航栏中的「登录/注册」
+    if (navLoginLink) navLoginLink.style.display = 'none';
+    if (navRegisterLink) navRegisterLink.style.display = 'none';
+
     // 绑定退出登录
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
@@ -129,11 +199,8 @@ function renderAuthStatus(userInfo) {
       });
     }
   } else {
-    // 未登录状态
-    const loginLink = document.createElement('a');
-    loginLink.href = `${BASE_PATH}/login.html`;
-    loginLink.textContent = '登录/注册';
-    loginLink.className = 'login-link';
-    authContainer.appendChild(loginLink);
+    // --- 未登录：导航栏已有「登录/注册」，auth-container 留空 ---
+    if (navLoginLink) navLoginLink.style.display = '';
+    if (navRegisterLink) navRegisterLink.style.display = '';
   }
 }

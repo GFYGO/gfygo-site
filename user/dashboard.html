@@ -3,23 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>个人主页 - MyApp</title>
-    <!-- 1. 全局样式 -->
+    <title>个人主页 | GWL</title>
     <link rel="stylesheet" href="./../styles.css">
-    <!-- 2. 页面特有样式 -->
     <link rel="stylesheet" href="./dashboard.css">
+    <link rel="icon" href="./../favicon.png" type="image/png">
 </head>
-<!-- 主题切换悬浮按钮 -->
-<button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 <body>
     <!-- 顶部导航 -->
     <header class="header">
-        <div class="header__logo">MyApp</div>
+        <div class="header__logo">GWL Works Lab</div>
         <button class="header__toggle" id="menuToggle" aria-label="切换菜单">☰</button>
-        <nav class="header__nav">
+        <nav class="header__nav" id="headerNav">
             <a href="./../index.html">首页</a>
+            <a href="./../document.html">文档</a>
         </nav>
-        <!-- 右侧操作区：用户信息（由 JS 动态填充） -->
         <div class="header__actions">
             <div id="auth-container"></div>
         </div>
@@ -33,6 +30,8 @@
         <!-- 左侧侧边栏 -->
         <aside class="profile-sidebar" id="profileSidebar">
             <div class="profile-sidebar__top">
+                <!-- 移动端关闭按钮 -->
+                <button class="sidebar-close" id="sidebarClose" aria-label="关闭侧边栏">&times;</button>
                 <nav class="profile-nav">
                     <a href="#" class="profile-nav__item active">我的动态</a>
                     <a href="#" class="profile-nav__item">个人设置</a>
@@ -41,10 +40,9 @@
             </div>
             <div class="profile-sidebar__bottom">
                 <div class="profile-avatar">
-                    <!-- 假设这里有用户头像图片 -->
-                    <img src="https://via.placeholder.com/64" alt="Avatar">
+                    <img src="./../favicon.png" alt="Avatar">
                 </div>
-                <span class="profile-username">当前用户</span>
+                <span class="profile-username">加载中...</span>
             </div>
         </aside>
 
@@ -52,18 +50,27 @@
         <main class="profile-content">
             <h1>我的动态</h1>
             <p class="text-muted mt-4">
-                右侧内容区自适应宽度。左侧侧边栏使用了 <code>position: sticky</code> 实现滚动时冻结。<br>
-                在移动端，请点击左上角汉堡菜单展开抽屉式侧边栏。
+                欢迎来到你的个人主页。左侧侧边栏使用 <code>position: sticky</code> 实现滚动冻结。<br>
+                在移动端，点击左上角汉堡菜单展开抽屉式侧边栏。
             </p>
-
-            <!-- 模拟长内容以测试滚动 -->
             <div class="content-placeholder">
-                向下滚动测试侧边栏冻结效果...
+                更多内容建设中...
             </div>
         </main>
     </div>
 
-    <!-- 页面特有逻辑 -->
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer__container">
+            <div class="footer__bottom" style="margin: 0 auto;">
+                <p>&copy; 2026 GFYGO. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 主题切换悬浮按钮 -->
+    <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
+
     <script src="./../config.js"></script>
     <script src="./../theme.js"></script>
     <script src="./../toast.js"></script>

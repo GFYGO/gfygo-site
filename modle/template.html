@@ -1,14 +1,29 @@
 <!DOCTYPE html>
+<!--
+  GFYGO 通用页面模板 (template.html)
+  ====================================
+  使用说明：
+  1. 复制此文件到目标位置（根目录或 user/ 子目录）
+  2. 修改 <title> 和主体内容
+  3. 根据所在目录调整相对路径：
+     - 根目录页面：href="./xxx"  src="./xxx"
+     - user/ 子目录：href="../xxx"  src="../xxx"
+  4. 根目录页面引入 JS 顺序：config.js → theme.js → toast.js → index.js → 页面专属.js
+     user/ 子目录引入 JS：../config.js → ../theme.js → ../toast.js → ../index.js → 页面专属.js
+  5. 需要登录的页面在 DOMContentLoaded 中调用 AuthGuard.requireAuth()
+-->
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GWL | 个人学习平台</title>
+  <title>GWL | 页面标题</title>
   <link rel="stylesheet" href="./styles.css">
   <link rel="icon" href="./favicon.png" type="image/png">
 </head>
 <body>
-  <!-- Header -->
+  <!-- ============================================
+       顶部导航栏 (Header)
+       ============================================ -->
   <header class="header">
     <div class="header__logo">GWL Works Lab</div>
 
@@ -17,50 +32,31 @@
 
     <!-- 导航链接 -->
     <nav class="header__nav" id="headerNav">
-        <a href="./index.html">首页</a>
-        <a href="./document.html">文档</a>
-        <a href="./login.html">登录</a>
-        <a href="./register.html">注册</a>
+      <a href="./index.html">首页</a>
+      <a href="./document.html">文档</a>
+      <a href="./login.html">登录</a>
+      <a href="./register.html">注册</a>
     </nav>
 
-    <!-- 右侧操作区：通知和用户信息 -->
+    <!-- 右侧操作区：用户信息（由 JS 动态填充） -->
     <div class="header__actions">
-        <div id="global-notifications-container" class="notification-toast"></div>
-        <div id="auth-container"></div>
+      <div id="auth-container"></div>
     </div>
   </header>
 
-  <!-- Homepage Sections -->
+  <!-- ============================================
+       主体内容区 (Main)
+       ============================================ -->
   <main>
     <section class="home-section">
-      <h1 class="home-section__title">GWL</h1>
-      <p class="home-section__desc">GWL Works Lab 是由一个高中生建立，旨在提高我们学习兴趣，通过各式的学习工具辅助促进能力增长。</p>
-    </section>
-
-    <section class="home-section home-section--alt">
-      <h2 class="home-section__title">核心功能</h2>
-
-      <div class="feature-grid">
-        <a class="feature-tile" href="https://www.bilibili.com/video/BV1g34y1j7e5/">
-          <div class="feature-tile__img">📚</div>
-          <div class="feature-tile__content">
-            <div class="feature-tile__title">惊喜</div>
-            <div class="feature-tile__desc">查看完整的学习文档与API接口说明</div>
-          </div>
-        </a>
-
-        <a class="feature-tile">
-          <div class="feature-tile__img">🚧</div>
-          <div class="feature-tile__content">
-            <div class="feature-tile__title">网站建设中</div>
-            <div class="feature-tile__desc">更多功能正在开发中，敬请期待</div>
-          </div>
-        </a>
-      </div>
+      <h1 class="home-section__title">页面标题</h1>
+      <p class="home-section__desc">在此处放置页面内容。</p>
     </section>
   </main>
 
-  <!-- Footer -->
+  <!-- ============================================
+       底部导航 (Footer)
+       ============================================ -->
   <footer class="footer">
     <div class="footer__container">
       <div class="footer__top">
@@ -93,12 +89,18 @@
     </div>
   </footer>
 
-  <!-- 主题切换悬浮按钮 -->
+  <!-- ============================================
+       右下角主题切换悬浮按钮
+       ============================================ -->
   <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
+  <!-- ============================================
+       JS 引入（顺序很重要：config → theme → toast → index → 页面专属）
+       ============================================ -->
   <script src="./config.js"></script>
   <script src="./theme.js"></script>
   <script src="./toast.js"></script>
   <script src="./index.js"></script>
+  <!-- <script src="./page-specific.js"></script> -->
 </body>
 </html>

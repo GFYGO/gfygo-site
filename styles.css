@@ -275,15 +275,40 @@ body.theme-gray .header {
 @media (max-width: 768px) {
   .header { padding: 0 16px; }
   .header__toggle { display: block; }
-  .header__nav { display: none; } 
-  
+
+  /* 移动端导航：抽屉式下拉 */
+  .header__nav {
+    display: none;
+    position: fixed;
+    top: var(--header-height);
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    background: var(--color-bg-white);
+    border-bottom: 1px solid var(--color-border);
+    padding: 16px;
+    gap: 0;
+    z-index: 99;
+    box-shadow: var(--shadow-md);
+  }
+  .header__nav--open { display: flex; }
+  .header__nav a {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--color-border);
+    font-size: 1rem;
+  }
+  .header__nav a:last-child { border-bottom: none; }
+
+  /* 移动端隐藏 actions 区中的通知，避免遮挡 */
+  #global-notifications-container { display: none; }
+
   .home-section { padding: 48px 20px; }
   .home-section__title { font-size: 1.75rem; }
-  
+
   .login-card { padding: 32px 24px; }
 
   .profile-sidebar {
-    display: none; 
+    display: none;
     position: fixed;
     top: var(--header-height);
     left: 0;
@@ -293,7 +318,7 @@ body.theme-gray .header {
     box-shadow: var(--shadow-lg);
   }
   .profile-sidebar--open { display: flex; }
-  
+
   .sidebar-overlay {
     display: none;
     position: fixed;
@@ -304,6 +329,18 @@ body.theme-gray .header {
   }
   .sidebar-overlay--visible { display: block; }
 
+  /* 侧边栏关闭按钮 */
+  .sidebar-close { display: block; }
+
+  /* 移动端用户信息简化 */
+  .user-info .logout-link { display: none; }
+  .user-info .username {
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   /* 移动端主题按钮稍微缩小并调整位置 */
   .theme-switcher {
     bottom: 20px;
@@ -312,6 +349,9 @@ body.theme-gray .header {
     height: 40px;
   }
 }
+
+/* 桌面端隐藏侧边栏关闭按钮 */
+.sidebar-close { display: none; }
 
 
 /* =========================================

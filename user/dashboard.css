@@ -27,6 +27,23 @@
     top: 100px; /* 距离顶部一定距离，避开header */
 }
 
+/* 侧边栏关闭按钮（移动端） */
+.sidebar-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    line-height: 1;
+    padding: 4px 8px;
+}
+.sidebar-close:hover {
+    color: var(--color-text-main);
+}
+
 /* 导航链接 */
 .profile-nav__item {
     display: block;
@@ -78,7 +95,7 @@
 }
 
 .content-placeholder {
-    height: 150vh;
+    height: 400px;
     margin-top: 24px;
     background: var(--color-bg-white);
     border-radius: var(--radius-lg);
@@ -122,11 +139,15 @@
         margin: 0;
     }
 
-    .profile-sidebar.active {
+    .profile-sidebar--open {
         transform: translateX(280px); /* 滑入屏幕 */
     }
 
-    .sidebar-overlay.active {
+    .sidebar-overlay--visible {
         display: block; /* 激活时显示遮罩 */
+    }
+
+    .profile-content {
+        padding: 20px 16px;
     }
 }
