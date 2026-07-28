@@ -7,7 +7,7 @@ const DEFAULT_BANNER = 'https://picsum.photos/1200/300';
 const DEFAULT_AVATAR = '../favicon.png';
 
 const ROLE_NAMES = {
-    0: '系统管理',
+    0: '访客视角',
     1: '普通用户',
     2: '一级管理员',
     3: '二级管理员',
@@ -190,7 +190,7 @@ function renderPermissionButtons(permissionLevel) {
     if (permissionLevel <= 1) return;
 
     // 管理员用户：显示等级 1 + 从 2 到当前等级的按钮
-    // 超级管理员（5）：额外显示等级 0
+    // 超级管理员（5）：额外显示等级 0（访客视角，以未登录身份查看受限页面）
     const levels = [];
     if (permissionLevel >= 5) levels.push(0);
     levels.push(1);
