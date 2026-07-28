@@ -1,26 +1,42 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
-<meta charset="utf-8">
-<meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>404</title>
-<style>
-	body{
-		background-color:#444;
-		font-size:14px;
-	}
-	h3{
-		font-size:60px;
-		color:#eee;
-		text-align:center;
-		padding-top:30px;
-		font-weight:normal;
-	}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - 页面未找到</title>
+    <!-- 引入全局样式 -->
+    <link rel="stylesheet" href="./styles.css">
+    <style>
+        /* 404页面特有样式，复用全局变量 */
+        .error-page {
+            background-color: var(--color-bg-main);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-text-primary);
+        }
+        .error-code {
+            font-size: 6rem;
+            font-weight: 700;
+            color: var(--color-primary);
+            margin: 0;
+            line-height: 1;
+        }
+        .error-message {
+            font-size: 1.25rem;
+            color: var(--color-text-muted);
+            margin-top: 1rem;
+        }
+    </style>
 </head>
-
 <body>
-<h3>404Not Found</h3>
+    <div class="error-page">
+        <div class="error-content">
+            <h1 class="error-code">404</h1>
+            <p class="error-message">抱歉，您访问的页面不存在。</p>
+            <a href="./index.html" class="btn btn-primary" style="margin-top: 20px; display: inline-block;">返回首页</a>
+        </div>
+    </div>
 </body>
 </html>

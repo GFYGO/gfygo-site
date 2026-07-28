@@ -1,50 +1,67 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>个人主页</title>
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人主页 - MyApp</title>
+    <!-- 1. 全局样式 -->
+    <link rel="stylesheet" href="./../styles.css">
+    <!-- 2. 页面特有样式 -->
+    <link rel="stylesheet" href="./dashboard.css">
 </head>
+<!-- 主题切换悬浮按钮 -->
+<button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 <body>
-  <header class="header">
-    <div class="header__logo">MyApp</div>
-    <button class="header__toggle" id="menuToggle">☰</button>
-    <nav class="header__nav"><a href="./../index.html">首页</a></nav>
-  </header>
-
-  <!-- Profile Layout (FE-UI-03) -->
-  <div class="profile-layout">
-    <!-- 移动端遮罩层 -->
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
-    <!-- 左侧冻结侧边栏 -->
-    <aside class="profile-sidebar" id="profileSidebar">
-      <div class="profile-sidebar__top">
-        <nav>
-          <a href="#" class="active">我的动态</a>
-          <a href="#">个人设置</a>
-          <a href="#">消息通知</a>
+    <!-- 顶部导航 -->
+    <header class="header">
+        <div class="header__logo">MyApp</div>
+        <button class="header__toggle" id="menuToggle" aria-label="切换菜单">☰</button>
+        <nav class="header__nav">
+            <a href="./../index.html">首页</a>
         </nav>
-      </div>
-      <div class="profile-sidebar__bottom">
-        <div class="profile-avatar"></div>
-        <span style="font-weight: 600;">当前用户</span>
-      </div>
-    </aside>
+    </header>
 
-    <!-- 右侧自适应内容区 -->
-    <main class="profile-content">
-      <h1>我的动态</h1>
-      <p style="margin-top:16px; color:var(--color-text-muted);">
-        右侧内容区自适应宽度。左侧侧边栏使用了 `position: sticky` 实现滚动时冻结。<br>
-        在移动端，请点击左上角汉堡菜单展开抽屉式侧边栏。
-      </p>
-      <!-- 模拟长内容以测试滚动 -->
-      <div style="height: 150vh; margin-top: 24px; background: var(--color-bg-white); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); display:flex; align-items:center; justify-content:center; color:var(--color-text-muted); border: 1px solid var(--color-border);">
-        向下滚动测试侧边栏冻结效果...
-      </div>
-    </main>
-  </div>
+    <!-- 个人主页布局 -->
+    <div class="profile-layout">
+        <!-- 移动端遮罩层 -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <!-- 左侧侧边栏 -->
+        <aside class="profile-sidebar" id="profileSidebar">
+            <div class="profile-sidebar__top">
+                <nav class="profile-nav">
+                    <a href="#" class="profile-nav__item active">我的动态</a>
+                    <a href="#" class="profile-nav__item">个人设置</a>
+                    <a href="#" class="profile-nav__item">消息通知</a>
+                </nav>
+            </div>
+            <div class="profile-sidebar__bottom">
+                <div class="profile-avatar">
+                    <!-- 假设这里有用户头像图片 -->
+                    <img src="https://via.placeholder.com/64" alt="Avatar">
+                </div>
+                <span class="profile-username">当前用户</span>
+            </div>
+        </aside>
+
+        <!-- 右侧内容区 -->
+        <main class="profile-content">
+            <h1>我的动态</h1>
+            <p class="text-muted mt-4">
+                右侧内容区自适应宽度。左侧侧边栏使用了 <code>position: sticky</code> 实现滚动时冻结。<br>
+                在移动端，请点击左上角汉堡菜单展开抽屉式侧边栏。
+            </p>
+
+            <!-- 模拟长内容以测试滚动 -->
+            <div class="content-placeholder">
+                向下滚动测试侧边栏冻结效果...
+            </div>
+        </main>
+    </div>
+
+    <!-- 页面特有逻辑 -->
+    <script src="./../theme.js"></script>
+    <script src="./../toast.js"></script>
+    <script src="./../index.js"></script>
 </body>
 </html>

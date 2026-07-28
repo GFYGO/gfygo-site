@@ -1,0 +1,132 @@
+/* 
+ * Dashboard 页面特有样式 
+ * 依赖 styles.css 中的变量
+ */
+
+/* 布局容器 */
+.profile-layout {
+    display: flex;
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    gap: 2rem;
+    position: relative; /* 为遮罩层定位提供上下文 */
+}
+
+/* 侧边栏样式 */
+.profile-sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background: var(--color-bg-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-border);
+    padding: 1.5rem;
+    height: fit-content;
+    position: sticky;
+    top: 100px; /* 距离顶部一定距离，避开header */
+}
+
+/* 导航链接 */
+.profile-nav__item {
+    display: block;
+    padding: 0.75rem 1rem;
+    color: var(--color-text-primary);
+    text-decoration: none;
+    border-radius: var(--radius-md);
+    margin-bottom: 0.5rem;
+    transition: all 0.2s;
+}
+
+.profile-nav__item:hover {
+    background-color: var(--color-bg-main);
+    color: var(--color-primary);
+}
+
+.profile-nav__item.active {
+    background-color: var(--color-primary);
+    color: var(--color-text-white);
+}
+
+/* 底部用户信息 */
+.profile-sidebar__bottom {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--color-border);
+    text-align: center;
+}
+
+.profile-avatar img {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 0.75rem;
+    border: 2px solid var(--color-primary);
+}
+
+.profile-username {
+    display: block;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+/* 主内容区 */
+.profile-content {
+    flex: 1;
+    min-width: 0; /* 防止flex溢出 */
+}
+
+.content-placeholder {
+    height: 150vh;
+    margin-top: 24px;
+    background: var(--color-bg-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+    font-size: 1.1rem;
+}
+
+/* 移动端遮罩层 */
+.sidebar-overlay {
+    display: none; /* 默认隐藏 */
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 998;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .profile-layout {
+        padding: 0;
+        margin: 0;
+    }
+
+    .profile-sidebar {
+        position: fixed;
+        top: 0;
+        left: -280px; /* 隐藏在屏幕外 */
+        height: 100vh;
+        width: 280px;
+        border-radius: 0;
+        z-index: 999;
+        transition: transform 0.3s ease;
+        margin: 0;
+    }
+
+    .profile-sidebar.active {
+        transform: translateX(280px); /* 滑入屏幕 */
+    }
+
+    .sidebar-overlay.active {
+        display: block; /* 激活时显示遮罩 */
+    }
+}

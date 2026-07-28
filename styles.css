@@ -604,3 +604,119 @@ a.feature-tile:hover .feature-tile__desc {
     width: 100%;
   }
 }
+
+/* =========================================
+   14. Footer 样式
+   ========================================= */
+
+.footer {
+  background-color: var(--color-bg-white);
+  border-top: 1px solid var(--color-border);
+  padding: 48px 24px 24px;
+  margin-top: auto; /* 如果页面内容不足一屏，将 Footer 推到底部 */
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.footer__container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.footer__top {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 40px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 24px;
+}
+
+.footer__brand .footer__logo {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  margin-bottom: 8px;
+}
+
+.footer__brand .footer__slogan {
+  font-size: 0.9rem;
+  max-width: 300px;
+}
+
+.footer__links {
+  display: flex;
+  gap: 60px;
+}
+
+.footer__links-group h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text-main);
+  margin-bottom: 16px;
+}
+
+.footer__links-group a {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--color-text-muted);
+  transition: color 0.2s ease;
+}
+
+.footer__links-group a:hover {
+  color: var(--color-primary);
+}
+
+.footer__bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  font-size: 0.85rem;
+}
+
+.footer__social a {
+  margin-left: 20px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.footer__social a:hover {
+  color: var(--color-primary);
+}
+
+/* 适配深色主题 */
+body.theme-dark_green .footer,
+body.theme-gray .footer {
+  background-color: #1e293b; /* 使用一个固定的深色，与 Header 保持一致 */
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .footer__top {
+    flex-direction: column;
+    gap: 32px;
+    text-align: center;
+  }
+
+  .footer__brand .footer__slogan {
+    margin: 0 auto;
+  }
+
+  .footer__links {
+    justify-content: center;
+    gap: 40px;
+  }
+
+  .footer__bottom {
+    flex-direction: column-reverse;
+    text-align: center;
+  }
+
+  .footer__social a {
+    margin: 0 10px;
+  }
+}
