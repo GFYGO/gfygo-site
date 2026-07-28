@@ -7,7 +7,7 @@ const DEFAULT_BANNER = 'https://picsum.photos/1200/300';
 const DEFAULT_AVATAR = '../favicon.png';
 
 const ROLE_NAMES = {
-    0: '访客视角',
+    0: '未登录',
     1: '普通用户',
     2: '一级管理员',
     3: '二级管理员',
@@ -190,7 +190,7 @@ function renderPermissionButtons(permissionLevel) {
     if (permissionLevel <= 1) return;
 
     // 管理员用户：显示等级 1 + 从 2 到当前等级的按钮
-    // 超级管理员（5）：额外显示等级 0（访客视角，以未登录身份查看受限页面）
+    // 超级管理员（5）：额外显示等级 0
     const levels = [];
     if (permissionLevel >= 5) levels.push(0);
     levels.push(1);
@@ -212,6 +212,16 @@ function renderPermissionButtons(permissionLevel) {
 }
 
 function handlePermissionClick(level) {
+    if (level === 0) {
+        // 访客视角预览：不清除 token，设置访客模式标记后跳转首页
+        localStorage.setItem('guest_view_mode', 'true');
+        window.location.href = `${BASE_PATH}/index.html`;
+        return;
+    }
+
+    // 切换到其他权限等级：清除访客模式
+    localStorage.removeItem('guest_view_mode');
+
     const dashboardPath = encodeURIComponent(window.location.pathname + window.location.search);
     const adminUrl = `${BASE_PATH}/admin/admin${level}.html?from=${dashboardPath}`;
     window.location.href = adminUrl;

@@ -88,6 +88,12 @@ async function fetchGlobalNotifications() {
  * 任务 FE-JS-02: 处理 /api/v1/auth/status 的响应并渲染用户信息
  */
 async function fetchAuthStatus() {
+  // 访客视角预览模式：跳过 API 调用，直接渲染未登录状态
+  if (localStorage.getItem('guest_view_mode') === 'true') {
+    renderAuthStatus(null);
+    return;
+  }
+
   const token = AuthGuard.getToken();
   // 如果没有 token，则直接渲染未登录状态
   if (!token) {
