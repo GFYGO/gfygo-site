@@ -7,7 +7,7 @@ const DEFAULT_BANNER = 'https://picsum.photos/1200/300';
 const DEFAULT_AVATAR = '../favicon.png';
 
 const ROLE_NAMES = {
-    0: '未登录',
+    0: '系统管理',
     1: '普通用户',
     2: '一级管理员',
     3: '二级管理员',
@@ -189,17 +189,26 @@ function renderPermissionButtons(permissionLevel) {
 
     if (permissionLevel <= 1) return;
 
+    // 管理员用户：显示等级 1 + 从 2 到当前等级的按钮
+    // 超级管理员（5）：额外显示等级 0
+    const levels = [];
+    if (permissionLevel >= 5) levels.push(0);
+    levels.push(1);
     for (let level = 2; level <= permissionLevel; level++) {
+        levels.push(level);
+    }
+
+    levels.forEach(level => {
         const btn = document.createElement('button');
         btn.className = 'perm-btn';
-        if (level === permissionLevel) {
+        if (level === 1) {
             btn.classList.add('perm-btn--current');
         }
         btn.textContent = level;
         btn.title = `进入 ${ROLE_NAMES[level] || `等级${level}`} 管理后台`;
         btn.addEventListener('click', () => handlePermissionClick(level));
         container.appendChild(btn);
-    }
+    });
 }
 
 function handlePermissionClick(level) {
