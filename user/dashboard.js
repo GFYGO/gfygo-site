@@ -18,6 +18,7 @@ const ROLE_NAMES = {
 document.addEventListener('DOMContentLoaded', async () => {
     initSidebarToggle();
     initSettingsButton();
+    initTabSwitching();
 
     const token = AuthGuard.getToken();
     if (!token) {
@@ -84,6 +85,58 @@ function initSettingsButton() {
     }
 }
 
+function initTabSwitching() {
+    // 默认显示主页
+    switchTab('home');
+
+    // 侧边栏导航项点击切换
+    document.querySelectorAll('.sidebar__nav-item[data-tab]').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const tab = item.dataset.tab;
+            switchTab(tab);
+            // 移动端点击后关闭侧边栏
+            const sidebar = document.getElementById('dashboardSidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (sidebar) sidebar.classList.remove('dashboard-sidebar--open');
+            if (overlay) overlay.classList.remove('sidebar-overlay--visible');
+        });
+    });
+
+    // 左下角头像点击切换到主页
+    const userTrigger = document.getElementById('sidebarUserTrigger');
+    if (userTrigger) {
+        userTrigger.style.cursor = 'pointer';
+        userTrigger.addEventListener('click', () => {
+            switchTab('home');
+            const sidebar = document.getElementById('dashboardSidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (sidebar) sidebar.classList.remove('dashboard-sidebar--open');
+            if (overlay) overlay.classList.remove('sidebar-overlay--visible');
+        });
+    }
+}
+
+function switchTab(tab) {
+    // 切换内容面板
+    document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.style.display = 'none';
+    });
+    const targetPanel = document.getElementById(`panel-${tab}`);
+    if (targetPanel) targetPanel.style.display = '';
+
+    // 更新侧边栏导航项激活状态
+    document.querySelectorAll('.sidebar__nav-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.tab === tab);
+    });
+
+    // 头像区域高亮（主页时激活）
+    const userTrigger = document.getElementById('sidebarUserTrigger');
+    if (userTrigger) {
+        userTrigger.classList.toggle('is-active', tab === 'home');
+    }
+}
+
 function renderUserProfile(user) {
     const profile = user.profile || {};
     const avatar = profile.avatar || DEFAULT_AVATAR;
@@ -102,16 +155,29 @@ function renderUserProfile(user) {
     const sidebarUserRole = document.getElementById('sidebarUserRole');
     if (sidebarUserRole) sidebarUserRole.textContent = roleName;
 
-    const sidebarUserLink = document.getElementById('sidebarUserLink');
-    if (sidebarUserLink) {
-        sidebarUserLink.href = '#';
-        sidebarUserLink.title = '个人主页';
-        sidebarUserLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (typeof Toast !== 'undefined') {
-                Toast.show('个人主页功能开发中...', 'info');
-            }
-        });
+    const profileAvatar = document.getElementById('profileAvatar');
+    if (profileAvatar) {
+        profileAvatar.src = avatar;
+        profileAvatar.onerror = function() { this.src = DEFAULT_AVATAR; };
+    }
+
+    const profileUsername = document.getElementById('profileUsername');
+    if (profileUsername) profileUsername.textContent = user.username;
+
+    const profileBadge = document.getElementById('profileBadge');
+    if (profileBadge) profileBadge.textContent = `Lv.${user.permission_level} ${roleName}`;
+
+    const profileIntro = document.getElementById('profileIntro');
+    if (profileIntro) {
+        profileIntro.textContent = profile.introduction || '这个人很懒，什么都没留下';
+    }
+
+    const bannerImg = document.getElementById('bannerImg');
+    if (bannerImg) {
+        bannerImg.src = banner;
+        bannerImg.onerror = function() {
+            this.style.display = 'none';
+        };
     }
 }
 
