@@ -84,17 +84,25 @@ a { text-decoration: none; color: inherit; transition: color 0.2s ease; }
    ========================================= */
 .header {
   height: var(--header-height);
-  background: rgba(255, 255, 255, 0.85); 
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  /* justify-content: space-between;  <-- 删除这一行 */
   padding: 0 32px;
   position: sticky;
   top: 0;
   z-index: 100;
   transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+/* 新增一个规则，让 logo 右侧的所有内容自动占据剩余空间并靠右对齐 */
+.header__logo + * {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 28px; /* 导航链接和用户信息区之间的间距 */
 }
 /* 适配深色主题下的 Header 背景 */
 body.theme-dark_green .header,
