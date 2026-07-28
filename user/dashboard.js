@@ -102,29 +102,16 @@ function renderUserProfile(user) {
     const sidebarUserRole = document.getElementById('sidebarUserRole');
     if (sidebarUserRole) sidebarUserRole.textContent = roleName;
 
-    const profileAvatar = document.getElementById('profileAvatar');
-    if (profileAvatar) {
-        profileAvatar.src = avatar;
-        profileAvatar.onerror = function() { this.src = DEFAULT_AVATAR; };
-    }
-
-    const profileUsername = document.getElementById('profileUsername');
-    if (profileUsername) profileUsername.textContent = user.username;
-
-    const profileBadge = document.getElementById('profileBadge');
-    if (profileBadge) profileBadge.textContent = `Lv.${user.permission_level} ${roleName}`;
-
-    const profileIntro = document.getElementById('profileIntro');
-    if (profileIntro) {
-        profileIntro.textContent = profile.introduction || '这个人很懒，什么都没留下';
-    }
-
-    const bannerImg = document.getElementById('bannerImg');
-    if (bannerImg) {
-        bannerImg.src = banner;
-        bannerImg.onerror = function() {
-            this.style.display = 'none';
-        };
+    const sidebarUserLink = document.getElementById('sidebarUserLink');
+    if (sidebarUserLink) {
+        sidebarUserLink.href = '#';
+        sidebarUserLink.title = '个人主页';
+        sidebarUserLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (typeof Toast !== 'undefined') {
+                Toast.show('个人主页功能开发中...', 'info');
+            }
+        });
     }
 }
 

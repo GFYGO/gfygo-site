@@ -19,14 +19,14 @@
             </div>
 
             <nav class="sidebar__nav">
-                <a href="#" class="sidebar__nav-item active" data-tab="home">
-                    <span class="sidebar__nav-icon">🏠</span>
-                    <span class="sidebar__nav-text">主页</span>
+                <a href="#" class="sidebar__nav-item active" data-tab="workbench">
+                    <span class="sidebar__nav-icon">💼</span>
+                    <span class="sidebar__nav-text">工作台</span>
                 </a>
             </nav>
 
             <div class="sidebar__footer">
-                <div class="sidebar__user">
+                <a href="#" class="sidebar__user-link" id="sidebarUserLink">
                     <div class="sidebar__avatar">
                         <img id="sidebarAvatar" src="./../favicon.png" alt="Avatar">
                     </div>
@@ -34,7 +34,7 @@
                         <span class="sidebar__username" id="sidebarUsername">加载中...</span>
                         <span class="sidebar__user-role" id="sidebarUserRole">--</span>
                     </div>
-                </div>
+                </a>
                 <button class="sidebar__settings-btn" id="settingsBtn" aria-label="设置">
                     ⚙️
                 </button>
@@ -58,31 +58,11 @@
             </header>
 
             <div class="dashboard-content">
-                <section class="profile-home" id="profileHome">
-                    <div class="profile-banner" id="profileBanner">
-                        <img id="bannerImg" src="" alt="Banner">
-                        <div class="profile-banner__overlay"></div>
-                        <div class="profile-banner__info">
-                            <div class="profile-avatar-large">
-                                <img id="profileAvatar" src="./../favicon.png" alt="Avatar">
-                            </div>
-                            <div class="profile-info">
-                                <div class="profile-info__top">
-                                    <h1 class="profile-username" id="profileUsername">加载中...</h1>
-                                    <span class="profile-badge" id="profileBadge">--</span>
-                                </div>
-                                <p class="profile-intro" id="profileIntro">这个人很懒，什么都没留下</p>
-                                <div class="profile-tags" id="profileTags"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="profile-cards">
-                        <div class="card card--wide"></div>
-                        <div class="card card--tall"></div>
-                        <div class="card"></div>
-                        <div class="card"></div>
-                        <div class="card card--wide"></div>
+                <section class="workbench-section">
+                    <div class="workbench-empty">
+                        <div class="workbench-empty__icon">💼</div>
+                        <h2 class="workbench-empty__title">工作台</h2>
+                        <p class="workbench-empty__desc">功能开发中，敬请期待</p>
                     </div>
                 </section>
             </div>
