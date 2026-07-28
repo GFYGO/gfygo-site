@@ -12,9 +12,10 @@
 
 /* ========== 左侧侧边栏 ========== */
 .dashboard-sidebar {
-    width: 260px;
+    width: fit-content;
+    max-width: 260px;
     flex-shrink: 0;
-    background: var(--color-bg-white);
+    background: var(--color-bg-section-alt);
     border-right: 1px solid var(--color-border);
     display: flex;
     flex-direction: column;
@@ -26,6 +27,7 @@
 }
 
 .sidebar__header {
+    flex-shrink: 0;
     padding: 20px 20px 16px;
     border-bottom: 1px solid var(--color-border);
     position: relative;
@@ -36,6 +38,7 @@
     font-weight: 800;
     color: var(--color-primary);
     letter-spacing: -0.5px;
+    white-space: nowrap;
 }
 
 .sidebar-close {
@@ -75,10 +78,11 @@
     font-size: 0.95rem;
     margin-bottom: 4px;
     transition: all 0.2s ease;
+    white-space: nowrap;
 }
 
 .sidebar__nav-item:hover {
-    background-color: var(--color-bg-section-alt);
+    background-color: var(--color-bg-white);
     color: var(--color-primary);
 }
 
@@ -91,6 +95,7 @@
     font-size: 1.1rem;
     width: 24px;
     text-align: center;
+    flex-shrink: 0;
 }
 
 .sidebar__nav-text {
@@ -99,6 +104,7 @@
 
 /* 底部用户区 */
 .sidebar__footer {
+    flex-shrink: 0;
     padding: 16px;
     border-top: 1px solid var(--color-border);
     display: flex;
@@ -155,7 +161,7 @@
     height: 36px;
     flex-shrink: 0;
     border: none;
-    background: var(--color-bg-section-alt);
+    background: var(--color-bg-white);
     border-radius: var(--radius-md);
     cursor: pointer;
     font-size: 1rem;
@@ -185,7 +191,6 @@
     border-bottom: 1px solid var(--color-border);
     display: flex;
     align-items: center;
-    justify-content: space-between;
     padding: 0 24px;
     position: sticky;
     top: 0;
@@ -203,9 +208,10 @@
 }
 
 .dashboard-header__right {
+    margin-left: auto;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
 }
 
 /* 权限等级按钮组 */
@@ -261,15 +267,15 @@
     margin: 0 auto;
 }
 
-/* ========== 用户主页：横幅 ========== */
+/* ========== 用户主页：横幅 + 用户信息叠加 ========== */
 .profile-banner {
     width: 100%;
-    height: 240px;
+    height: 300px;
     border-radius: var(--radius-lg);
     overflow: hidden;
     position: relative;
     background: linear-gradient(135deg, var(--color-primary), #818cf8);
-    margin-bottom: 60px;
+    margin-bottom: 24px;
 }
 
 .profile-banner img {
@@ -279,26 +285,36 @@
     display: block;
 }
 
-/* ========== 用户主页：头像和信息 ========== */
-.profile-header {
+.profile-banner__overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 65%;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent);
+    pointer-events: none;
+}
+
+.profile-banner__info {
+    position: absolute;
+    bottom: 24px;
+    left: 24px;
+    right: 24px;
     display: flex;
-    gap: 24px;
+    gap: 20px;
     align-items: flex-end;
-    margin-top: -80px;
-    padding: 0 24px;
-    margin-bottom: 32px;
-    position: relative;
+    z-index: 1;
 }
 
 .profile-avatar-large {
-    width: 120px;
-    height: 120px;
+    width: 100px;
+    height: 100px;
     flex-shrink: 0;
     border-radius: 50%;
     overflow: hidden;
-    border: 4px solid var(--color-bg-white);
+    border: 4px solid rgba(255, 255, 255, 0.9);
     box-shadow: var(--shadow-md);
-    background: var(--color-bg-white);
+    background: rgba(255, 255, 255, 0.9);
 }
 
 .profile-avatar-large img {
@@ -324,8 +340,9 @@
 .profile-username {
     font-size: 1.75rem;
     font-weight: 700;
-    color: var(--color-text-main);
+    color: #fff;
     margin: 0;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .profile-badge {
@@ -338,10 +355,11 @@
 }
 
 .profile-intro {
-    color: var(--color-text-muted);
+    color: rgba(255, 255, 255, 0.9);
     font-size: 0.95rem;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     line-height: 1.5;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .profile-tags {
@@ -354,9 +372,10 @@
     padding: 4px 12px;
     border-radius: 20px;
     font-size: 0.8rem;
-    background: var(--color-bg-section-alt);
-    color: var(--color-text-muted);
-    border: 1px solid var(--color-border);
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(4px);
 }
 
 /* ========== 卡片网格 ========== */
@@ -372,7 +391,7 @@
     border-radius: var(--radius-lg);
     border: 1px solid var(--color-border);
     box-shadow: var(--shadow-sm);
-    overflow: hidden;
+    min-height: 180px;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -387,163 +406,6 @@
 
 .card--tall {
     grid-row: span 2;
-}
-
-.card__title {
-    padding: 16px 20px;
-    font-weight: 600;
-    font-size: 1rem;
-    color: var(--color-text-main);
-    border-bottom: 1px solid var(--color-border);
-}
-
-.card__content {
-    padding: 16px 20px;
-}
-
-/* 数据统计卡片 */
-.card-stats {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-}
-
-.stat-item {
-    text-align: center;
-}
-
-.stat-number {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: var(--color-primary);
-    margin-bottom: 4px;
-}
-
-.stat-label {
-    font-size: 0.85rem;
-    color: var(--color-text-muted);
-}
-
-/* 最近活动卡片 */
-.card-activity {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-}
-
-.activity-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 0.9rem;
-}
-
-.activity-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--color-primary);
-    flex-shrink: 0;
-}
-
-.activity-text {
-    flex: 1;
-    color: var(--color-text-main);
-}
-
-.activity-time {
-    font-size: 0.75rem;
-    color: var(--color-text-muted);
-    flex-shrink: 0;
-}
-
-/* 账户信息卡片 */
-.card-account {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.account-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.9rem;
-}
-
-.account-label {
-    color: var(--color-text-muted);
-}
-
-.account-value {
-    color: var(--color-text-main);
-    font-weight: 500;
-}
-
-/* 成就徽章卡片 */
-.card-badges {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    align-content: start;
-}
-
-.badge-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding: 12px;
-    border-radius: var(--radius-md);
-    background: var(--color-bg-section-alt);
-    transition: transform 0.2s ease;
-}
-
-.badge-item:hover {
-    transform: scale(1.05);
-}
-
-.badge-icon {
-    font-size: 2rem;
-}
-
-.badge-name {
-    font-size: 0.8rem;
-    color: var(--color-text-muted);
-    text-align: center;
-}
-
-/* 更多功能卡片 */
-.card-features {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 16px;
-}
-
-.feature-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 8px;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.feature-item:hover {
-    background: var(--color-bg-section-alt);
-    transform: translateY(-2px);
-}
-
-.feature-icon {
-    font-size: 1.75rem;
-}
-
-.feature-name {
-    font-size: 0.8rem;
-    color: var(--color-text-muted);
-    text-align: center;
 }
 
 /* 遮罩层 */
@@ -572,10 +434,6 @@
     .card--tall {
         grid-row: span 1;
     }
-
-    .card-features {
-        grid-template-columns: repeat(3, 1fr);
-    }
 }
 
 @media (max-width: 768px) {
@@ -585,6 +443,7 @@
         left: 0;
         height: 100vh;
         width: 280px;
+        max-width: 280px;
         z-index: 101;
         transform: translateX(-100%);
     }
@@ -606,22 +465,19 @@
     }
 
     .profile-banner {
-        height: 180px;
-        margin-bottom: 50px;
+        height: 220px;
     }
 
-    .profile-header {
+    .profile-banner__info {
         flex-direction: column;
         align-items: center;
         text-align: center;
-        margin-top: -60px;
-        padding: 0 16px;
-        gap: 16px;
+        gap: 12px;
     }
 
     .profile-avatar-large {
-        width: 100px;
-        height: 100px;
+        width: 80px;
+        height: 80px;
     }
 
     .profile-info {
@@ -637,7 +493,7 @@
     }
 
     .profile-username {
-        font-size: 1.5rem;
+        font-size: 1.4rem;
     }
 
     .profile-cards {
@@ -648,12 +504,8 @@
         grid-column: span 1;
     }
 
-    .card-stats {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .card-features {
-        grid-template-columns: repeat(3, 1fr);
+    .card--tall {
+        grid-row: span 1;
     }
 
     .permission-buttons {
@@ -664,12 +516,6 @@
         width: 32px;
         height: 32px;
         font-size: 0.8rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .card-features {
-        grid-template-columns: repeat(2, 1fr);
     }
 
     .dashboard-header {

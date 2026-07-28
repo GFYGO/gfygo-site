@@ -45,6 +45,7 @@
             <header class="dashboard-header">
                 <button class="dashboard-header__menu-btn" id="menuToggle" aria-label="菜单">☰</button>
                 <div class="dashboard-header__right">
+                    <div id="auth-container"></div>
                     <div class="permission-buttons" id="permissionButtons"></div>
                 </div>
             </header>
@@ -53,139 +54,28 @@
                 <section class="profile-home" id="profileHome">
                     <div class="profile-banner" id="profileBanner">
                         <img id="bannerImg" src="" alt="Banner">
-                    </div>
-
-                    <div class="profile-header">
-                        <div class="profile-avatar-large">
-                            <img id="profileAvatar" src="./../favicon.png" alt="Avatar">
-                        </div>
-                        <div class="profile-info">
-                            <div class="profile-info__top">
-                                <h1 class="profile-username" id="profileUsername">加载中...</h1>
-                                <span class="profile-badge" id="profileBadge">--</span>
+                        <div class="profile-banner__overlay"></div>
+                        <div class="profile-banner__info">
+                            <div class="profile-avatar-large">
+                                <img id="profileAvatar" src="./../favicon.png" alt="Avatar">
                             </div>
-                            <p class="profile-intro" id="profileIntro">这个人很懒，什么都没留下</p>
-                            <div class="profile-tags" id="profileTags">
-                                <span class="profile-tag">标签 1</span>
-                                <span class="profile-tag">标签 2</span>
-                                <span class="profile-tag">标签 3</span>
+                            <div class="profile-info">
+                                <div class="profile-info__top">
+                                    <h1 class="profile-username" id="profileUsername">加载中...</h1>
+                                    <span class="profile-badge" id="profileBadge">--</span>
+                                </div>
+                                <p class="profile-intro" id="profileIntro">这个人很懒，什么都没留下</p>
+                                <div class="profile-tags" id="profileTags"></div>
                             </div>
                         </div>
                     </div>
 
                     <div class="profile-cards">
-                        <div class="card card--wide">
-                            <div class="card__title">数据概览</div>
-                            <div class="card__content card-stats">
-                                <div class="stat-item">
-                                    <div class="stat-number">128</div>
-                                    <div class="stat-label">动态</div>
-                                </div>
-                                <div class="stat-item">
-                                    <div class="stat-number">256</div>
-                                    <div class="stat-label">关注</div>
-                                </div>
-                                <div class="stat-item">
-                                    <div class="stat-number">1.2k</div>
-                                    <div class="stat-label">粉丝</div>
-                                </div>
-                                <div class="stat-item">
-                                    <div class="stat-number">3.4k</div>
-                                    <div class="stat-label">获赞</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card">
-                            <div class="card__title">最近活动</div>
-                            <div class="card__content card-activity">
-                                <div class="activity-item">
-                                    <span class="activity-dot"></span>
-                                    <span class="activity-text">更新了个人资料</span>
-                                    <span class="activity-time">2小时前</span>
-                                </div>
-                                <div class="activity-item">
-                                    <span class="activity-dot"></span>
-                                    <span class="activity-text">发布了新动态</span>
-                                    <span class="activity-time">昨天</span>
-                                </div>
-                                <div class="activity-item">
-                                    <span class="activity-dot"></span>
-                                    <span class="activity-text">关注了 3 位用户</span>
-                                    <span class="activity-time">3天前</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card">
-                            <div class="card__title">账户信息</div>
-                            <div class="card__content card-account">
-                                <div class="account-row">
-                                    <span class="account-label">用户 ID</span>
-                                    <span class="account-value" id="accountId">--</span>
-                                </div>
-                                <div class="account-row">
-                                    <span class="account-label">注册时间</span>
-                                    <span class="account-value">--</span>
-                                </div>
-                                <div class="account-row">
-                                    <span class="account-label">用户组</span>
-                                    <span class="account-value" id="accountGroup">default</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card card--tall">
-                            <div class="card__title">成就徽章</div>
-                            <div class="card__content card-badges">
-                                <div class="badge-item">
-                                    <div class="badge-icon">🏆</div>
-                                    <div class="badge-name">新手驾到</div>
-                                </div>
-                                <div class="badge-item">
-                                    <div class="badge-icon">⭐</div>
-                                    <div class="badge-name">活跃用户</div>
-                                </div>
-                                <div class="badge-item">
-                                    <div class="badge-icon">🔥</div>
-                                    <div class="badge-name">连续打卡</div>
-                                </div>
-                                <div class="badge-item">
-                                    <div class="badge-icon">💎</div>
-                                    <div class="badge-name">精英会员</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card card--wide">
-                            <div class="card__title">更多功能</div>
-                            <div class="card__content card-features">
-                                <div class="feature-item">
-                                    <div class="feature-icon">📝</div>
-                                    <div class="feature-name">写动态</div>
-                                </div>
-                                <div class="feature-item">
-                                    <div class="feature-icon">📷</div>
-                                    <div class="feature-name">相册</div>
-                                </div>
-                                <div class="feature-item">
-                                    <div class="feature-icon">📊</div>
-                                    <div class="feature-name">数据分析</div>
-                                </div>
-                                <div class="feature-item">
-                                    <div class="feature-icon">🎨</div>
-                                    <div class="feature-name">主题定制</div>
-                                </div>
-                                <div class="feature-item">
-                                    <div class="feature-icon">🔔</div>
-                                    <div class="feature-name">消息通知</div>
-                                </div>
-                                <div class="feature-item">
-                                    <div class="feature-icon">👥</div>
-                                    <div class="feature-name">我的好友</div>
-                                </div>
-                            </div>
-                        </div>
+                        <div class="card card--wide"></div>
+                        <div class="card card--tall"></div>
+                        <div class="card"></div>
+                        <div class="card"></div>
+                        <div class="card card--wide"></div>
                     </div>
                 </section>
             </div>

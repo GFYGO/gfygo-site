@@ -123,12 +123,6 @@ function renderUserProfile(user) {
             this.style.display = 'none';
         };
     }
-
-    const accountId = document.getElementById('accountId');
-    if (accountId) accountId.textContent = user.id || '--';
-
-    const accountGroup = document.getElementById('accountGroup');
-    if (accountGroup) accountGroup.textContent = profile.group || 'default';
 }
 
 function renderPermissionButtons(permissionLevel) {
