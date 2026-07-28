@@ -82,6 +82,7 @@ a { text-decoration: none; color: inherit; transition: color 0.2s ease; }
 /* =========================================
    3. Header & Footer (FE-UI-01)
    ========================================= */
+
 .header {
   height: var(--header-height);
   background: rgba(255, 255, 255, 0.85);
@@ -89,7 +90,6 @@ a { text-decoration: none; color: inherit; transition: color 0.2s ease; }
   border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;
-  /* justify-content: space-between;  <-- 删除这一行 */
   padding: 0 32px;
   position: sticky;
   top: 0;
@@ -97,31 +97,39 @@ a { text-decoration: none; color: inherit; transition: color 0.2s ease; }
   transition: background 0.3s ease, border-color 0.3s ease;
 }
 
-/* 新增一个规则，让 logo 右侧的所有内容自动占据剩余空间并靠右对齐 */
-.header__logo + * {
-  margin-left: auto;
+/* 核心修复：直接让导航栏靠右 */
+.header__nav {
+  margin-left: auto; /* 这行是关键，它会自动占据左侧所有剩余空间，把导航栏推到最右边 */
   display: flex;
   align-items: center;
-  gap: 28px; /* 导航链接和用户信息区之间的间距 */
+  gap: 28px;
 }
+
 /* 适配深色主题下的 Header 背景 */
 body.theme-dark_green .header,
 body.theme-gray .header {
   background: rgba(30, 41, 59, 0.85);
 }
 
-.header__logo { font-size: 1.35rem; font-weight: 800; color: var(--color-primary); letter-spacing: -0.5px; }
-.header__nav a { margin-left: 28px; color: var(--color-text-muted); font-weight: 500; font-size: 0.95rem; }
-.header__nav a:hover { color: var(--color-primary); }
-
-.footer {
-  padding: 48px 24px;
-  text-align: center;
-  color: var(--color-text-muted);
-  font-size: 0.875rem;
-  border-top: 1px solid var(--color-border);
-  margin-top: 40px;
+.header__logo {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  letter-spacing: -0.5px;
 }
+
+.header__nav a {
+  /* margin-left: 28px;  <-- 删除这一行，因为间距现在由 .header__nav 的 gap 属性控制 */
+  color: var(--color-text-muted);
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.header__nav a:hover {
+  color: var(--color-primary);
+}
+
+/* ... 其他样式保持不变 ... */
 
 /* =========================================
    4. Homepage Sections (FE-UI-01)
