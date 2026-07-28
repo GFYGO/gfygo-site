@@ -52,14 +52,17 @@ function initSidebarToggle() {
     const sidebar = document.getElementById('dashboardSidebar');
     const closeBtn = document.getElementById('sidebarClose');
     const overlay = document.getElementById('sidebarOverlay');
+    const dashboardNav = document.getElementById('dashboardNav');
 
     function openSidebar() {
         sidebar.classList.add('dashboard-sidebar--open');
+        if (dashboardNav) dashboardNav.classList.add('header__nav--open');
         overlay.classList.add('sidebar-overlay--visible');
     }
 
     function closeSidebar() {
         sidebar.classList.remove('dashboard-sidebar--open');
+        if (dashboardNav) dashboardNav.classList.remove('header__nav--open');
         overlay.classList.remove('sidebar-overlay--visible');
     }
 

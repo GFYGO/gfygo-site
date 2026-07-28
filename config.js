@@ -45,7 +45,7 @@ const AuthGuard = {
   },
   requireAuth() {
     if (!this.getToken()) {
-      window.location.href = 'login.html';
+      window.location.href = `${BASE_PATH}/login.html`;
     }
   },
   /**
@@ -53,6 +53,6 @@ const AuthGuard = {
    */
   handleAuthError() {
     this.clearToken();
-    window.location.href = 'login.html';
+    window.location.href = `${BASE_PATH}/login.html`;
   }
 };
