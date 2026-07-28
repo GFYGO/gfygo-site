@@ -1,0 +1,132 @@
+/* =========================================
+   注册页专属样式
+   ========================================= */
+
+.register-card {
+  max-width: 460px;
+}
+
+/* 选项卡容器 */
+.register-tabs {
+  display: flex;
+  background: var(--color-bg-section-alt);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  margin-bottom: 28px;
+  gap: 4px;
+}
+
+/* 单个选项卡按钮 */
+.register-tab {
+  flex: 1;
+  padding: 10px 8px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: calc(var(--radius-md) - 2px);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.register-tab:hover {
+  color: var(--color-text-main);
+  background: color-mix(in srgb, var(--color-bg-white) 70%, transparent);
+}
+
+.register-tab--active {
+  background: var(--color-bg-white);
+  color: var(--color-primary);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+/* 表单切换 */
+.register-form {
+  display: none;
+}
+
+.register-form--active {
+  display: block;
+}
+
+/* 协议勾选 */
+.register-agreement {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.register-agreement input[type="checkbox"] {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.register-agreement a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.register-agreement a:hover {
+  text-decoration: underline;
+}
+
+/* 临时访问提示 */
+.register-hint {
+  background: var(--color-bg-section-alt);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.register-hint p {
+  margin: 0;
+}
+
+/* 底部切换登录链接 */
+.register-switch {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.register-switch a {
+  color: var(--color-primary);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.register-switch a:hover {
+  text-decoration: underline;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .register-card {
+    padding: 32px 24px;
+  }
+
+  .register-tabs {
+    margin-bottom: 24px;
+  }
+
+  .register-tab {
+    font-size: 0.82rem;
+    padding: 8px 4px;
+  }
+}
