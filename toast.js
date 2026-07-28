@@ -19,32 +19,33 @@ const Toast = {
     show: function(message, type = 'error') {
         this.init();
 
-        // 限制最大数量
         const toasts = this.container.querySelectorAll('.toast');
         if (toasts.length >= this.maxToasts) {
             this.container.removeChild(toasts[0]);
         }
 
-        // 创建 DOM
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
-        toast.innerHTML = `
-            <span class="toast-message">${message}</span>
-            <button class="toast-close" aria-label="关闭">&times;</button>
-        `;
 
-        // 绑定关闭事件
-        toast.querySelector('.toast-close').onclick = () => this.remove(toast);
+        const messageSpan = document.createElement('span');
+        messageSpan.className = 'toast-message';
+        messageSpan.textContent = message;
+        toast.appendChild(messageSpan);
 
-        // 添加到容器
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'toast-close';
+        closeBtn.setAttribute('aria-label', '关闭');
+        closeBtn.innerHTML = '&times;';
+        toast.appendChild(closeBtn);
+
+        closeBtn.onclick = () => this.remove(toast);
+
         this.container.appendChild(toast);
 
-        // 触发重绘以激活 CSS 动画
         requestAnimationFrame(() => {
             toast.classList.add('toast-show');
         });
 
-        // 3秒后自动移除
         setTimeout(() => {
             this.remove(toast);
         }, 3000);
@@ -57,6 +58,12 @@ const Toast = {
             if (toast.parentNode === this.container) {
                 this.container.removeChild(toast);
             }
-        });
+        }, { once: true });
+        // 兜底：如果 transitionend 未触发，500ms 后强制移除
+        setTimeout(() => {
+            if (toast.parentNode === this.container) {
+                this.container.removeChild(toast);
+            }
+        }, 500);
     }
 };

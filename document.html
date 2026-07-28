@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文档 | GWL</title>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="icon" href="./favicon.png" type="image/png">
+</head>
+<body>
+  <header class="header">
+    <div class="header__logo">GWL Works Lab</div>
+    <button class="header__toggle" id="menuToggle" aria-label="切换菜单">☰</button>
+    <nav class="header__nav" id="headerNav">
+      <a href="./index.html">首页</a>
+      <a href="./document.html" style="color: var(--color-primary); font-weight: 600;">文档</a>
+      <a href="./login.html">登录</a>
+      <a href="./register.html">注册</a>
+    </nav>
+    <div class="header__actions">
+      <div id="global-notifications-container" class="notification-toast"></div>
+      <div id="auth-container"></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="home-section">
+      <h1 class="home-section__title">文档中心</h1>
+      <p class="home-section__desc">这里是 GWL Works Lab 的文档中心，更多文档正在编写中。</p>
+    </section>
+
+    <section class="home-section home-section--alt">
+      <h2 class="home-section__title">开发文档</h2>
+      <div class="feature-grid">
+        <a class="feature-tile" href="https://www.bilibili.com/video/BV1g34y1j7e5/">
+          <div class="feature-tile__img">📚</div>
+          <div class="feature-tile__content">
+            <div class="feature-tile__title">学习资料</div>
+            <div class="feature-tile__desc">查看完整的学习文档与API接口说明</div>
+          </div>
+        </a>
+        <a class="feature-tile" href="#">
+          <div class="feature-tile__img">🚧</div>
+          <div class="feature-tile__content">
+            <div class="feature-tile__title">文档编写中</div>
+            <div class="feature-tile__desc">更多文档正在编写中，敬请期待</div>
+          </div>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer__container">
+      <div class="footer__top">
+        <div class="footer__brand">
+          <h3 class="footer__logo">GWL Works Lab</h3>
+          <p class="footer__slogan">探索学习的无限可能</p>
+        </div>
+        <div class="footer__links">
+          <div class="footer__links-group">
+            <h4>快速链接</h4>
+            <a href="./index.html">首页</a>
+            <a href="./document.html">文档</a>
+            <a href="./login.html">登录</a>
+          </div>
+          <div class="footer__links-group">
+            <h4>关于</h4>
+            <a href="#">关于我们</a>
+            <a href="#">隐私政策</a>
+            <a href="#">服务条款</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer__bottom">
+        <p>&copy; 2026 GFYGO. All rights reserved.</p>
+        <div class="footer__social">
+          <a href="#" aria-label="GitHub">GitHub</a>
+          <a href="#" aria-label="Bilibili">Bilibili</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
+
+  <script src="./config.js"></script>
+  <script src="./theme.js"></script>
+  <script src="./toast.js"></script>
+  <script src="./index.js"></script>
+</body>
+</html>

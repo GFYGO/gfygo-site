@@ -3,31 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GWL | 模板原型</title>
-  <link rel="stylesheet" href="../styles.css">
-  <link rel="icon" href="../favicon.png" type="image/png">
+  <title>注册 | GWL</title>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./login.css">
+  <link rel="icon" href="./favicon.png" type="image/png">
 </head>
 <body>
   <header class="header">
     <div class="header__logo">GWL Works Lab</div>
     <button class="header__toggle" id="menuToggle" aria-label="切换菜单">☰</button>
     <nav class="header__nav" id="headerNav">
-      <a href="../index.html">首页</a>
-      <a href="../document.html">文档</a>
-      <a href="../login.html">登录</a>
-      <a href="../register.html">注册</a>
+      <a href="./index.html">首页</a>
+      <a href="./document.html">文档</a>
+      <a href="./login.html">登录</a>
+      <a href="./register.html" style="color: var(--color-primary); font-weight: 600;">注册</a>
     </nav>
     <div class="header__actions">
       <div id="auth-container"></div>
     </div>
   </header>
 
-  <main>
-    <section class="home-section">
-      <h1 class="home-section__title">模板原型</h1>
-      <p class="home-section__desc">这是一个用于设计和测试的模板原型页面。</p>
-    </section>
-  </main>
+  <div class="login-page">
+    <div class="login-card">
+      <h2 class="login-card__title">注册账号</h2>
+      <p style="text-align: center; color: var(--color-text-muted); margin-bottom: 24px;">注册功能开发中，敬请期待。</p>
+      <a href="./login.html" class="btn-primary" style="display: inline-block; text-align: center; text-decoration: none;">返回登录</a>
+    </div>
+  </div>
 
   <footer class="footer">
     <div class="footer__container">
@@ -39,9 +41,9 @@
         <div class="footer__links">
           <div class="footer__links-group">
             <h4>快速链接</h4>
-            <a href="../index.html">首页</a>
-            <a href="../document.html">文档</a>
-            <a href="../login.html">登录</a>
+            <a href="./index.html">首页</a>
+            <a href="./document.html">文档</a>
+            <a href="./login.html">登录</a>
           </div>
           <div class="footer__links-group">
             <h4>关于</h4>
@@ -63,9 +65,9 @@
 
   <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
-  <script src="../config.js"></script>
-  <script src="../theme.js"></script>
-  <script src="../toast.js"></script>
-  <script src="../index.js"></script>
+  <script src="./config.js"></script>
+  <script src="./theme.js"></script>
+  <script src="./toast.js"></script>
+  <script src="./index.js"></script>
 </body>
 </html>

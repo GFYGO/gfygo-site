@@ -45,33 +45,22 @@ function initMobileMenu() {
  * 移动端侧边栏切换（dashboard 页面）
  */
 function initMobileSidebar() {
-  const menuToggle = document.getElementById('menuToggle');
-  const sidebar = document.getElementById('profileSidebar');
+  const sidebar = document.getElementById('dashboardSidebar');
   const overlay = document.getElementById('sidebarOverlay');
   const sidebarClose = document.getElementById('sidebarClose');
 
   if (!sidebar) return;
 
-  // 汉堡菜单打开侧边栏
-  if (menuToggle) {
-    menuToggle.addEventListener('click', () => {
-      sidebar.classList.add('profile-sidebar--open');
-      if (overlay) overlay.classList.add('sidebar-overlay--visible');
-    });
-  }
-
-  // 关闭按钮
   if (sidebarClose) {
     sidebarClose.addEventListener('click', closeSidebar);
   }
 
-  // 点击遮罩层关闭
   if (overlay) {
     overlay.addEventListener('click', closeSidebar);
   }
 
   function closeSidebar() {
-    sidebar.classList.remove('profile-sidebar--open');
+    sidebar.classList.remove('dashboard-sidebar--open');
     if (overlay) overlay.classList.remove('sidebar-overlay--visible');
   }
 }
@@ -106,20 +95,20 @@ async function fetchAuthStatus() {
     return;
   }
   try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/auth/status`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        const data = await response.json();
-        if (response.ok && data.code === 200) {
-            renderAuthStatus(data.data.user);
-        } else {
-            // 如果 token 无效或过期，按未登录状态处理
-            console.warn('认证状态检查失败:', data.msg);
-            renderAuthStatus(null);
-        }
+    const response = await fetch(`${API_BASE_URL}/api/v1/auth/status`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    const data = await response.json();
+    if (response.ok && data.code === 200) {
+      renderAuthStatus(data.data.user);
+    } else {
+      // 如果 token 无效或过期，按未登录状态处理
+      console.warn('认证状态检查失败:', data.msg);
+      renderAuthStatus(null);
+    }
   } catch (error) {
     console.error('检查认证状态时发生网络错误:', error);
     renderAuthStatus(null);
@@ -134,22 +123,22 @@ function renderGlobalNotifications(notifications) {
   const container = document.getElementById('global-notifications-container');
   if (!container) return;
 
-  // 清空容器
   container.innerHTML = '';
 
   if (!notifications || notifications.length === 0) {
-    container.style.display = 'none'; // 如果没有通知，可以隐藏容器
+    container.style.display = 'none';
     return;
   }
 
-  // 遍历通知数组，生成 DOM 元素
   notifications.forEach(notification => {
     const notificationEl = document.createElement('div');
     notificationEl.className = 'notification-item';
-    notificationEl.innerHTML = `
-      <h3>${notification.title}</h3>
-      <p>${notification.content}</p>
-    `;
+    const h3 = document.createElement('h3');
+    h3.textContent = notification.title;
+    const p = document.createElement('p');
+    p.textContent = notification.content;
+    notificationEl.appendChild(h3);
+    notificationEl.appendChild(p);
     container.appendChild(notificationEl);
   });
 }
@@ -164,32 +153,43 @@ function renderAuthStatus(userInfo) {
   const authContainer = document.getElementById('auth-container');
   if (!authContainer) return;
 
-  // 清空容器
   authContainer.innerHTML = '';
 
-  // 获取导航栏中的登录/注册链接
   const navLoginLink = document.querySelector('.header__nav a[href*="login"]');
   const navRegisterLink = document.querySelector('.header__nav a[href*="register"]');
 
   if (userInfo) {
-    // --- 已登录：显示头像 + 用户名 + 退出 ---
     const avatar = (userInfo.profile && userInfo.profile.avatar) ? userInfo.profile.avatar : '';
     const defaultAvatar = `${BASE_PATH}/favicon.png`;
 
     const userEl = document.createElement('div');
     userEl.className = 'user-info';
-    userEl.innerHTML = `
-      <img src="${avatar || defaultAvatar}" alt="${userInfo.username}" class="user-avatar" onerror="this.src='${defaultAvatar}'">
-      <a href="${BASE_PATH}/user/dashboard.html" class="username">${userInfo.username}</a>
-      <a href="#" class="logout-link" id="logoutBtn">退出</a>
-    `;
+
+    const img = document.createElement('img');
+    img.src = avatar || defaultAvatar;
+    img.alt = userInfo.username;
+    img.className = 'user-avatar';
+    img.onerror = function() { this.src = defaultAvatar; };
+    userEl.appendChild(img);
+
+    const usernameLink = document.createElement('a');
+    usernameLink.href = `${BASE_PATH}/user/dashboard.html`;
+    usernameLink.className = 'username';
+    usernameLink.textContent = userInfo.username;
+    userEl.appendChild(usernameLink);
+
+    const logoutLink = document.createElement('a');
+    logoutLink.href = '#';
+    logoutLink.className = 'logout-link';
+    logoutLink.id = 'logoutBtn';
+    logoutLink.textContent = '退出';
+    userEl.appendChild(logoutLink);
+
     authContainer.appendChild(userEl);
 
-    // 隐藏导航栏中的「登录/注册」
     if (navLoginLink) navLoginLink.style.display = 'none';
     if (navRegisterLink) navRegisterLink.style.display = 'none';
 
-    // 绑定退出登录
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
       logoutBtn.addEventListener('click', (e) => {
@@ -199,7 +199,6 @@ function renderAuthStatus(userInfo) {
       });
     }
   } else {
-    // --- 未登录：导航栏已有「登录/注册」，auth-container 留空 ---
     if (navLoginLink) navLoginLink.style.display = '';
     if (navRegisterLink) navRegisterLink.style.display = '';
   }

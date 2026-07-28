@@ -12,6 +12,8 @@
 
 /* ========== 左侧侧边栏 ========== */
 .dashboard-sidebar {
+    width: -moz-fit-content;
+    width: -webkit-fit-content;
     width: fit-content;
     max-width: 260px;
     flex-shrink: 0;
@@ -394,6 +396,7 @@
     background: rgba(255, 255, 255, 0.2);
     color: #fff;
     border: 1px solid rgba(255, 255, 255, 0.3);
+    -webkit-backdrop-filter: blur(4px);
     backdrop-filter: blur(4px);
 }
 

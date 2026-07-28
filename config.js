@@ -18,14 +18,18 @@ const TOKEN_KEY = 'auth_token';
  */
 const AuthGuard = {
   getToken() {
-    const tokenData = JSON.parse(localStorage.getItem(TOKEN_KEY));
-    if (!tokenData) return null;
-    // 动态过期校验逻辑
-    if (Date.now() - tokenData.timestamp > tokenData.expiresIn) {
+    try {
+      const tokenData = JSON.parse(localStorage.getItem(TOKEN_KEY));
+      if (!tokenData) return null;
+      if (Date.now() - tokenData.timestamp > tokenData.expiresIn) {
+        this.clearToken();
+        return null;
+      }
+      return tokenData.token;
+    } catch (e) {
       this.clearToken();
       return null;
     }
-    return tokenData.token;
   },
   /**
    * 存储 Token
