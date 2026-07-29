@@ -124,8 +124,14 @@ function initSettingsButton() {
 }
 
 function initTabSwitching() {
-    // 默认显示主页
-    switchTab('home');
+    // 恢复上次保存的 tab，默认主页
+    const savedTab = localStorage.getItem('dashboard_active_tab') || 'home';
+    const hasPanel = document.getElementById(`panel-${savedTab}`);
+    if (hasPanel) {
+        switchTab(savedTab, true);
+    } else {
+        switchTab('home', true);
+    }
 
     // 绑定静态项点击
     bindTabClicks();
@@ -161,7 +167,11 @@ function closeMobileSidebar() {
     if (overlay) overlay.classList.remove('sidebar-overlay--visible');
 }
 
-async function switchTab(tab) {
+async function switchTab(tab, skipSave = false) {
+    if (!skipSave) {
+        localStorage.setItem('dashboard_active_tab', tab);
+    }
+
     // 动态项懒加载
     if (dynamicMenuCache.has(tab) && !dynamicMenuCache.get(tab).loaded) {
         await loadPanelContent(tab);
@@ -246,6 +256,15 @@ async function loadDynamicMenu(token) {
         });
         // 重新绑定 tab 切换（包含新动态项）
         bindTabClicks();
+
+        // 若上次保存的 tab 是动态项，恢复切换
+        const savedTab = localStorage.getItem('dashboard_active_tab');
+        if (savedTab && dynamicMenuCache.has(savedTab)) {
+            const currentActive = document.querySelector('.sidebar__nav-item.active')?.dataset.tab;
+            if (currentActive !== savedTab) {
+                switchTab(savedTab, true);
+            }
+        }
     } catch (e) {
         console.error('[menu] 加载动态菜单失败', e);
     }
