@@ -22,10 +22,27 @@ const STATIC_TABS = ['workspace', 'home', 'notify', 'settings'];
 // 静态 panel 首次加载标记
 const staticPanelLoaded = new Set();
 
+// URL 中携带的邮箱验证码（用于邮件链接跳转后自动填入）
+let pendingEmailCode = null;
+
 document.addEventListener('DOMContentLoaded', async () => {
     initSidebarToggle();
     initSettingsButton();
     initTabSwitching();
+
+    // 读取 URL 参数中的验证码
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        if (code && /^\d{6}$/.test(code)) {
+            pendingEmailCode = code;
+            // 清除 URL 参数（避免刷新重复触发）
+            const cleanUrl = window.location.origin + window.location.pathname + window.location.hash;
+            window.history.replaceState({}, document.title, cleanUrl);
+        }
+    } catch (e) {
+        console.warn('解析 URL 参数失败', e);
+    }
 
     // 访客视角模式：直接跳转首页
     if (localStorage.getItem('guest_view_mode') === 'true') {
@@ -513,6 +530,57 @@ function showEmailVerificationSection(email) {
 
     if (resendBtn) {
         resendBtn.addEventListener('click', handleResendCode);
+    }
+
+    // 若 URL 中携带了验证码：自动填入 + 复制到剪贴板
+    if (pendingEmailCode && codeInput) {
+        codeInput.value = pendingEmailCode;
+
+        // 尝试复制到剪贴板
+        let copied = false;
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(pendingEmailCode).then(() => {
+                    copied = true;
+                }).catch(() => {
+                    copied = fallbackCopy(pendingEmailCode);
+                });
+            } else {
+                copied = fallbackCopy(pendingEmailCode);
+            }
+        } catch (e) {
+            console.warn('复制验证码失败', e);
+        }
+
+        if (typeof Toast !== 'undefined') {
+            setTimeout(() => {
+                if (copied) {
+                    Toast.show('验证码已自动填入并复制到剪贴板 ✓', 'success');
+                } else {
+                    Toast.show('验证码已自动填入，请手动复制', 'info');
+                }
+            }, 300);
+        }
+
+        // 一次性消费
+        pendingEmailCode = null;
+    }
+}
+
+// 兼容旧浏览器的复制方案
+function fallbackCopy(text) {
+    try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return ok;
+    } catch (e) {
+        return false;
     }
 }
 
