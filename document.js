@@ -227,8 +227,9 @@ function renderDocSidebarTree(keyword = '') {
 
   // 先做权限过滤（前端预过滤）
   const lvl = __DOC.user.permissionLevel;
+  const uid = __DOC.user.id;
   let visibleDocs = __DOC.docs.filter(doc =>
-    canViewByBits(doc.permission_bits, doc.visibility, lvl)
+    (uid && doc.author_id === uid) || canViewByBits(doc.permission_bits, doc.visibility, lvl)
   );
 
   // 可见类型 tab 过滤（public / group / private）
