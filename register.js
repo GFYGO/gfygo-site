@@ -5,13 +5,10 @@
 
 const REGISTER_TABS = ['email', 'phone', 'temp'];
 let currentTab = 'email';
-let emailCodeCountdown = 0;
-let emailCodeTimer = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     initTabSwitching();
     initForms();
-    initSendCodeButton();
 });
 
 function initTabSwitching() {
@@ -109,10 +106,10 @@ function validateEmail(email) {
 }
 
 function validatePhone(phone) {
-    // 接受 +86 前缀（+8613800138000）或纯 11 位国内号
-    const re = /^(\+?86)?1[3-9]\d{9}$/;
+    // +86 开头，后接 11 位数字
+    const re = /^\+86[0-9]{11}$/;
     if (!re.test(phone)) {
-        Toast.show('请输入有效的手机号码（支持 +86 前缀）');
+        Toast.show('请输入有效的手机号（+86开头）');
         return false;
     }
     return true;
@@ -137,7 +134,6 @@ async function handleEmailRegister(e) {
     const form = e.target;
     const formData = new FormData(form);
     const email = formData.get('email').trim();
-    const code = formData.get('code').trim();
     const username = formData.get('username').trim();
     const password = formData.get('password');
     const confirmPassword = formData.get('confirm_password');
@@ -145,10 +141,6 @@ async function handleEmailRegister(e) {
     const cfToken = getActiveTurnstileToken();
 
     if (!validateEmail(email)) return;
-    if (!code || !/^\d{6}$/.test(code)) {
-        Toast.show('请输入6位邮箱验证码');
-        return;
-    }
     if (!validateUsername(username)) return;
     if (!validatePasswordMatch(password, confirmPassword)) return;
     if (!agree) {
@@ -166,7 +158,6 @@ async function handleEmailRegister(e) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 email,
-                code,
                 username,
                 password,
                 cf_turnstile_token: cfToken
@@ -188,89 +179,6 @@ async function handleEmailRegister(e) {
         console.error('邮箱注册请求异常:', error);
         Toast.show('网络错误，请稍后重试');
     }
-}
-
-function initSendCodeButton() {
-    const btn = document.getElementById('sendEmailCodeBtn');
-    if (!btn) return;
-    btn.addEventListener('click', handleSendEmailCode);
-}
-
-async function handleSendEmailCode() {
-    const emailInput = document.getElementById('emailInput');
-    const codeInput = document.getElementById('emailCodeInput');
-    const btn = document.getElementById('sendEmailCodeBtn');
-    if (!emailInput || !btn) return;
-
-    const email = emailInput.value.trim();
-    if (!validateEmail(email)) return;
-
-    if (emailCodeCountdown > 0) {
-        Toast.show(`请等待 ${emailCodeCountdown} 秒后重试`);
-        return;
-    }
-
-    const cfToken = getActiveTurnstileToken();
-    if (!cfToken) {
-        Toast.show('请先完成人机验证');
-        return;
-    }
-
-    btn.disabled = true;
-    const originalText = btn.textContent;
-    btn.textContent = '发送中...';
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/auth/register/email/send-code`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, cf_turnstile_token: cfToken })
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.code === 200) {
-            Toast.show('验证码已发送，请查收邮箱', 'success');
-            if (codeInput) {
-                codeInput.focus();
-                codeInput.value = '';
-            }
-            startEmailCodeCountdown(data.data?.ttl || 60);
-        } else {
-            Toast.show(data.msg || '发送失败，请重试');
-            btn.disabled = false;
-            btn.textContent = originalText;
-            resetTurnstile();
-        }
-    } catch (error) {
-        console.error('发送验证码异常:', error);
-        Toast.show('网络错误，请稍后重试');
-        btn.disabled = false;
-        btn.textContent = originalText;
-    }
-}
-
-function startEmailCodeCountdown(ttl) {
-    // 服务端防刷是 60 秒，UI 倒计时取 min(60, ttl)
-    emailCodeCountdown = Math.min(60, Math.max(1, Math.floor(ttl / 1)));
-    const btn = document.getElementById('sendEmailCodeBtn');
-    if (!btn) return;
-
-    if (emailCodeTimer) clearInterval(emailCodeTimer);
-
-    const tick = () => {
-        if (emailCodeCountdown <= 0) {
-            clearInterval(emailCodeTimer);
-            emailCodeTimer = null;
-            btn.disabled = false;
-            btn.textContent = '重新发送';
-            return;
-        }
-        btn.textContent = `${emailCodeCountdown} 秒后重发`;
-        emailCodeCountdown--;
-    };
-    tick();
-    emailCodeTimer = setInterval(tick, 1000);
 }
 
 async function handlePhoneRegister(e) {

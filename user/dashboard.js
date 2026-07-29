@@ -49,6 +49,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderUserProfile(user);
             renderPermissionButtons(user.permission_level);
             renderTopNavAuth(user);
+
+            // 检查邮箱验证状态
+            checkEmailVerificationStatus(token, user.email);
         }
     } catch (error) {
         console.error('获取用户信息失败:', error);
@@ -283,4 +286,140 @@ function handlePermissionClick(level) {
     const dashboardPath = encodeURIComponent(window.location.pathname + window.location.search);
     const adminUrl = `${BASE_PATH}/admin/admin${level}.html?from=${dashboardPath}`;
     window.location.href = adminUrl;
+}
+
+// =========================================
+// 邮箱验证相关函数
+// =========================================
+
+async function checkEmailVerificationStatus(token, email) {
+    if (!email) {
+        // 无邮箱用户不显示验证区域
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/auth/email-status`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await response.json();
+        if (response.ok && data.code === 200) {
+            if (!data.data.email_verified) {
+                showEmailVerificationSection(email);
+            }
+        }
+    } catch (error) {
+        console.error('检查邮箱验证状态失败:', error);
+    }
+}
+
+function showEmailVerificationSection(email) {
+    const section = document.getElementById('emailVerificationSection');
+    const descEl = document.getElementById('verificationDesc');
+
+    if (!section) return;
+
+    // 显示邮箱信息
+    if (descEl) {
+        descEl.textContent = `验证邮箱: ${email}`;
+    }
+
+    section.style.display = 'block';
+
+    // 绑定验证按钮
+    const verifyBtn = document.getElementById('verifyEmailBtn');
+    const codeInput = document.getElementById('verificationCodeInput');
+    const resendBtn = document.getElementById('resendCodeBtn');
+
+    if (verifyBtn && codeInput) {
+        verifyBtn.addEventListener('click', () => handleVerifyEmail(codeInput.value));
+    }
+
+    if (resendBtn) {
+        resendBtn.addEventListener('click', handleResendCode);
+    }
+}
+
+async function handleVerifyEmail(code) {
+    if (!code || code.length !== 6) {
+        Toast.show('请输入6位验证码');
+        return;
+    }
+
+    const token = AuthGuard.getToken();
+    if (!token) {
+        AuthGuard.handleAuthError();
+        return;
+    }
+
+    const verifyBtn = document.getElementById('verifyEmailBtn');
+    const codeInput = document.getElementById('verificationCodeInput');
+
+    try {
+        verifyBtn.disabled = true;
+        verifyBtn.textContent = '验证中...';
+
+        const response = await fetch(`${API_BASE_URL}/api/v1/auth/verify-email`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ code })
+        });
+
+        const data = await response.json();
+        if (response.ok && data.code === 200) {
+            Toast.show('邮箱验证成功！', 'success');
+            // 隐藏验证区域
+            const section = document.getElementById('emailVerificationSection');
+            if (section) section.style.display = 'none';
+        } else {
+            Toast.show(data.msg || '验证失败');
+        }
+    } catch (error) {
+        console.error('邮箱验证失败:', error);
+        Toast.show('网络错误，请重试');
+    } finally {
+        verifyBtn.disabled = false;
+        verifyBtn.textContent = '验证';
+        codeInput.value = '';
+    }
+}
+
+async function handleResendCode() {
+    const token = AuthGuard.getToken();
+    if (!token) {
+        AuthGuard.handleAuthError();
+        return;
+    }
+
+    const resendBtn = document.getElementById('resendCodeBtn');
+
+    try {
+        resendBtn.disabled = true;
+        resendBtn.textContent = '发送中...';
+
+        const response = await fetch(`${API_BASE_URL}/api/v1/auth/resend-verification`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        const data = await response.json();
+        if (response.ok && data.code === 200) {
+            Toast.show('验证码已发送至您的邮箱', 'success');
+        } else {
+            Toast.show(data.msg || '发送失败');
+        }
+    } catch (error) {
+        console.error('重发验证码失败:', error);
+        Toast.show('网络错误，请重试');
+    } finally {
+        resendBtn.disabled = false;
+        resendBtn.textContent = '重新发送验证码';
+    }
 }

@@ -82,48 +82,6 @@
   text-decoration: underline;
 }
 
-/* 验证码输入行（输入框 + 发送按钮） */
-.form-group--code {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.form-group--code input {
-  flex: 1;
-  min-width: 0;
-  letter-spacing: 4px;
-  font-family: 'Courier New', monospace;
-  font-size: 1.05rem;
-  text-align: center;
-}
-
-.btn-send-code {
-  flex-shrink: 0;
-  padding: 12px 14px;
-  background: var(--color-bg-section-alt);
-  color: var(--color-text-main);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s ease;
-  min-width: 110px;
-}
-
-.btn-send-code:hover:not(:disabled) {
-  background: var(--color-primary);
-  color: #fff;
-  border-color: var(--color-primary);
-}
-
-.btn-send-code:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-
 /* 临时访问提示 */
 .register-hint {
   background: var(--color-bg-section-alt);

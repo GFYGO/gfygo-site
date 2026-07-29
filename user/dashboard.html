@@ -25,6 +25,22 @@
                 </a>
             </nav>
 
+            <!-- 邮箱验证区域（未验证时显示） -->
+            <div class="sidebar__verification" id="emailVerificationSection" style="display: none;">
+                <div class="verification-card">
+                    <div class="verification-header">
+                        <span class="verification-icon">📧</span>
+                        <span class="verification-title">验证邮箱</span>
+                    </div>
+                    <p class="verification-desc" id="verificationDesc">您的邮箱尚未验证</p>
+                    <div class="verification-form">
+                        <input type="text" class="verification-input" id="verificationCodeInput" placeholder="输入6位验证码" maxlength="6">
+                        <button class="verification-btn" id="verifyEmailBtn">验证</button>
+                    </div>
+                    <button class="verification-resend" id="resendCodeBtn">重新发送验证码</button>
+                </div>
+            </div>
+
             <div class="sidebar__footer">
                 <div class="sidebar__user" id="sidebarUserTrigger" data-tab="home" title="查看个人主页">
                     <div class="sidebar__avatar">
