@@ -808,6 +808,34 @@ body.theme-gray .footer {
 .doc-sidebar__home-icon { font-size: 1.2rem; }
 
 .doc-sidebar__search { padding: 12px 16px; border-bottom: 1px solid var(--color-border); }
+
+/* 可见类型筛选 tab：公共 / 组 / 私有 */
+.doc-sidebar__tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px 0;
+}
+.doc-tab {
+  flex: 1;
+  padding: 7px 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-white);
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  text-align: center;
+  user-select: none;
+}
+.doc-tab:hover { color: var(--color-primary); border-color: color-mix(in srgb, var(--color-primary) 50%, var(--color-border)); }
+.doc-tab.is-active {
+  color: #fff;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
 .doc-search-input {
   width: 100%;
   padding: 10px 12px;

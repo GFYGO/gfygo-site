@@ -16,7 +16,8 @@ const __DOC = {
   currentSlug: null,       // 当前详情页 slug（用于 active 高亮）
   revisions: [],           // 当前文档修订缓存
   markedReady: false,      // marked.js 是否已加载
-  markedLoading: false     // marked.js 是否正在加载中（防止并发脚本注入）
+  markedLoading: false,    // marked.js 是否正在加载中（防止并发脚本注入）
+  visFilter: 'public'      // 侧栏可见类型筛选：public / group / private
 };
 
 const DOC_LEVEL_ROLES = {
@@ -44,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderDocSidebarTree();
       renderHomeCategoryGrids();
       bindDocSearch();
+      bindVisTabs();
       bindRevisionsToggle();
       // 最后按当前 hash 决定去哪
       routeByHash();
@@ -222,9 +224,14 @@ function renderDocSidebarTree(keyword = '') {
 
   // 先做权限过滤（前端预过滤）
   const lvl = __DOC.user.permissionLevel;
-  const visibleDocs = __DOC.docs.filter(doc =>
+  let visibleDocs = __DOC.docs.filter(doc =>
     canViewByBits(doc.permission_bits, doc.visibility, lvl)
   );
+
+  // 可见类型 tab 过滤（public / group / private）
+  if (__DOC.visFilter) {
+    visibleDocs = visibleDocs.filter(d => d.visibility === __DOC.visFilter);
+  }
 
   // 搜索过滤（标题 or 摘要）
   const kw = keyword.trim().toLowerCase();
@@ -233,7 +240,9 @@ function renderDocSidebarTree(keyword = '') {
   );
 
   if (list.length === 0) {
-    root.innerHTML = `<p class="doc-loading-text">${__DOC.docs.length === 0 ? '暂无可访问的文档' : '没有匹配的文档'}</p>`;
+    const reason = __DOC.docs.length === 0 ? '暂无可访问的文档'
+      : (kw ? `没有匹配「${kw}」的文档` : `当前「${({public:'公共',group:'组',private:'私有'})[__DOC.visFilter] || '全部'}」分类下暂无文档`);
+    root.innerHTML = `<p class="doc-loading-text">${reason}</p>`;
     return;
   }
 
@@ -284,9 +293,13 @@ function docItemHTML(d) {
 // =========================================
 function renderHomeCategoryGrids() {
   const lvl = __DOC.user.permissionLevel;
-  const visibleDocs = __DOC.docs.filter(doc =>
+  let visibleDocs = __DOC.docs.filter(doc =>
     canViewByBits(doc.permission_bits, doc.visibility, lvl)
   );
+  // 可见类型 tab 过滤（与侧边栏保持一致）
+  if (__DOC.visFilter) {
+    visibleDocs = visibleDocs.filter(d => d.visibility === __DOC.visFilter);
+  }
 
   const mountPoints = document.querySelectorAll('[data-category-slug]');
   let anyEmpty = true;
@@ -326,6 +339,36 @@ function bindDocSearch() {
   input.addEventListener('input', e => {
     clearTimeout(t);
     t = setTimeout(() => renderDocSidebarTree(e.target.value || ''), 150);
+  });
+}
+
+// =========================================
+// 6.1 可见类型 tab（公共 / 组 / 私有）
+// =========================================
+function bindVisTabs() {
+  const wrap = document.getElementById('docVisTabs');
+  if (!wrap) return;
+  const tabs = wrap.querySelectorAll('.doc-tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const vis = tab.getAttribute('data-vis');
+      // 再次点击已激活的 tab 视为取消筛选（回到全部）
+      if (__DOC.visFilter === vis) {
+        __DOC.visFilter = '';
+        tabs.forEach(t => { t.classList.remove('is-active'); t.setAttribute('aria-selected', 'false'); });
+      } else {
+        __DOC.visFilter = vis;
+        tabs.forEach(t => {
+          const on = t === tab;
+          t.classList.toggle('is-active', on);
+          t.setAttribute('aria-selected', String(on));
+        });
+      }
+      // 保留搜索关键字一起重渲染
+      const input = document.getElementById('docSearchInput');
+      renderDocSidebarTree(input ? input.value : '');
+      renderHomeCategoryGrids();
+    });
   });
 }
 

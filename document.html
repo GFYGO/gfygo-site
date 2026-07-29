@@ -36,6 +36,11 @@
           <span class="doc-sidebar__home-text">返回文档主页</span>
         </a>
       </div>
+      <div class="doc-sidebar__tabs" id="docVisTabs" role="tablist" aria-label="按可见类型筛选">
+        <button class="doc-tab is-active" data-vis="public"  role="tab" aria-selected="true">公共</button>
+        <button class="doc-tab"           data-vis="group"   role="tab" aria-selected="false">组</button>
+        <button class="doc-tab"           data-vis="private" role="tab" aria-selected="false">私有</button>
+      </div>
       <div class="doc-sidebar__search">
         <input type="text" id="docSearchInput" class="doc-search-input" placeholder="🔍 搜索文档标题..." aria-label="搜索文档">
       </div>
