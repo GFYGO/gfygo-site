@@ -28,7 +28,6 @@ let pendingEmailCode = null;
 document.addEventListener('DOMContentLoaded', async () => {
     initSidebarToggle();
     initSettingsButton();
-    initLogoutButton();
     initTabSwitching();
 
     // 读取 URL 参数中的验证码
@@ -95,6 +94,7 @@ function initSidebarToggle() {
     const sidebar = document.getElementById('dashboardSidebar');
     const closeBtn = document.getElementById('sidebarClose');
     const overlay = document.getElementById('sidebarOverlay');
+    const dashboardNav = document.getElementById('dashboardNav');
 
     function openSidebar() {
         sidebar.classList.add('dashboard-sidebar--open');
@@ -119,15 +119,13 @@ function initSettingsButton() {
             closeMobileSidebar();
         });
     }
-}
 
-function initLogoutButton() {
-    const logoutBtn = document.getElementById('logoutBtnMobile');
+    const logoutBtn = document.getElementById('sidebarLogoutBtn');
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', (e) => {
-            e.preventDefault();
+        logoutBtn.addEventListener('click', () => {
             AuthGuard.clearToken();
             localStorage.removeItem('guest_view_mode');
+            localStorage.removeItem('dashboard_active_tab');
             window.location.href = `${BASE_PATH}/index.html`;
         });
     }
