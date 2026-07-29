@@ -28,6 +28,10 @@
                     <span class="sidebar__nav-icon">🔔</span>
                     <span class="sidebar__nav-text">通知中心</span>
                 </a>
+                <a href="#" class="sidebar__nav-item" data-tab="personal-docs">
+                    <span class="sidebar__nav-icon">📁</span>
+                    <span class="sidebar__nav-text">个人文档</span>
+                </a>
                 <!-- 动态项挂载点（由 dashboard.js 从后端拉取并渲染） -->
                 <div class="sidebar__nav-divider" id="dynamicMenuDivider" style="display:none;"></div>
                 <div id="dynamicMenuContainer"></div>
@@ -108,6 +112,50 @@
                             <button class="theme-opt" data-theme="green">护眼绿</button>
                             <button class="theme-opt" data-theme="gray">灰色</button>
                             <button class="theme-opt" data-theme="dark_green">暗绿</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 个人文档 -->
+                <section class="tab-panel" id="panel-personal-docs" style="display: none;">
+                    <!-- 文档列表视图 -->
+                    <div class="pdocs-view" id="pdocs-view-list">
+                        <div class="pdocs-toolbar">
+                            <h2 class="panel-title">个人文档</h2>
+                            <div class="pdocs-toolbar-actions">
+                                <button class="pdocs-btn pdocs-btn--primary" id="pdocsNewBtn">+ 新建文档</button>
+                                <button class="pdocs-btn pdocs-btn--secondary" id="pdocsTrashBtn">🗑 回收站</button>
+                            </div>
+                        </div>
+                        <div class="pdocs-doc-grid" id="pdocsListContainer">
+                            <p class="loading-text">加载中...</p>
+                        </div>
+                    </div>
+
+                    <!-- 编辑器视图 -->
+                    <div class="pdocs-view" id="pdocs-view-editor" style="display: none;">
+                        <div class="pdocs-editor-toolbar">
+                            <button class="pdocs-btn pdocs-btn--secondary" id="pdocsBackBtn">← 返回</button>
+                            <input type="text" class="pdocs-title-input" id="pdocsTitleInput" placeholder="文档标题" maxlength="200">
+                            <button class="pdocs-btn pdocs-btn--ghost" id="pdocsPreviewToggleBtn">👁 预览</button>
+                            <button class="pdocs-btn pdocs-btn--primary" id="pdocsSaveBtn">💾 保存</button>
+                        </div>
+                        <div class="pdocs-editor-body">
+                            <textarea class="pdocs-content-input" id="pdocsContentInput" placeholder="使用 Markdown 编写文档..."></textarea>
+                            <div class="pdocs-preview" id="pdocsPreview" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- 回收站视图 -->
+                    <div class="pdocs-view" id="pdocs-view-trash" style="display: none;">
+                        <div class="pdocs-toolbar">
+                            <h2 class="panel-title">回收站</h2>
+                            <div class="pdocs-toolbar-actions">
+                                <button class="pdocs-btn pdocs-btn--secondary" id="pdocsTrashBackBtn">← 返回文档列表</button>
+                            </div>
+                        </div>
+                        <div class="pdocs-trash-list" id="pdocsTrashContainer">
+                            <p class="loading-text">加载中...</p>
                         </div>
                     </div>
                 </section>

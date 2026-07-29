@@ -926,3 +926,407 @@ body.theme-dark_green .calendar-day--checked {
     border-color: var(--color-primary, #2ea043);
     color: var(--color-primary, #2ea043);
 }
+
+
+/* =========================================
+   个人文档样式
+   ========================================= */
+
+.pdocs-view {
+    width: 100%;
+}
+
+/* 工具栏 */
+.pdocs-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.pdocs-toolbar-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* 通用按钮 */
+.pdocs-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 16px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md, 8px);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    background: transparent;
+}
+
+.pdocs-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.pdocs-btn--primary {
+    background: var(--color-primary, #2ea043);
+    color: #fff;
+}
+
+.pdocs-btn--primary:hover:not(:disabled) {
+    background: var(--color-primary-hover, #2c974a);
+}
+
+.pdocs-btn--secondary {
+    background: var(--color-bg-white, #fff);
+    color: var(--color-text-main, #333);
+    border-color: var(--color-border, #ddd);
+}
+
+.pdocs-btn--secondary:hover:not(:disabled) {
+    border-color: var(--color-primary, #2ea043);
+    color: var(--color-primary, #2ea043);
+}
+
+.pdocs-btn--ghost {
+    background: transparent;
+    color: var(--color-text-muted, #666);
+}
+
+.pdocs-btn--ghost:hover:not(:disabled) {
+    background: var(--color-bg-white, #fff);
+    color: var(--color-text-main, #333);
+}
+
+.pdocs-btn--danger {
+    background: transparent;
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
+.pdocs-btn--danger:hover:not(:disabled) {
+    background: #dc3545;
+    color: #fff;
+}
+
+.pdocs-btn--sm {
+    padding: 4px 10px;
+    font-size: 0.8rem;
+}
+
+/* 文档卡片网格 */
+.pdocs-doc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.pdocs-doc-card {
+    background: var(--color-bg-white, #fff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: var(--radius-md, 8px);
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.pdocs-doc-card:hover {
+    box-shadow: var(--shadow-md, 0 4px 6px -1px rgba(0,0,0,0.1));
+    transform: translateY(-2px);
+    border-color: var(--color-primary, #2ea043);
+}
+
+.pdocs-doc-card__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pdocs-doc-card__icon {
+    font-size: 1.3rem;
+    flex-shrink: 0;
+}
+
+.pdocs-doc-card__title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-main, #1f2937);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+
+.pdocs-doc-card__summary {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--color-text-muted, #6b7280);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 2.5em;
+}
+
+.pdocs-doc-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.pdocs-doc-card__time {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #9ca3af);
+}
+
+.pdocs-doc-card__actions {
+    display: flex;
+    gap: 6px;
+}
+
+/* 编辑器 */
+.pdocs-editor-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.pdocs-title-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 12px;
+    border: 1px solid var(--color-border, #d1d5db);
+    border-radius: var(--radius-md, 8px);
+    font-size: 1rem;
+    font-weight: 600;
+    background: var(--color-bg-white, #fff);
+    color: var(--color-text-main, #1f2937);
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.pdocs-title-input:focus {
+    border-color: var(--color-primary, #2ea043);
+}
+
+.pdocs-editor-body {
+    display: flex;
+    gap: 16px;
+    align-items: stretch;
+}
+
+.pdocs-content-input {
+    flex: 1;
+    min-height: 500px;
+    padding: 16px;
+    border: 1px solid var(--color-border, #d1d5db);
+    border-radius: var(--radius-md, 8px);
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    resize: vertical;
+    background: var(--color-bg-white, #fff);
+    color: var(--color-text-main, #1f2937);
+    outline: none;
+    transition: border-color 0.2s;
+    min-width: 0;
+}
+
+.pdocs-content-input:focus {
+    border-color: var(--color-primary, #2ea043);
+}
+
+.pdocs-preview {
+    flex: 1;
+    min-width: 0;
+    min-height: 500px;
+    max-height: 700px;
+    overflow-y: auto;
+    padding: 16px 20px;
+    background: var(--color-bg-white, #fff);
+    border: 1px solid var(--color-border, #d1d5db);
+    border-radius: var(--radius-md, 8px);
+    line-height: 1.7;
+    color: var(--color-text-main, #1f2937);
+}
+
+.pdocs-preview h1,
+.pdocs-preview h2,
+.pdocs-preview h3 {
+    margin: 16px 0 8px;
+    color: var(--color-text-main, #1f2937);
+}
+
+.pdocs-preview h1 { font-size: 1.5rem; }
+.pdocs-preview h2 { font-size: 1.25rem; }
+.pdocs-preview h3 { font-size: 1.1rem; }
+
+.pdocs-preview p {
+    margin: 8px 0;
+}
+
+.pdocs-preview pre {
+    background: #f3f4f6;
+    padding: 12px;
+    border-radius: var(--radius-md, 8px);
+    overflow-x: auto;
+    font-size: 0.85rem;
+}
+
+.pdocs-preview code {
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.pdocs-preview pre code {
+    background: none;
+    padding: 0;
+}
+
+.pdocs-preview ul,
+.pdocs-preview ol {
+    margin: 8px 0;
+    padding-left: 24px;
+}
+
+.pdocs-preview blockquote {
+    border-left: 3px solid var(--color-primary, #2ea043);
+    margin: 8px 0;
+    padding: 4px 16px;
+    color: var(--color-text-muted, #6b7280);
+    background: rgba(0,0,0,0.02);
+}
+
+.pdocs-preview a {
+    color: var(--color-primary, #2ea043);
+    text-decoration: none;
+}
+
+.pdocs-preview a:hover {
+    text-decoration: underline;
+}
+
+.pdocs-preview table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+}
+
+.pdocs-preview th,
+.pdocs-preview td {
+    border: 1px solid var(--color-border, #d1d5db);
+    padding: 8px 12px;
+    text-align: left;
+}
+
+.pdocs-preview img {
+    max-width: 100%;
+    border-radius: var(--radius-md, 8px);
+}
+
+/* 回收站列表 */
+.pdocs-trash-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.pdocs-trash-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--color-bg-white, #fff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: var(--radius-md, 8px);
+    flex-wrap: wrap;
+}
+
+.pdocs-trash-item__info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.pdocs-trash-item__icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.pdocs-trash-item__title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--color-text-main, #1f2937);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pdocs-trash-item__time {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #9ca3af);
+}
+
+.pdocs-trash-item__actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+/* 空状态 */
+.pdocs-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--color-text-muted, #9ca3af);
+}
+
+.pdocs-empty__icon {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+}
+
+.pdocs-empty__text {
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .pdocs-editor-body {
+        flex-direction: column;
+    }
+
+    .pdocs-content-input,
+    .pdocs-preview {
+        min-height: 300px;
+        width: 100%;
+    }
+
+    .pdocs-doc-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pdocs-trash-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

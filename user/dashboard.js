@@ -18,7 +18,7 @@ const ROLE_NAMES = {
 // 动态菜单缓存：tab_key -> { meta, loaded: bool }
 const dynamicMenuCache = new Map();
 // 静态 tab（与后端动态项 tab_key 冲突时跳过）
-const STATIC_TABS = ['workspace', 'home', 'notify', 'settings'];
+const STATIC_TABS = ['workspace', 'home', 'notify', 'settings', 'personal-docs'];
 // 静态 panel 首次加载标记
 const staticPanelLoaded = new Set();
 
@@ -178,6 +178,11 @@ async function switchTab(tab, skipSave = false) {
     if (tab === 'notify' && !staticPanelLoaded.has('notify')) {
         staticPanelLoaded.add('notify');
         loadNotifyList();
+    }
+    // 个人文档首次加载
+    if (tab === 'personal-docs' && !staticPanelLoaded.has('personal-docs')) {
+        staticPanelLoaded.add('personal-docs');
+        initPersonalDocs();
     }
 
     // 切换内容面板
@@ -848,5 +853,383 @@ function handleCheckin() {
 
     if (typeof Toast !== 'undefined') {
         Toast.show('打卡成功！继续加油 💪', 'success');
+    }
+}
+
+
+// =========================================
+// 个人文档相关函数
+// =========================================
+
+let pdocsEditingId = null;      // 当前编辑的文档 id（null=新建）
+let pdocsMarkedReady = false;   // marked.js 是否已加载
+let pdocsMarkedLoading = null;  // 加载中的 Promise（防重复）
+
+/** 统一请求封装 */
+async function pdocsRequest(path, options = {}) {
+    const token = AuthGuard.getToken();
+    if (!token) { AuthGuard.handleAuthError(); return null; }
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/personal-doc${path}`, {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                ...(options.headers || {})
+            }
+        });
+        if (res.status === 401) { AuthGuard.handleAuthError(); return null; }
+        return await res.json();
+    } catch (e) {
+        console.error('[pdocs] 请求失败:', e);
+        if (typeof Toast !== 'undefined') Toast.show('网络请求失败', 'error');
+        return null;
+    }
+}
+
+/** 动态加载 marked.js（用于 Markdown 预览） */
+function ensureMarkedLoaded() {
+    if (pdocsMarkedReady) return Promise.resolve();
+    if (pdocsMarkedLoading) return pdocsMarkedLoading;
+    pdocsMarkedLoading = new Promise((resolve) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js';
+        s.onload = () => { pdocsMarkedReady = true; resolve(); };
+        s.onerror = () => { console.warn('[pdocs] marked.js 加载失败'); resolve(); };
+        document.head.appendChild(s);
+    });
+    return pdocsMarkedLoading;
+}
+
+/** HTML 转义 */
+function pdocsEscape(str) {
+    return String(str || '').replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+}
+
+/** 格式化时间 */
+function pdocsFmtTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const now = new Date();
+    const diff = (now - d) / 1000;
+    if (diff < 60) return '刚刚';
+    if (diff < 3600) return Math.floor(diff / 60) + ' 分钟前';
+    if (diff < 86400) return Math.floor(diff / 3600) + ' 小时前';
+    if (diff < 604800) return Math.floor(diff / 86400) + ' 天前';
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** 从 Markdown 提取摘要（取第一段非空文本，截断 100 字） */
+function pdocsExtractSummary(content) {
+    if (!content) return '';
+    const text = content.replace(/^#+\s.*$/gm, '').replace(/[*`>~_\-\[\]\(\)]/g, '').trim();
+    const firstLine = text.split('\n').find(l => l.trim()) || '';
+    return firstLine.slice(0, 100);
+}
+
+/** 初始化个人文档：绑定事件 + 加载列表 */
+function initPersonalDocs() {
+    // 绑定按钮事件（防重复）
+    const bind = (id, handler) => {
+        const el = document.getElementById(id);
+        if (el && !el.dataset.pdocsBound) {
+            el.dataset.pdocsBound = '1';
+            el.addEventListener('click', handler);
+        }
+    };
+    bind('pdocsNewBtn', () => openPdocsEditor(null));
+    bind('pdocsTrashBtn', () => showPdocsView('trash'));
+    bind('pdocsTrashBackBtn', () => showPdocsView('list'));
+    bind('pdocsBackBtn', () => showPdocsView('list'));
+    bind('pdocsSaveBtn', savePersonalDoc);
+    bind('pdocsPreviewToggleBtn', togglePdocsPreview);
+
+    // 编辑器实时预览
+    const contentInput = document.getElementById('pdocsContentInput');
+    if (contentInput && !contentInput.dataset.pdocsBound) {
+        contentInput.dataset.pdocsBound = '1';
+        contentInput.addEventListener('input', () => {
+            const preview = document.getElementById('pdocsPreview');
+            if (preview.style.display !== 'none') renderPdocsPreview();
+        });
+    }
+
+    loadPersonalDocs();
+}
+
+/** 切换子视图 */
+function showPdocsView(viewName) {
+    ['list', 'editor', 'trash'].forEach(v => {
+        const el = document.getElementById(`pdocs-view-${v}`);
+        if (el) el.style.display = (v === viewName) ? '' : 'none';
+    });
+    if (viewName === 'list') loadPersonalDocs();
+    if (viewName === 'trash') loadPersonalTrash();
+}
+
+/** 加载文档列表 */
+async function loadPersonalDocs() {
+    const container = document.getElementById('pdocsListContainer');
+    if (!container) return;
+    container.innerHTML = '<p class="loading-text">加载中...</p>';
+
+    const data = await pdocsRequest('/list');
+    if (!data || data.code !== 200) {
+        container.innerHTML = '<p class="loading-text">加载失败</p>';
+        return;
+    }
+    renderPdocsList(data.data || []);
+}
+
+/** 加载回收站列表 */
+async function loadPersonalTrash() {
+    const container = document.getElementById('pdocsTrashContainer');
+    if (!container) return;
+    container.innerHTML = '<p class="loading-text">加载中...</p>';
+
+    const data = await pdocsRequest('/trash');
+    if (!data || data.code !== 200) {
+        container.innerHTML = '<p class="loading-text">加载失败</p>';
+        return;
+    }
+    renderPdocsTrash(data.data || []);
+}
+
+/** 渲染文档列表 */
+function renderPdocsList(docs) {
+    const container = document.getElementById('pdocsListContainer');
+    if (!container) return;
+
+    if (!docs.length) {
+        container.innerHTML = `
+            <div class="pdocs-empty">
+                <div class="pdocs-empty__icon">📝</div>
+                <p class="pdocs-empty__text">还没有文档，点击「新建文档」开始记录</p>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = docs.map(doc => `
+        <div class="pdocs-doc-card" data-doc-id="${doc.id}">
+            <div class="pdocs-doc-card__header">
+                <span class="pdocs-doc-card__icon">${pdocsEscape(doc.icon || '📄')}</span>
+                <h3 class="pdocs-doc-card__title">${pdocsEscape(doc.title)}</h3>
+            </div>
+            <p class="pdocs-doc-card__summary">${pdocsEscape(doc.summary || pdocsExtractSummary(doc.content) || '无内容')}</p>
+            <div class="pdocs-doc-card__footer">
+                <span class="pdocs-doc-card__time">更新于 ${pdocsFmtTime(doc.updated_at)}</span>
+                <div class="pdocs-doc-card__actions">
+                    <button class="pdocs-btn pdocs-btn--ghost pdocs-btn--sm" data-action="edit" data-id="${doc.id}">编辑</button>
+                    <button class="pdocs-btn pdocs-btn--danger pdocs-btn--sm" data-action="delete" data-id="${doc.id}">删除</button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    // 绑定卡片操作
+    container.querySelectorAll('[data-action]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const action = btn.dataset.action;
+            const id = parseInt(btn.dataset.id, 10);
+            if (action === 'edit') openPdocsEditor(id);
+            else if (action === 'delete') softDeletePersonalDoc(id);
+        });
+    });
+
+    // 点击卡片也可编辑
+    container.querySelectorAll('.pdocs-doc-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const id = parseInt(card.dataset.docId, 10);
+            openPdocsEditor(id);
+        });
+    });
+}
+
+/** 渲染回收站列表 */
+function renderPdocsTrash(docs) {
+    const container = document.getElementById('pdocsTrashContainer');
+    if (!container) return;
+
+    if (!docs.length) {
+        container.innerHTML = `
+            <div class="pdocs-empty">
+                <div class="pdocs-empty__icon">🗑</div>
+                <p class="pdocs-empty__text">回收站为空</p>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = docs.map(doc => `
+        <div class="pdocs-trash-item">
+            <div class="pdocs-trash-item__info">
+                <span class="pdocs-trash-item__icon">${pdocsEscape(doc.icon || '📄')}</span>
+                <div>
+                    <h4 class="pdocs-trash-item__title">${pdocsEscape(doc.title)}</h4>
+                    <span class="pdocs-trash-item__time">删除于 ${pdocsFmtTime(doc.deleted_at)}</span>
+                </div>
+            </div>
+            <div class="pdocs-trash-item__actions">
+                <button class="pdocs-btn pdocs-btn--secondary pdocs-btn--sm" data-action="restore" data-id="${doc.id}">恢复</button>
+                <button class="pdocs-btn pdocs-btn--danger pdocs-btn--sm" data-action="permanent" data-id="${doc.id}">彻底删除</button>
+            </div>
+        </div>
+    `).join('');
+
+    container.querySelectorAll('[data-action]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const action = btn.dataset.action;
+            const id = parseInt(btn.dataset.id, 10);
+            if (action === 'restore') restorePersonalDoc(id);
+            else if (action === 'permanent') permanentDeletePersonalDoc(id);
+        });
+    });
+}
+
+/** 打开编辑器 */
+async function openPdocsEditor(docId) {
+    pdocsEditingId = docId || null;
+    showPdocsView('editor');
+
+    const titleInput = document.getElementById('pdocsTitleInput');
+    const contentInput = document.getElementById('pdocsContentInput');
+    const preview = document.getElementById('pdocsPreview');
+
+    if (!docId) {
+        // 新建
+        titleInput.value = '';
+        contentInput.value = '';
+        preview.style.display = 'none';
+        preview.innerHTML = '';
+        titleInput.focus();
+        return;
+    }
+
+    // 编辑已有：拉取详情
+    titleInput.value = '加载中...';
+    contentInput.value = '';
+    const data = await pdocsRequest(`/${docId}`);
+    if (!data || data.code !== 200) {
+        if (typeof Toast !== 'undefined') Toast.show('加载文档失败', 'error');
+        showPdocsView('list');
+        return;
+    }
+    titleInput.value = data.data.title || '';
+    contentInput.value = data.data.content || '';
+    preview.style.display = 'none';
+    preview.innerHTML = '';
+    if (preview.style.display !== 'none') renderPdocsPreview();
+}
+
+/** 保存文档（新建或更新） */
+async function savePersonalDoc() {
+    const title = document.getElementById('pdocsTitleInput').value.trim();
+    const content = document.getElementById('pdocsContentInput').value;
+
+    if (!title) {
+        if (typeof Toast !== 'undefined') Toast.show('请输入标题', 'warning');
+        return;
+    }
+
+    const saveBtn = document.getElementById('pdocsSaveBtn');
+    const originalText = saveBtn.textContent;
+    saveBtn.textContent = '保存中...';
+    saveBtn.disabled = true;
+
+    const body = JSON.stringify({
+        title,
+        content,
+        summary: pdocsExtractSummary(content)
+    });
+
+    let data;
+    if (pdocsEditingId) {
+        data = await pdocsRequest(`/${pdocsEditingId}`, { method: 'PUT', body });
+    } else {
+        data = await pdocsRequest('/', { method: 'POST', body });
+    }
+
+    saveBtn.textContent = originalText;
+    saveBtn.disabled = false;
+
+    if (!data || data.code !== 200) {
+        if (typeof Toast !== 'undefined') Toast.show(data?.msg || '保存失败', 'error');
+        return;
+    }
+
+    if (typeof Toast !== 'undefined') Toast.show('保存成功', 'success');
+    pdocsEditingId = data.data.id;  // 新建后记住 id，后续保存变成更新
+    // 更新预览
+    const preview = document.getElementById('pdocsPreview');
+    if (preview.style.display !== 'none') renderPdocsPreview();
+}
+
+/** 软删除（移入回收站） */
+async function softDeletePersonalDoc(docId) {
+    if (!confirm('确认将此文档移入回收站？')) return;
+    const data = await pdocsRequest(`/${docId}`, { method: 'DELETE' });
+    if (!data || data.code !== 200) {
+        if (typeof Toast !== 'undefined') Toast.show(data?.msg || '删除失败', 'error');
+        return;
+    }
+    if (typeof Toast !== 'undefined') Toast.show('已移入回收站', 'success');
+    loadPersonalDocs();
+}
+
+/** 恢复文档 */
+async function restorePersonalDoc(docId) {
+    const data = await pdocsRequest(`/${docId}/restore`, { method: 'POST' });
+    if (!data || data.code !== 200) {
+        if (typeof Toast !== 'undefined') Toast.show(data?.msg || '恢复失败', 'error');
+        return;
+    }
+    if (typeof Toast !== 'undefined') Toast.show('恢复成功', 'success');
+    loadPersonalTrash();
+}
+
+/** 彻底删除 */
+async function permanentDeletePersonalDoc(docId) {
+    if (!confirm('彻底删除后无法恢复，确认删除？')) return;
+    const data = await pdocsRequest(`/${docId}/permanent`, { method: 'DELETE' });
+    if (!data || data.code !== 200) {
+        if (typeof Toast !== 'undefined') Toast.show(data?.msg || '删除失败', 'error');
+        return;
+    }
+    if (typeof Toast !== 'undefined') Toast.show('已彻底删除', 'success');
+    loadPersonalTrash();
+}
+
+/** 切换预览显示 */
+function togglePdocsPreview() {
+    const preview = document.getElementById('pdocsPreview');
+    const contentInput = document.getElementById('pdocsContentInput');
+    const isHidden = preview.style.display === 'none';
+
+    if (isHidden) {
+        preview.style.display = '';
+        contentInput.style.flex = '1';
+        renderPdocsPreview();
+    } else {
+        preview.style.display = 'none';
+        contentInput.style.flex = '';
+    }
+}
+
+/** 渲染 Markdown 预览 */
+async function renderPdocsPreview() {
+    const content = document.getElementById('pdocsContentInput').value;
+    const preview = document.getElementById('pdocsPreview');
+    await ensureMarkedLoaded();
+    try {
+        if (pdocsMarkedReady && window.marked) {
+            preview.innerHTML = window.marked.parse(content || '*空内容*');
+        } else {
+            preview.innerHTML = `<pre>${pdocsEscape(content)}</pre>`;
+        }
+    } catch (e) {
+        preview.innerHTML = `<pre>${pdocsEscape(content)}</pre>`;
     }
 }
