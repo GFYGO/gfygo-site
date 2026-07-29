@@ -813,11 +813,15 @@ body.theme-gray .footer {
 .doc-sidebar__tabs {
   display: flex;
   gap: 6px;
-  padding: 10px 16px 0;
+  padding: 10px 16px 4px;
 }
 .doc-tab {
   flex: 1;
-  padding: 7px 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 4px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-bg-white);
@@ -825,16 +829,43 @@ body.theme-gray .footer {
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.18s ease;
-  text-align: center;
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease;
   user-select: none;
+  line-height: 1.2;
 }
-.doc-tab:hover { color: var(--color-primary); border-color: color-mix(in srgb, var(--color-primary) 50%, var(--color-border)); }
-.doc-tab.is-active {
+.doc-tab__icon { font-size: 0.95rem; line-height: 1; }
+.doc-tab__label { font-size: 0.8rem; }
+.doc-tab:hover { transform: translateY(-1px); }
+.doc-tab:active { transform: translateY(0); }
+
+/* 公共 —— 蓝色系 */
+.doc-tab--public { --tab-color: #3b82f6; }
+.doc-tab--public:hover { color: var(--tab-color); border-color: color-mix(in srgb, var(--tab-color) 55%, var(--color-border)); }
+.doc-tab--public.is-active {
   color: #fff;
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-primary) 35%, transparent);
+  background: var(--tab-color);
+  border-color: var(--tab-color);
+  box-shadow: 0 3px 8px color-mix(in srgb, var(--tab-color) 38%, transparent);
+}
+
+/* 组 —— 紫色系 */
+.doc-tab--group { --tab-color: #8b5cf6; }
+.doc-tab--group:hover { color: var(--tab-color); border-color: color-mix(in srgb, var(--tab-color) 55%, var(--color-border)); }
+.doc-tab--group.is-active {
+  color: #fff;
+  background: var(--tab-color);
+  border-color: var(--tab-color);
+  box-shadow: 0 3px 8px color-mix(in srgb, var(--tab-color) 38%, transparent);
+}
+
+/* 私有 —— 琥珀色系 */
+.doc-tab--private { --tab-color: #f59e0b; }
+.doc-tab--private:hover { color: var(--tab-color); border-color: color-mix(in srgb, var(--tab-color) 55%, var(--color-border)); }
+.doc-tab--private.is-active {
+  color: #fff;
+  background: var(--tab-color);
+  border-color: var(--tab-color);
+  box-shadow: 0 3px 8px color-mix(in srgb, var(--tab-color) 38%, transparent);
 }
 .doc-search-input {
   width: 100%;
