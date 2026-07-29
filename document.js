@@ -171,7 +171,9 @@ async function fetchDocCategories() {
 
 async function fetchDocList() {
   try {
-    const r = await fetch(`${API_BASE_URL}/api/v1/document/list`);
+    const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    const r = await fetch(`${API_BASE_URL}/api/v1/document/list`, { headers });
     const d = await r.json();
     if (r.ok && d.code === 200) {
       __DOC.docs = d.data || [];
@@ -202,6 +204,7 @@ async function fetchDocAuthState() {
       const u = d.data.user;
       __DOC.user = {
         isLoggedIn: true,
+        id: u.id,
         permissionLevel: u.permission_level || 1,
         username: u.username || '',
         group: (u.profile && u.profile.group) ? u.profile.group : 'default'
@@ -293,8 +296,9 @@ function docItemHTML(d) {
 // =========================================
 function renderHomeCategoryGrids() {
   const lvl = __DOC.user.permissionLevel;
+  const uid = __DOC.user.id;
   let visibleDocs = __DOC.docs.filter(doc =>
-    canViewByBits(doc.permission_bits, doc.visibility, lvl)
+    (uid && doc.author_id === uid) || canViewByBits(doc.permission_bits, doc.visibility, lvl)
   );
   // 可见类型 tab 过滤（与侧边栏保持一致）
   if (__DOC.visFilter) {
@@ -555,8 +559,6 @@ function ensureMarkedLoaded() {
   return new Promise(resolve => {
     const s = document.createElement('script');
     s.src = 'https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js';
-    s.integrity = 'sha256-6x9rGYgLyApf40xqYYhRc7YO3aRVunozyYcU2xfTn5k=';
-    s.crossOrigin = 'anonymous';
     s.referrerPolicy = 'no-referrer';
     s.onload = () => { __DOC.markedReady = true; __DOC.markedLoading = false; resolve(true); };
     s.onerror = () => { __DOC.markedLoading = false; resolve(false); };
