@@ -296,32 +296,6 @@
     transform: rotate(30deg);
 }
 
-.sidebar__footer-actions {
-    display: flex;
-    gap: 8px;
-    flex-shrink: 0;
-}
-
-.sidebar__logout-btn {
-    width: 36px;
-    height: 36px;
-    flex-shrink: 0;
-    border: none;
-    background: var(--color-bg-white);
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    font-size: 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-}
-
-.sidebar__logout-btn:hover {
-    background: #ef4444;
-    filter: grayscale(0);
-}
-
 /* ========== 主内容区 ========== */
 .dashboard-main {
     flex: 1;
@@ -809,9 +783,9 @@ body.theme-dark_green .calendar-day--checked {
         display: none;
     }
 
-    /* 移动端隐藏顶部栏用户信息（侧边栏已有） */
-    .dashboard-header__right .user-info {
-        display: none;
+    /* 移动端显示退出登录（覆盖全局 styles.css 的 display:none） */
+    .user-info .logout-link {
+        display: inline;
     }
 
     .dashboard-content {

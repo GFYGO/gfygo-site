@@ -119,16 +119,6 @@ function initSettingsButton() {
             closeMobileSidebar();
         });
     }
-
-    const logoutBtn = document.getElementById('sidebarLogoutBtn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
-            AuthGuard.clearToken();
-            localStorage.removeItem('guest_view_mode');
-            localStorage.removeItem('dashboard_active_tab');
-            window.location.href = `${BASE_PATH}/index.html`;
-        });
-    }
 }
 
 function initTabSwitching() {
