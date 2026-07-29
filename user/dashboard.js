@@ -121,6 +121,12 @@ function initSettingsButton() {
             closeMobileSidebar();
         });
     }
+
+    // 侧边栏底部退出登录按钮
+    const sidebarLogoutBtn = document.getElementById('sidebarLogoutBtn');
+    if (sidebarLogoutBtn) {
+        sidebarLogoutBtn.addEventListener('click', performLogout);
+    }
 }
 
 function initTabSwitching() {
@@ -445,13 +451,16 @@ function renderTopNavAuth(user) {
 
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            AuthGuard.clearToken();
-            localStorage.removeItem('guest_view_mode');
-            window.location.href = `${BASE_PATH}/index.html`;
-        });
+        logoutBtn.addEventListener('click', performLogout);
     }
+}
+
+// 统一退出登录处理：清除 token + 访客模式 + 跳转首页
+function performLogout(e) {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    AuthGuard.clearToken();
+    localStorage.removeItem('guest_view_mode');
+    window.location.href = `${BASE_PATH}/index.html`;
 }
 
 function renderPermissionButtons(permissionLevel) {
