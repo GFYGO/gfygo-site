@@ -20,6 +20,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSettingsButton();
     initTabSwitching();
 
+    // 访客视角模式：直接跳转首页
+    if (localStorage.getItem('guest_view_mode') === 'true') {
+        window.location.href = `${BASE_PATH}/index.html`;
+        return;
+    }
+
     const token = AuthGuard.getToken();
     if (!token) {
         AuthGuard.handleAuthError();
@@ -42,6 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const user = data.data.user;
             renderUserProfile(user);
             renderPermissionButtons(user.permission_level);
+            renderTopNavAuth(user);
         }
     } catch (error) {
         console.error('获取用户信息失败:', error);
@@ -178,6 +185,57 @@ function renderUserProfile(user) {
         bannerImg.onerror = function() {
             this.style.display = 'none';
         };
+    }
+}
+
+function renderTopNavAuth(user) {
+    const authContainer = document.getElementById('auth-container');
+    if (!authContainer) return;
+
+    authContainer.innerHTML = '';
+
+    const navLoginLinks = document.querySelectorAll('.header__nav a[href*="login"]');
+    const navRegisterLinks = document.querySelectorAll('.header__nav a[href*="register"]');
+
+    const avatar = (user.profile && user.profile.avatar) ? user.profile.avatar : '';
+    const defaultAvatar = `${BASE_PATH}/favicon.png`;
+
+    const userEl = document.createElement('div');
+    userEl.className = 'user-info';
+
+    const img = document.createElement('img');
+    img.src = avatar || defaultAvatar;
+    img.alt = user.username;
+    img.className = 'user-avatar';
+    img.onerror = function() { this.src = defaultAvatar; };
+    userEl.appendChild(img);
+
+    const usernameLink = document.createElement('a');
+    usernameLink.href = `${BASE_PATH}/user/dashboard.html`;
+    usernameLink.className = 'username';
+    usernameLink.textContent = user.username;
+    userEl.appendChild(usernameLink);
+
+    const logoutLink = document.createElement('a');
+    logoutLink.href = '#';
+    logoutLink.className = 'logout-link';
+    logoutLink.id = 'logoutBtn';
+    logoutLink.textContent = '退出';
+    userEl.appendChild(logoutLink);
+
+    authContainer.appendChild(userEl);
+
+    navLoginLinks.forEach(link => link.style.display = 'none');
+    navRegisterLinks.forEach(link => link.style.display = 'none');
+
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            AuthGuard.clearToken();
+            localStorage.removeItem('guest_view_mode');
+            window.location.href = `${BASE_PATH}/index.html`;
+        });
     }
 }
 
