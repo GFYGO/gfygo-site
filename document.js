@@ -423,7 +423,9 @@ async function showDocDetail(slug) {
 
   // 详情 + 修订历史 并发
   try {
-    const detailRsp = await fetch(`${API_BASE_URL}/api/v1/document/${encodeURIComponent(slug)}`);
+    const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    const detailRsp = await fetch(`${API_BASE_URL}/api/v1/document/${encodeURIComponent(slug)}`, { headers });
     const d = await detailRsp.json();
 
     if (detailRsp.status === 404 || (d.code === 404)) {
@@ -575,7 +577,9 @@ async function fetchAndRenderRevisions(docId) {
   const $count = document.getElementById('docRevCount');
   if (!$wrap) return;
 
-  const r = await fetch(`${API_BASE_URL}/api/v1/document/${docId}/revisions`);
+  const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
+  const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+  const r = await fetch(`${API_BASE_URL}/api/v1/document/${docId}/revisions`, { headers });
   const d = await r.json();
   if (!r.ok || d.code !== 200) {
     $wrap.style.display = 'none';
