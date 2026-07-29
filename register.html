@@ -37,7 +37,11 @@
 
             <form id="emailForm" class="register-form register-form--active">
                 <div class="form-group">
-                    <input type="email" name="email" placeholder="邮箱地址" required>
+                    <input type="email" name="email" id="emailInput" placeholder="邮箱地址" required>
+                </div>
+                <div class="form-group form-group--code">
+                    <input type="text" name="code" id="emailCodeInput" placeholder="邮箱验证码（6位）" maxlength="6" pattern="[0-9]{6}">
+                    <button type="button" class="btn-send-code" id="sendEmailCodeBtn">发送验证码</button>
                 </div>
                 <div class="form-group">
                     <input type="text" name="username" placeholder="用户名（不可重复）" required minlength="3" maxlength="20">
