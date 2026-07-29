@@ -23,32 +23,124 @@
     </div>
   </header>
 
-  <main>
-    <section class="home-section">
-      <h1 class="home-section__title">文档中心</h1>
-      <p class="home-section__desc">这里是 GWL Works Lab 的文档中心，更多文档正在编写中。</p>
-    </section>
+  <!-- 文档主布局：左侧目录树 + 右侧内容 -->
+  <div class="doc-layout">
+    <!-- 遮罩（移动端抽屉打开时） -->
+    <div class="doc-sidebar-overlay" id="docSidebarOverlay"></div>
 
-    <section class="home-section home-section--alt">
-      <h2 class="home-section__title">开发文档</h2>
-      <div class="feature-grid">
-        <a class="feature-tile" href="https://www.bilibili.com/video/BV1g34y1j7e5/">
-          <div class="feature-tile__img">📚</div>
-          <div class="feature-tile__content">
-            <div class="feature-tile__title">学习资料</div>
-            <div class="feature-tile__desc">查看完整的学习文档与API接口说明</div>
-          </div>
-        </a>
-        <a class="feature-tile" href="#">
-          <div class="feature-tile__img">🚧</div>
-          <div class="feature-tile__content">
-            <div class="feature-tile__title">文档编写中</div>
-            <div class="feature-tile__desc">更多文档正在编写中，敬请期待</div>
-          </div>
+    <aside class="doc-sidebar" id="docSidebar">
+      <div class="doc-sidebar__head">
+        <button class="doc-sidebar__close" id="docSidebarClose" aria-label="关闭目录">&times;</button>
+        <a href="#/" class="doc-sidebar__home" id="backToHomeBtn">
+          <span class="doc-sidebar__home-icon">🏠</span>
+          <span class="doc-sidebar__home-text">返回文档主页</span>
         </a>
       </div>
-    </section>
-  </main>
+      <div class="doc-sidebar__search">
+        <input type="text" id="docSearchInput" class="doc-search-input" placeholder="🔍 搜索文档标题..." aria-label="搜索文档">
+      </div>
+      <nav class="doc-sidebar__tree" id="docSidebarTree" aria-label="文档目录">
+        <p class="doc-loading-text">正在加载文档目录...</p>
+      </nav>
+    </aside>
+
+    <main class="doc-main">
+      <button class="doc-sidebar-toggle" id="docSidebarToggle" aria-label="打开文档目录">☰ 目录</button>
+
+      <!-- ===== 视图1：文档主页（静态骨架，卡片数据来自后端） ===== -->
+      <section class="doc-view doc-view--home" id="viewHome">
+        <section class="home-section">
+          <h1 class="home-section__title">📚 文档中心</h1>
+          <p class="home-section__desc">这里是 GWL Works Lab 的文档中心，按分类浏览或使用侧边栏搜索。</p>
+        </section>
+
+        <!-- 外链入口（保留原有"学习资料"的 B 站视频链接） -->
+        <section class="home-section home-section--alt">
+          <h2 class="home-section__title">🎬 学习资料</h2>
+          <div class="feature-grid" id="extLinksGrid">
+            <a class="feature-tile" href="https://www.bilibili.com/video/BV1g34y1j7e5/" target="_blank" rel="noopener noreferrer">
+              <div class="feature-tile__img">📺</div>
+              <div class="feature-tile__content">
+                <div class="feature-tile__title">学习视频</div>
+                <div class="feature-tile__desc">查看完整的学习视频与讲解</div>
+              </div>
+            </a>
+            <a class="feature-tile" href="#/doc/welcome-gwl">
+              <div class="feature-tile__img">👋</div>
+              <div class="feature-tile__content">
+                <div class="feature-tile__title">新手指引</div>
+                <div class="feature-tile__desc">5 分钟了解如何使用本文档系统</div>
+              </div>
+            </a>
+          </div>
+        </section>
+
+        <!-- 按分类展示：卡片由 document.js 根据后端 list 渲染 -->
+        <section class="home-section">
+          <h2 class="home-section__title">快速开始</h2>
+          <div class="feature-grid" id="catQuickstart" data-category-slug="quickstart"></div>
+        </section>
+
+        <section class="home-section home-section--alt">
+          <h2 class="home-section__title">开发文档</h2>
+          <div class="feature-grid" id="catDev" data-category-slug="dev"></div>
+        </section>
+
+        <section class="home-section">
+          <h2 class="home-section__title">API 参考</h2>
+          <div class="feature-grid" id="catApi" data-category-slug="api"></div>
+          <p class="doc-empty-tip" id="emptyCatTip" style="display:none; margin-top: 24px; color: var(--color-text-muted);">当前分类暂无公开文档。</p>
+        </section>
+      </section>
+
+      <!-- ===== 视图2：文档详情（根据 hash 动态渲染） ===== -->
+      <section class="doc-view doc-view--detail" id="viewDetail" style="display:none;">
+        <div class="doc-detail-wrap">
+          <!-- 顶部返回按钮 + 标题 -->
+          <header class="doc-header">
+            <a href="#/" class="doc-back-btn" id="docBackBtn">← 返回文档主页</a>
+            <h1 class="doc-title" id="docTitle">加载中...</h1>
+          </header>
+
+          <!-- 元信息条：权限、作者、时间等 -->
+          <div class="doc-meta" id="docMeta">
+            <span class="doc-loading-text">加载元信息中...</span>
+          </div>
+
+          <!-- 正文 Markdown 渲染区 -->
+          <article class="doc-content" id="docContent">
+            <p class="doc-loading-text">正在加载文档正文...</p>
+          </article>
+
+          <!-- 修订历史折叠面板 -->
+          <section class="doc-revisions" id="docRevisions" style="display:none;">
+            <button class="doc-revisions__toggle" id="docRevisionsToggle" aria-expanded="false">
+              <span>📝 修订记录 <span id="docRevCount">0</span> 条</span>
+              <span class="doc-revisions__chevron">▾</span>
+            </button>
+            <ol class="doc-revisions__timeline" id="docRevisionTimeline" hidden></ol>
+          </section>
+
+          <!-- 错误态 / 空态 -->
+          <div class="doc-state doc-state--empty" id="docState404" style="display:none;">
+            <div class="doc-state__icon">🧭</div>
+            <h3 class="doc-state__title">找不到这篇文档</h3>
+            <p class="doc-state__desc">该文档链接已失效或被删除，请返回主页继续浏览。</p>
+            <a href="#/" class="btn-primary doc-state__btn">返回文档主页</a>
+          </div>
+          <div class="doc-state doc-state--forbidden" id="docState403" style="display:none;">
+            <div class="doc-state__icon">🔒</div>
+            <h3 class="doc-state__title">无权限查看该文档</h3>
+            <p class="doc-state__desc" id="docState403Desc">您的用户等级不足。</p>
+            <div class="doc-state__actions">
+              <a href="#/" class="btn-primary doc-state__btn">返回文档主页</a>
+              <a href="./login.html" class="btn-primary doc-state__btn doc-state__btn--alt" id="docStateLoginBtn">登录后再试</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
 
   <footer class="footer">
     <div class="footer__container">
@@ -88,5 +180,6 @@
   <script src="./theme.js"></script>
   <script src="./toast.js"></script>
   <script src="./index.js"></script>
+  <script src="./document.js"></script>
 </body>
 </html>
