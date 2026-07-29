@@ -133,8 +133,35 @@
                     </div>
 
                     <div class="profile-cards">
-                        <div class="card card--wide"></div>
-                        <div class="card card--tall"></div>
+                        <!-- 昨日学习（左，较大） -->
+                        <div class="card card--wide card--yesterday">
+                            <div class="card-header">
+                                <h3>📚 昨日学习</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="empty-state">
+                                    <div class="empty-state__icon">📝</div>
+                                    <p class="empty-state__text">学习记录功能即将上线</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 日历打卡（右，较小） -->
+                        <div class="card card--calendar">
+                            <div class="calendar-header">
+                                <button class="calendar-nav" id="calPrev" aria-label="上个月">‹</button>
+                                <span class="calendar-title" id="calTitle">2026年7月</span>
+                                <button class="calendar-nav" id="calNext" aria-label="下个月">›</button>
+                            </div>
+                            <div class="calendar-weekdays">
+                                <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+                            </div>
+                            <div class="calendar-days" id="calDays"></div>
+                            <div class="calendar-footer">
+                                <button class="checkin-btn" id="checkinBtn">打卡签到</button>
+                            </div>
+                        </div>
+
                         <div class="card"></div>
                         <div class="card"></div>
                         <div class="card card--wide"></div>
