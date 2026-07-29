@@ -15,6 +15,13 @@ const ROLE_NAMES = {
     5: '超级管理员'
 };
 
+// 动态菜单缓存：tab_key -> { meta, loaded: bool }
+const dynamicMenuCache = new Map();
+// 静态 tab（与后端动态项 tab_key 冲突时跳过）
+const STATIC_TABS = ['workspace', 'home', 'notify', 'settings'];
+// 静态 panel 首次加载标记
+const staticPanelLoaded = new Set();
+
 document.addEventListener('DOMContentLoaded', async () => {
     initSidebarToggle();
     initSettingsButton();
@@ -52,6 +59,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // 检查邮箱验证状态
             checkEmailVerificationStatus(token, user.email);
+
+            // 加载动态菜单（依赖已登录）
+            loadDynamicMenu(token);
+            // 绑定设置面板主题切换
+            initThemeOptions(token);
         }
     } catch (error) {
         console.error('获取用户信息失败:', error);
@@ -99,19 +111,8 @@ function initTabSwitching() {
     // 默认显示主页
     switchTab('home');
 
-    // 侧边栏导航项点击切换
-    document.querySelectorAll('.sidebar__nav-item[data-tab]').forEach(item => {
-        item.addEventListener('click', (e) => {
-            e.preventDefault();
-            const tab = item.dataset.tab;
-            switchTab(tab);
-            // 移动端点击后关闭侧边栏
-            const sidebar = document.getElementById('dashboardSidebar');
-            const overlay = document.getElementById('sidebarOverlay');
-            if (sidebar) sidebar.classList.remove('dashboard-sidebar--open');
-            if (overlay) overlay.classList.remove('sidebar-overlay--visible');
-        });
-    });
+    // 绑定静态项点击
+    bindTabClicks();
 
     // 左下角头像点击切换到主页
     const userTrigger = document.getElementById('sidebarUserTrigger');
@@ -119,15 +120,42 @@ function initTabSwitching() {
         userTrigger.style.cursor = 'pointer';
         userTrigger.addEventListener('click', () => {
             switchTab('home');
-            const sidebar = document.getElementById('dashboardSidebar');
-            const overlay = document.getElementById('sidebarOverlay');
-            if (sidebar) sidebar.classList.remove('dashboard-sidebar--open');
-            if (overlay) overlay.classList.remove('sidebar-overlay--visible');
+            closeMobileSidebar();
         });
     }
 }
 
-function switchTab(tab) {
+function bindTabClicks() {
+    // 绑定所有侧边栏导航项点击（含动态项渲染后新增的），避免重复绑定
+    document.querySelectorAll('.sidebar__nav-item[data-tab]').forEach(item => {
+        if (item.dataset.bound === '1') return;
+        item.dataset.bound = '1';
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchTab(item.dataset.tab);
+            closeMobileSidebar();
+        });
+    });
+}
+
+function closeMobileSidebar() {
+    const sidebar = document.getElementById('dashboardSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (sidebar) sidebar.classList.remove('dashboard-sidebar--open');
+    if (overlay) overlay.classList.remove('sidebar-overlay--visible');
+}
+
+async function switchTab(tab) {
+    // 动态项懒加载
+    if (dynamicMenuCache.has(tab) && !dynamicMenuCache.get(tab).loaded) {
+        await loadPanelContent(tab);
+    }
+    // 静态 panel 首次加载逻辑（通知中心）
+    if (tab === 'notify' && !staticPanelLoaded.has('notify')) {
+        staticPanelLoaded.add('notify');
+        loadNotifyList();
+    }
+
     // 切换内容面板
     document.querySelectorAll('.tab-panel').forEach(panel => {
         panel.style.display = 'none';
@@ -145,6 +173,149 @@ function switchTab(tab) {
     if (userTrigger) {
         userTrigger.classList.toggle('is-active', tab === 'home');
     }
+}
+
+// =========================================
+// 动态菜单相关函数
+// =========================================
+
+async function loadDynamicMenu(token) {
+    const container = document.getElementById('dynamicMenuContainer');
+    const divider = document.getElementById('dynamicMenuDivider');
+    if (!container) return;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/user/menu`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.code !== 200 || !Array.isArray(data.data)) return;
+
+        const items = data.data;
+        if (items.length === 0) {
+            divider.style.display = 'none';
+            return;
+        }
+        divider.style.display = '';
+
+        const contentHost = document.querySelector('.dashboard-content');
+        items.forEach(item => {
+            // tab_key 与静态项冲突时跳过
+            if (STATIC_TABS.includes(item.tab_key)) {
+                console.warn(`[menu] 动态项 tab_key 冲突，跳过: ${item.tab_key}`);
+                return;
+            }
+            // 缓存元数据
+            dynamicMenuCache.set(item.tab_key, { meta: item, loaded: false });
+            // 渲染 nav-item
+            const a = document.createElement('a');
+            a.href = '#';
+            a.className = 'sidebar__nav-item';
+            a.dataset.tab = item.tab_key;
+            a.innerHTML = `<span class="sidebar__nav-icon">${item.icon || '📄'}</span>
+                           <span class="sidebar__nav-text">${item.label}</span>`;
+            container.appendChild(a);
+            // 创建空 panel（懒加载时填充内容）
+            const panel = document.createElement('section');
+            panel.className = 'tab-panel';
+            panel.id = `panel-${item.tab_key}`;
+            panel.style.display = 'none';
+            panel.innerHTML = '<p class="loading-text">加载中...</p>';
+            contentHost.appendChild(panel);
+        });
+        // 重新绑定 tab 切换（包含新动态项）
+        bindTabClicks();
+    } catch (e) {
+        console.error('[menu] 加载动态菜单失败', e);
+    }
+}
+
+async function loadPanelContent(tab) {
+    const cache = dynamicMenuCache.get(tab);
+    if (!cache || cache.loaded) return;
+    const token = AuthGuard.getToken();
+    if (!token) return;
+    const panel = document.getElementById(`panel-${tab}`);
+    if (!panel) return;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/user/menu/${cache.meta.id}/content`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.code !== 200) {
+            panel.innerHTML = '<p class="loading-text">内容加载失败</p>';
+            return;
+        }
+        const d = data.data;
+        panel.innerHTML = d.html_content || '';
+        // CSS：独立 <style> 节点追加，便于隔离与清理
+        if (d.css_content) {
+            const style = document.createElement('style');
+            style.dataset.tabStyle = tab;
+            style.textContent = d.css_content;
+            panel.appendChild(style);
+        }
+        // JS：innerHTML 的 <script> 不会执行，需重建节点
+        if (d.js_content) {
+            const script = document.createElement('script');
+            script.textContent = d.js_content;
+            panel.appendChild(script);
+        }
+        cache.loaded = true;
+    } catch (e) {
+        console.error('[menu] 加载 panel 内容失败', e);
+        panel.innerHTML = '<p class="loading-text">内容加载失败</p>';
+    }
+}
+
+// =========================================
+// 通知中心 / 设置 面板逻辑
+// =========================================
+
+async function loadNotifyList() {
+    const list = document.getElementById('notifyList');
+    if (!list) return;
+    const token = AuthGuard.getToken();
+    try {
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch(`${API_BASE_URL}/api/v1/notify/global`, { headers });
+        const data = await res.json();
+        if (data.code !== 200 || !Array.isArray(data.data) || data.data.length === 0) {
+            list.innerHTML = '<p class="loading-text">暂无通知</p>';
+            return;
+        }
+        list.innerHTML = data.data.map(n => `
+            <div class="notify-card">
+                <h4 class="notify-card__title">${escapeHtml(n.title)}</h4>
+                <p class="notify-card__content">${escapeHtml(n.content)}</p>
+            </div>
+        `).join('');
+    } catch (e) {
+        console.error('加载通知失败', e);
+        list.innerHTML = '<p class="loading-text">通知加载失败</p>';
+    }
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+}
+
+function initThemeOptions(token) {
+    const options = document.getElementById('themeOptions');
+    if (!options) return;
+    options.addEventListener('click', (e) => {
+        const btn = e.target.closest('.theme-opt');
+        if (!btn) return;
+        const theme = btn.dataset.theme;
+        // 复用 theme.js 的 ThemeEngine
+        if (typeof ThemeEngine !== 'undefined') {
+            ThemeEngine.applyTheme(theme);
+            if (token) ThemeEngine.syncThemeToServer(theme, token);
+            if (typeof Toast !== 'undefined') Toast.show('主题已切换', 'success');
+        }
+    });
 }
 
 function renderUserProfile(user) {

@@ -721,3 +721,79 @@
         padding: 0 16px;
     }
 }
+
+/* =========================================
+   动态菜单分隔线 & 静态 panel 样式
+   ========================================= */
+.sidebar__nav-divider {
+    height: 1px;
+    margin: 8px 12px;
+    background: var(--color-border, #e5e7eb);
+}
+
+.panel-title {
+    font-size: 20px;
+    margin: 0 0 16px;
+    color: var(--color-text-main);
+}
+
+.loading-text {
+    color: #9ca3af;
+    padding: 12px 0;
+}
+
+/* 通知中心 */
+.notify-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.notify-card {
+    padding: 14px 16px;
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: var(--radius-md, 8px);
+    background: var(--color-bg-white, #fff);
+}
+
+.notify-card__title {
+    margin: 0 0 6px;
+    font-size: 1rem;
+    color: var(--color-text-main);
+}
+
+.notify-card__content {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+/* 设置 */
+.settings-section h3 {
+    margin: 0 0 12px;
+    font-size: 0.95rem;
+    color: var(--color-text-muted);
+}
+
+.theme-options {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.theme-opt {
+    padding: 8px 16px;
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--color-text-main);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.theme-opt:hover {
+    border-color: var(--color-primary, #2ea043);
+    color: var(--color-primary, #2ea043);
+}

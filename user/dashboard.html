@@ -19,10 +19,22 @@
             </div>
 
             <nav class="sidebar__nav">
-                <a href="#" class="sidebar__nav-item active" data-tab="workspace">
+                <!-- 静态项（前端写死） -->
+                <a href="#" class="sidebar__nav-item" data-tab="workspace">
                     <span class="sidebar__nav-icon">🛠️</span>
                     <span class="sidebar__nav-text">工作台</span>
                 </a>
+                <a href="#" class="sidebar__nav-item" data-tab="notify">
+                    <span class="sidebar__nav-icon">🔔</span>
+                    <span class="sidebar__nav-text">通知中心</span>
+                </a>
+                <a href="#" class="sidebar__nav-item" data-tab="settings">
+                    <span class="sidebar__nav-icon">⚙️</span>
+                    <span class="sidebar__nav-text">设置</span>
+                </a>
+                <!-- 动态项挂载点（由 dashboard.js 从后端拉取并渲染） -->
+                <div class="sidebar__nav-divider" id="dynamicMenuDivider" style="display:none;"></div>
+                <div id="dynamicMenuContainer"></div>
             </nav>
 
             <!-- 邮箱验证区域（未验证时显示） -->
@@ -79,6 +91,28 @@
                     <div class="empty-state">
                         <div class="empty-state__icon">🛠️</div>
                         <p class="empty-state__text">工作台功能开发中，敬请期待</p>
+                    </div>
+                </section>
+
+                <!-- 通知中心 -->
+                <section class="tab-panel" id="panel-notify" style="display: none;">
+                    <h2 class="panel-title">通知中心</h2>
+                    <div id="notifyList" class="notify-list">
+                        <p class="loading-text">加载中...</p>
+                    </div>
+                </section>
+
+                <!-- 设置 -->
+                <section class="tab-panel" id="panel-settings" style="display: none;">
+                    <h2 class="panel-title">设置</h2>
+                    <div class="settings-section">
+                        <h3>主题</h3>
+                        <div class="theme-options" id="themeOptions">
+                            <button class="theme-opt" data-theme="light">浅色</button>
+                            <button class="theme-opt" data-theme="green">护眼绿</button>
+                            <button class="theme-opt" data-theme="gray">灰色</button>
+                            <button class="theme-opt" data-theme="dark_green">暗绿</button>
+                        </div>
                     </div>
                 </section>
 
