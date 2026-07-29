@@ -98,11 +98,8 @@ function initSettingsButton() {
     const settingsBtn = document.getElementById('settingsBtn');
     if (settingsBtn) {
         settingsBtn.addEventListener('click', () => {
-            if (typeof Toast !== 'undefined') {
-                Toast.show('设置功能开发中...', 'info');
-            } else {
-                alert('设置功能开发中...');
-            }
+            switchTab('settings');
+            closeMobileSidebar();
         });
     }
 }
@@ -172,6 +169,12 @@ async function switchTab(tab) {
     const userTrigger = document.getElementById('sidebarUserTrigger');
     if (userTrigger) {
         userTrigger.classList.toggle('is-active', tab === 'home');
+    }
+
+    // 底部设置按钮高亮（设置面板时激活）
+    const settingsBtn = document.getElementById('settingsBtn');
+    if (settingsBtn) {
+        settingsBtn.classList.toggle('is-active', tab === 'settings');
     }
 }
 

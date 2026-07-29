@@ -284,6 +284,12 @@
     transform: rotate(30deg);
 }
 
+.sidebar__settings-btn.is-active {
+    background: var(--color-primary);
+    color: #fff;
+    transform: rotate(30deg);
+}
+
 /* ========== 主内容区 ========== */
 .dashboard-main {
     flex: 1;
