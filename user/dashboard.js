@@ -28,6 +28,7 @@ let pendingEmailCode = null;
 document.addEventListener('DOMContentLoaded', async () => {
     initSidebarToggle();
     initSettingsButton();
+    initLogoutButton();
     initTabSwitching();
 
     // 读取 URL 参数中的验证码
@@ -94,17 +95,14 @@ function initSidebarToggle() {
     const sidebar = document.getElementById('dashboardSidebar');
     const closeBtn = document.getElementById('sidebarClose');
     const overlay = document.getElementById('sidebarOverlay');
-    const dashboardNav = document.getElementById('dashboardNav');
 
     function openSidebar() {
         sidebar.classList.add('dashboard-sidebar--open');
-        if (dashboardNav) dashboardNav.classList.add('header__nav--open');
         overlay.classList.add('sidebar-overlay--visible');
     }
 
     function closeSidebar() {
         sidebar.classList.remove('dashboard-sidebar--open');
-        if (dashboardNav) dashboardNav.classList.remove('header__nav--open');
         overlay.classList.remove('sidebar-overlay--visible');
     }
 
@@ -121,11 +119,17 @@ function initSettingsButton() {
             closeMobileSidebar();
         });
     }
+}
 
-    // 侧边栏底部退出登录按钮
-    const sidebarLogoutBtn = document.getElementById('sidebarLogoutBtn');
-    if (sidebarLogoutBtn) {
-        sidebarLogoutBtn.addEventListener('click', performLogout);
+function initLogoutButton() {
+    const logoutBtn = document.getElementById('logoutBtnMobile');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            AuthGuard.clearToken();
+            localStorage.removeItem('guest_view_mode');
+            window.location.href = `${BASE_PATH}/index.html`;
+        });
     }
 }
 
@@ -451,16 +455,13 @@ function renderTopNavAuth(user) {
 
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', performLogout);
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            AuthGuard.clearToken();
+            localStorage.removeItem('guest_view_mode');
+            window.location.href = `${BASE_PATH}/index.html`;
+        });
     }
-}
-
-// 统一退出登录处理：清除 token + 访客模式 + 跳转首页
-function performLogout(e) {
-    if (e && typeof e.preventDefault === 'function') e.preventDefault();
-    AuthGuard.clearToken();
-    localStorage.removeItem('guest_view_mode');
-    window.location.href = `${BASE_PATH}/index.html`;
 }
 
 function renderPermissionButtons(permissionLevel) {
