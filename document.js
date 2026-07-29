@@ -555,7 +555,7 @@ function ensureMarkedLoaded() {
   return new Promise(resolve => {
     const s = document.createElement('script');
     s.src = 'https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js';
-    s.integrity = 'sha256-9Dk+eZ9BvJh9nAEEc9Gv1GQJ1Y3x5gqP5Bxq7L6v4uE=';
+    s.integrity = 'sha256-6x9rGYgLyApf40xqYYhRc7YO3aRVunozyYcU2xfTn5k=';
     s.crossOrigin = 'anonymous';
     s.referrerPolicy = 'no-referrer';
     s.onload = () => { __DOC.markedReady = true; __DOC.markedLoading = false; resolve(true); };
