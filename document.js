@@ -612,10 +612,7 @@ async function applyDocFolderFilter() {
 function renderDocFolders() {
   const section = document.getElementById('docFoldersSection');
   const list = document.getElementById('docFoldersList');
-  const addBtn = document.getElementById('docFolderAddBtn');
   if (!section || !list) return;
-
-  if (addBtn) addBtn.style.display = __DOC.isAdmin ? '' : 'none';
 
   // 按 visFilter 过滤文件夹：
   //   - public / group tab：仅显示公共文件夹（user_id === null）
@@ -671,13 +668,6 @@ function bindDocFolderActions() {
   const list = document.getElementById('docFoldersList');
   if (!list) return;
 
-  const addBtn = document.getElementById('docFolderAddBtn');
-  if (addBtn) {
-    const clone = addBtn.cloneNode(true);
-    addBtn.parentNode.replaceChild(clone, addBtn);
-    clone.addEventListener('click', () => addDocFolder());
-  }
-
   list.querySelectorAll('[data-folder-id="__all__"], [data-folder-id="__uncategorized__"]').forEach(row => {
     row.addEventListener('click', async () => {
       const fid = row.dataset.folderId;
@@ -729,48 +719,6 @@ function bindDocFolderActions() {
       else if (action === 'delete') deleteDocFolder(id);
     });
   });
-}
-
-/**
- * 新建公共文件夹（仅管理员；当前选中某文件夹时作为 parent_id 传）
- */
-async function addDocFolder() {
-  if (!__DOC.isAdmin) {
-    alert('仅等级≥5 的管理员可创建公共文件夹');
-    return;
-  }
-  const name = await Modal.prompt('请输入公共文件夹名称：', '', { title: '新建文件夹' });
-  if (name === null || !name.trim()) return;
-  const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
-  if (!token) {
-    alert('请先登录');
-    return;
-  }
-  const body = { name: name.trim(), scope: 'public' };
-  if (typeof __DOC.currentFolderId === 'number' && __DOC.currentFolderId > 0) {
-    body.parent_id = __DOC.currentFolderId;
-  }
-  try {
-    const r = await fetch(`${API_BASE_URL}/api/v1/document/folders`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(body)
-    });
-    const d = await r.json();
-    if (r.ok && d.code === 200) {
-      await fetchDocFolders();
-      await applyDocFolderFilter();
-    } else {
-      console.error('[folder] 新建失败:', d.msg);
-      alert('新建失败：' + (d.msg || '未知错误'));
-    }
-  } catch (e) {
-    console.error('[folder] 新建网络错误:', e);
-    alert('新建失败：网络错误');
-  }
 }
 
 /**
