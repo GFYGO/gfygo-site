@@ -6,16 +6,17 @@
 const DEFAULT_BANNER = 'https://picsum.photos/1200/300';
 const DEFAULT_AVATAR = '../favicon.png';
 
-// 角色名映射：全局守卫式定义，避免与 index.js（也加载在 dashboard.html）冲突
-window.ROLE_NAMES = window.ROLE_NAMES || {
-    0: '未登录',
-    1: '普通用户',
-    2: '一级管理员',
-    3: '二级管理员',
-    4: '三级管理员',
-    5: '超级管理员'
-};
-const ROLE_NAMES = window.ROLE_NAMES;
+// 角色名映射：全局单例挂载（不要用 const 别名，避免与 index.js 同名声明冲突）
+if (!window.ROLE_NAMES) {
+    window.ROLE_NAMES = {
+        0: '未登录',
+        1: '普通用户',
+        2: '一级管理员',
+        3: '二级管理员',
+        4: '三级管理员',
+        5: '超级管理员'
+    };
+}
 
 // 动态菜单缓存：tab_key -> { meta, loaded: bool }
 const dynamicMenuCache = new Map();
@@ -74,7 +75,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const user = data.data.user;
             pdocsCurrentUserId = user.id;
             renderUserProfile(user);
-            renderPermissionButtons(user.permission_level);
+            if (typeof window.renderPermissionButtons === 'function') {
+                window.renderPermissionButtons(user.permission_level);
+            }
             renderTopNavAuth(user);
 
             // 检查邮箱验证状态
@@ -369,7 +372,7 @@ function renderUserProfile(user) {
     const profile = user.profile || {};
     const avatar = profile.avatar || DEFAULT_AVATAR;
     const banner = profile.banner || DEFAULT_BANNER;
-    const roleName = ROLE_NAMES[user.permission_level] || '未知';
+    const roleName = window.ROLE_NAMES[user.permission_level] || '未知';
 
     const sidebarAvatar = document.getElementById('sidebarAvatar');
     if (sidebarAvatar) {
@@ -490,8 +493,8 @@ window.renderPermissionButtons = window.renderPermissionButtons || function rend
             btn.classList.add('perm-btn--current');
         }
         btn.textContent = level;
-        btn.title = `切换到 ${ROLE_NAMES[level] || `等级${level}`} 视角预览（仅前端渲染，不改变实际权限）`;
-        btn.addEventListener('click', () => handlePermissionClick(level));
+        btn.title = `切换到 ${window.ROLE_NAMES[level] || `等级${level}`} 视角预览（仅前端渲染，不改变实际权限）`;
+        btn.addEventListener('click', () => window.handlePermissionClick(level));
         container.appendChild(btn);
     });
 
@@ -500,7 +503,7 @@ window.renderPermissionButtons = window.renderPermissionButtons || function rend
     if (bannerEl) {
         if (effectiveLevel !== 1) {
             bannerEl.style.display = 'block';
-            bannerEl.innerHTML = `当前以 <strong>${ROLE_NAMES[effectiveLevel] || `等级${effectiveLevel}`}</strong> 视角预览（实际权限未改变） · <a href="#" id="clearViewOverrideBtn">返回真实视角</a>`;
+            bannerEl.innerHTML = `当前以 <strong>${window.ROLE_NAMES[effectiveLevel] || `等级${effectiveLevel}`}</strong> 视角预览（实际权限未改变） · <a href="#" id="clearViewOverrideBtn">返回真实视角</a>`;
             const clearBtn = document.getElementById('clearViewOverrideBtn');
             if (clearBtn) {
                 clearBtn.addEventListener('click', (e) => {
@@ -560,7 +563,9 @@ window.handlePermissionClick = window.handlePermissionClick || function handlePe
     localStorage.removeItem('guest_view_mode');
 
     const userPerm = (typeof window.__currentUserPermissionLevel === 'number') ? window.__currentUserPermissionLevel : level;
-    (window.renderPermissionButtons || renderPermissionButtons)(userPerm);
+    if (typeof window.renderPermissionButtons === 'function') {
+        window.renderPermissionButtons(userPerm);
+    }
 };
 
 // =========================================

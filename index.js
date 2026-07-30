@@ -221,24 +221,29 @@ function renderAuthStatus(userInfo) {
     }
 
     // 渲染权限切换按钮（仅管理员可见）
-    renderPermissionButtons(userInfo ? userInfo.permission_level : 0);
+    if (typeof window.renderPermissionButtons === 'function') {
+      window.renderPermissionButtons(userInfo ? userInfo.permission_level : 0);
+    }
   } else {
     navLoginLinks.forEach(link => link.style.display = '');
     navRegisterLinks.forEach(link => link.style.display = '');
-    renderPermissionButtons(0);
+    if (typeof window.renderPermissionButtons === 'function') {
+      window.renderPermissionButtons(0);
+    }
   }
 }
 
-// 角色名映射（全局共享守卫：避免与 dashboard.js 重复声明）
-window.ROLE_NAMES = window.ROLE_NAMES || {
-  0: '未登录',
-  1: '普通用户',
-  2: '一级管理员',
-  3: '二级管理员',
-  4: '三级管理员',
-  5: '超级管理员'
-};
-const ROLE_NAMES = window.ROLE_NAMES;
+// 角色名映射：全局单例挂载（不用 const 别名，避免与 dashboard.js 同名声明冲突）
+if (!window.ROLE_NAMES) {
+  window.ROLE_NAMES = {
+    0: '未登录',
+    1: '普通用户',
+    2: '一级管理员',
+    3: '二级管理员',
+    4: '三级管理员',
+    5: '超级管理员'
+  };
+}
 
 /**
  * 渲染右上角权限等级切换按钮
@@ -275,12 +280,13 @@ window.renderPermissionButtons = window.renderPermissionButtons || function (per
       btn.classList.add('perm-btn--current');
     }
     btn.textContent = level;
-    btn.title = `切换到 ${ROLE_NAMES[level] || `等级${level}`} 视角`;
-    btn.addEventListener('click', () => (window.handlePermissionClick || handlePermissionClick)(level));
+    btn.title = `切换到 ${window.ROLE_NAMES[level] || `等级${level}`} 视角`;
+    btn.addEventListener('click', () => {
+      if (typeof window.handlePermissionClick === 'function') window.handlePermissionClick(level);
+    });
     container.appendChild(btn);
   });
 };
-const renderPermissionButtons = window.renderPermissionButtons;
 
 window.handlePermissionClick = window.handlePermissionClick || function (level) {
   // 判断当前页面是否是 dashboard 类页面（需要跳转）
@@ -329,6 +335,7 @@ window.handlePermissionClick = window.handlePermissionClick || function (level) 
 
   // 重绘按钮高亮（不跳转）
   const userPerm = window.__currentUserPermissionLevel || level;
-  (window.renderPermissionButtons || renderPermissionButtons)(userPerm);
+  if (typeof window.renderPermissionButtons === 'function') {
+    window.renderPermissionButtons(userPerm);
+  }
 };
-const handlePermissionClick = window.handlePermissionClick;
