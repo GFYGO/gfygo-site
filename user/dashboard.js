@@ -466,6 +466,11 @@ function renderPermissionButtons(permissionLevel) {
 
     if (permissionLevel <= 1) return;
 
+    // 读取视角覆盖等级
+    const viewOverrideRaw = localStorage.getItem('view_as_level');
+    const viewOverride = viewOverrideRaw ? parseInt(viewOverrideRaw, 10) : null;
+    const effectiveLevel = Number.isInteger(viewOverride) ? viewOverride : 1;
+
     // 管理员用户：显示等级 1 + 从 2 到当前等级的按钮
     // 超级管理员（5）：额外显示等级 0
     const levels = [];
@@ -478,30 +483,58 @@ function renderPermissionButtons(permissionLevel) {
     levels.forEach(level => {
         const btn = document.createElement('button');
         btn.className = 'perm-btn';
-        if (level === 1) {
+        // 当前视角等级高亮（若有覆盖则按覆盖，否则默认等级 1 高亮）
+        if (level === effectiveLevel) {
             btn.classList.add('perm-btn--current');
         }
         btn.textContent = level;
-        btn.title = `进入 ${ROLE_NAMES[level] || `等级${level}`} 管理后台`;
+        btn.title = `切换到 ${ROLE_NAMES[level] || `等级${level}`} 视角预览（仅前端渲染，不改变实际权限）`;
         btn.addEventListener('click', () => handlePermissionClick(level));
         container.appendChild(btn);
     });
+
+    // 如果视角覆盖等级生效，显示一个 banner 提示用户
+    const bannerEl = document.getElementById('viewOverrideBanner');
+    if (bannerEl) {
+        if (effectiveLevel !== 1) {
+            bannerEl.style.display = 'block';
+            bannerEl.innerHTML = `当前以 <strong>${ROLE_NAMES[effectiveLevel] || `等级${effectiveLevel}`}</strong> 视角预览（实际权限未改变） · <a href="#" id="clearViewOverrideBtn">返回真实视角</a>`;
+            const clearBtn = document.getElementById('clearViewOverrideBtn');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    localStorage.removeItem('view_as_level');
+                    window.location.reload();
+                });
+            }
+        } else {
+            bannerEl.style.display = 'none';
+        }
+    }
 }
 
 function handlePermissionClick(level) {
     if (level === 0) {
         // 访客视角预览：不清除 token，设置访客模式标记后跳转首页
         localStorage.setItem('guest_view_mode', 'true');
+        localStorage.removeItem('view_as_level');
         window.location.href = `${BASE_PATH}/index.html`;
         return;
     }
 
-    // 切换到其他权限等级：清除访客模式
+    // 切换到其他权限等级：清除访客模式，设置视角模拟（仅影响前端 UI 渲染，不改变 API 实际权限）
     localStorage.removeItem('guest_view_mode');
 
-    const dashboardPath = encodeURIComponent(window.location.pathname + window.location.search);
-    const adminUrl = `${BASE_PATH}/admin/admin${level}.html?from=${dashboardPath}`;
-    window.location.href = adminUrl;
+    if (level === 1) {
+        // 等级1 = 当前用户真实视角，清除覆盖
+        localStorage.removeItem('view_as_level');
+    } else {
+        // 保存视角等级：影响权限按钮高亮和文档列表过滤
+        localStorage.setItem('view_as_level', String(level));
+    }
+
+    // 重新加载当前页以应用视角切换
+    window.location.reload();
 }
 
 // =========================================
@@ -1029,7 +1062,7 @@ function renderPdocsList(docs) {
                 <span class="pdocs-doc-card__icon">${pdocsEscape(doc.icon || '📄')}</span>
                 <h3 class="pdocs-doc-card__title">${pdocsEscape(doc.title)}</h3>
             </div>
-            <p class="pdocs-doc-card__summary">${pdocsEscape(doc.summary || pdocsExtractSummary(doc.content) || '无内容')}</p>
+            <p class="pdocs-doc-card__summary">${pdocsEscape((doc.summary && doc.summary.trim()) ? doc.summary : '无内容')}</p>
             <div class="pdocs-doc-card__footer">
                 <span class="pdocs-doc-card__time">更新于 ${pdocsFmtTime(doc.updated_at)}</span>
                 <div class="pdocs-doc-card__actions">

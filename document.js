@@ -92,7 +92,8 @@ function initDocSidebarControls() {
 
 /**
  * 将 6 位 permission_bits 解析为 [{level, allow, force}]
- * 约定：level 6 永远 force=true allow=true（与后端兜底对齐）
+ * 位索引 0..4 对应等级 1..5；第 6 位（索引5）为保留位
+ * 约定：level 5（超级管理员）永远 force=true allow=true（与后端兜底对齐）
  */
 function parsePermBits(bits) {
   if (typeof bits !== 'string' || !/^[01]{6}$/.test(bits)) {
@@ -100,31 +101,35 @@ function parsePermBits(bits) {
     bits = '000000';
   }
   const out = [];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 5; i++) {
     const level = i + 1;
-    const isSix = level === 6;
+    const isSuper = level === 5;
     out.push({
       level,
-      allow: isSix ? true : bits[i] === '1',
-      force: isSix
+      allow: isSuper ? true : bits[i] === '1',
+      force: isSuper
     });
   }
+  // 第 6 位为保留位
+  out.push({ level: 6, allow: bits[5] === '1', force: false });
   return out;
 }
 
 /**
  * 当前身份是否可以查看某文档（前端预过滤，后端仍会二次校验）
- * userLevel: null=匿名 / 1~6
+ * userLevel: null=匿名 / 1~5
  */
 function canViewByBits(bits, visibility, userLevel) {
-  // 等级6直接 true（与后端兜底一致）
-  if (userLevel && userLevel >= 6) return true;
+  // 私有文档：仅作者本人 & 超管可看，前端无法判断作者，所以一律过滤掉（后端二次校验会放行作者）
+  if (visibility === 'private') return false;
+  // 等级5（超级管理员）直接 true（与后端兜底一致）
+  if (userLevel && userLevel >= 5) return true;
 
   if (!userLevel) {
     // 匿名：visibility 必须 public 且 等级1位为 1
     return visibility === 'public' && (bits && bits[0] === '1');
   }
-  const idx = Math.min(5, Math.max(0, userLevel - 1));
+  const idx = Math.min(4, Math.max(0, userLevel - 1));
   return bits && bits[idx] === '1';
 }
 
@@ -132,15 +137,15 @@ function canViewByBits(bits, visibility, userLevel) {
  * 一句话友好权限摘要（给普通用户看的）
  */
 function permToSummaryText(bits, visibility) {
-  const arr = parsePermBits(bits);
+  const arr = parsePermBits(bits).filter(a => a.level <= 5);
   // 找到第一个允许的最低等级 & 最高允许的等级
   const allowLevels = arr.filter(a => a.allow).map(a => a.level);
   const isPublic = visibility === 'public';
 
-  if (allowLevels.length === 6 || (allowLevels.filter(l => l <= 5).length === 5)) {
+  if (allowLevels.filter(l => l <= 5).length === 5) {
     return isPublic ? '所有人可见（登录 + 访客）' : '所有登录用户可见';
   }
-  if (allowLevels.length === 1 && allowLevels[0] === 6) {
+  if (allowLevels.length === 1 && allowLevels[0] === 5) {
     return '仅超级管理员可见';
   }
   // 找最低 level -> 最高 level 的连续区间

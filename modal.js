@@ -278,14 +278,17 @@ const Modal = {
   },
 
   /**
-   * HTML 转义
+   * HTML 转义：同时转义标签字符和单/双引号（属性场景安全）
    * @private
    */
   _escapeHtml(str) {
     if (typeof str !== 'string') return '';
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 };
 
