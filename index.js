@@ -229,7 +229,8 @@ function renderAuthStatus(userInfo) {
   }
 }
 
-const ROLE_NAMES = {
+// 角色名映射（全局共享守卫：避免与 dashboard.js 重复声明）
+window.ROLE_NAMES = window.ROLE_NAMES || {
   0: '未登录',
   1: '普通用户',
   2: '一级管理员',
@@ -237,6 +238,7 @@ const ROLE_NAMES = {
   4: '三级管理员',
   5: '超级管理员'
 };
+const ROLE_NAMES = window.ROLE_NAMES;
 
 /**
  * 渲染右上角权限等级切换按钮
@@ -247,7 +249,7 @@ const ROLE_NAMES = {
  *      0 = 访客视角（仅超管可见）
  *  - 行为：仅在各 dashboard 页面点击后跳转；其他页面仅切换 localStorage 视角，不做跳转
  */
-function renderPermissionButtons(permissionLevel) {
+window.renderPermissionButtons = window.renderPermissionButtons || function (permissionLevel) {
   const container = document.getElementById('permissionButtons');
   if (!container) return;
 
@@ -274,12 +276,13 @@ function renderPermissionButtons(permissionLevel) {
     }
     btn.textContent = level;
     btn.title = `切换到 ${ROLE_NAMES[level] || `等级${level}`} 视角`;
-    btn.addEventListener('click', () => handlePermissionClick(level));
+    btn.addEventListener('click', () => (window.handlePermissionClick || handlePermissionClick)(level));
     container.appendChild(btn);
   });
-}
+};
+const renderPermissionButtons = window.renderPermissionButtons;
 
-function handlePermissionClick(level) {
+window.handlePermissionClick = window.handlePermissionClick || function (level) {
   // 判断当前页面是否是 dashboard 类页面（需要跳转）
   const isDashboardPage = /\/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname);
 
@@ -326,5 +329,6 @@ function handlePermissionClick(level) {
 
   // 重绘按钮高亮（不跳转）
   const userPerm = window.__currentUserPermissionLevel || level;
-  renderPermissionButtons(userPerm);
-}
+  (window.renderPermissionButtons || renderPermissionButtons)(userPerm);
+};
+const handlePermissionClick = window.handlePermissionClick;
