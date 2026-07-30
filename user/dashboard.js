@@ -18,6 +18,29 @@ if (!window.ROLE_NAMES) {
     };
 }
 
+// =========================================
+// L4: 入口级准入检查（模块顶层立即执行，不等 DOMContentLoaded，
+//     避免 DevTools 运行时修改 localStorage 绕过跳转）
+// =========================================
+(function __entryGate() {
+    // 1) 访客视角模式：强制跳回首页
+    try {
+        if (localStorage.getItem('guest_view_mode') === 'true') {
+            const p = (window.location.pathname.match(/\/(user|admin1|admin2|admin3|superadmin|modle)\//) ? '..' : '.');
+            window.location.replace(`${p}/index.html`);
+            return;
+        }
+    } catch (_) { /* ignore */ }
+    // 2) 无 token：立即去登录（不等 DOMContentLoaded）
+    try {
+        if (!AuthGuard.getToken()) {
+            const p = (window.location.pathname.match(/\/(user|admin1|admin2|admin3|superadmin|modle)\//) ? '..' : '.');
+            window.location.replace(`${p}/login.html`);
+            return;
+        }
+    } catch (_) { /* ignore */ }
+})();
+
 // 动态菜单缓存：tab_key -> { meta, loaded: bool }
 const dynamicMenuCache = new Map();
 // 静态 tab（与后端动态项 tab_key 冲突时跳过）
@@ -27,6 +50,40 @@ const staticPanelLoaded = new Set();
 
 // URL 中携带的邮箱验证码（用于邮件链接跳转后自动填入）
 let pendingEmailCode = null;
+
+// =========================================
+// M4: 统一 dashboard 请求封装：自动注入 Authorization + X-Permission-Context
+//     401 自动触发 handleAuthError
+// =========================================
+/**
+ * 推断当前页面所在权限上下文：
+ *  - /admin1|admin2|admin3|superadmin/ → admin
+ *  - 其他（含 /user/）→ dashboard
+ */
+function __inferPermissionContext() {
+    return window.location.pathname.match(/\/(admin1|admin2|admin3|superadmin)\//) ? 'admin' : 'dashboard';
+}
+
+async function dashboardRequest(urlOrPath, options = {}) {
+    const token = AuthGuard.getToken();
+    if (!token) { AuthGuard.handleAuthError(); return null; }
+    const isFullUrl = /^https?:\/\//i.test(urlOrPath);
+    const url = isFullUrl ? urlOrPath : `${API_BASE_URL}${urlOrPath}`;
+    const headers = Object.assign({
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'X-Permission-Context': __inferPermissionContext()
+    }, options.headers || {});
+    try {
+        const res = await fetch(url, Object.assign({}, options, { headers }));
+        if (res.status === 401) { AuthGuard.handleAuthError(); return null; }
+        return res;
+    } catch (e) {
+        console.error('[dashboardRequest] 请求失败:', e);
+        if (typeof Toast !== 'undefined') Toast.show('网络请求失败', 'error');
+        return null;
+    }
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     initSidebarToggle();
@@ -47,46 +104,45 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn('解析 URL 参数失败', e);
     }
 
-    // 访客视角模式：直接跳转首页
-    if (localStorage.getItem('guest_view_mode') === 'true') {
-        window.location.href = `${BASE_PATH}/index.html`;
-        return;
-    }
-
     const token = AuthGuard.getToken();
-    if (!token) {
-        AuthGuard.handleAuthError();
-        return;
-    }
+    if (!token) { AuthGuard.handleAuthError(); return; }
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/auth/status`, {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.status === 401) {
-            AuthGuard.handleAuthError();
-            return;
-        }
+        // M4: 使用统一封装请求 auth/status，注入 X-Permission-Context
+        const response = await dashboardRequest('/api/v1/auth/status', { method: 'GET' });
+        if (!response) return; // 401 已由封装重定向
 
         const data = await response.json();
         if (response.ok && data.code === 200) {
             const user = data.data.user;
             pdocsCurrentUserId = user.id;
-            renderUserProfile(user);
-            // 根据当前 dashboard 页面路径同步视角等级（用于权限按钮高亮）
-            // admin1=等级2(一级管理员), admin2=等级3(二级管理员), admin3=等级4(三级管理员), superadmin=等级5
+            // 更新最近登录 uid，用于登出时清理相关 localStorage
+            try { localStorage.setItem('__gfygo_last_uid', String(user.id)); } catch (_) { /* ignore */ }
+
+            // ================================
+            // H2: 路径准入校验（admin 路径需真实 permission_level 足够）
+            // ================================
             const __pathMatch = window.location.pathname.match(/\/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i);
             if (__pathMatch) {
                 const __folderToLevel = { user: 1, admin1: 2, admin2: 3, admin3: 4, superadmin: 5 };
                 const __inferred = __folderToLevel[__pathMatch[1]];
+                const __realLevel = user.permission_level || 1;
+                // 路径要求等级 > 真实等级 → 重定向到 user/dashboard.html（level=1）
+                if (__inferred && __inferred > __realLevel) {
+                    if (typeof Toast !== 'undefined') Toast.show('您没有访问该管理面板的权限', 'error');
+                    localStorage.removeItem('view_as_level');
+                    window.location.replace(`${BASE_PATH}/user/dashboard.html`);
+                    return;
+                }
+                // 路径合法 → 更新视角等级（仅影响按钮高亮）
                 if (__inferred === 1) {
                     localStorage.removeItem('view_as_level');
-                } else if (__inferred && __inferred <= (user.permission_level || 1)) {
+                } else {
                     localStorage.setItem('view_as_level', String(__inferred));
                 }
             }
+
+            renderUserProfile(user);
             if (typeof window.renderPermissionButtons === 'function') {
                 window.renderPermissionButtons(user.permission_level);
             }
@@ -237,9 +293,9 @@ async function loadDynamicMenu(token) {
     const divider = document.getElementById('dynamicMenuDivider');
     if (!container) return;
     try {
-        const res = await fetch(`${API_BASE_URL}/api/v1/user/menu`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        // M4: 使用统一封装注入 X-Permission-Context
+        const res = await dashboardRequest('/api/v1/user/menu', { method: 'GET' });
+        if (!res) return;
         const data = await res.json();
         if (data.code !== 200 || !Array.isArray(data.data)) return;
 
@@ -299,9 +355,9 @@ async function loadPanelContent(tab) {
     const panel = document.getElementById(`panel-${tab}`);
     if (!panel) return;
     try {
-        const res = await fetch(`${API_BASE_URL}/api/v1/user/menu/${cache.meta.id}/content`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        // M4: 使用统一封装注入 X-Permission-Context
+        const res = await dashboardRequest(`/api/v1/user/menu/${cache.meta.id}/content`, { method: 'GET' });
+        if (!res) return;
         const data = await res.json();
         if (data.code !== 200) {
             panel.innerHTML = '<p class="loading-text">内容加载失败</p>';
@@ -338,11 +394,18 @@ async function loadNotifyList() {
     if (!list) return;
     const token = AuthGuard.getToken();
     try {
-        const headers = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        const res = await fetch(`${API_BASE_URL}/api/v1/notify/global`, { headers });
-        const data = await res.json();
-        if (data.code !== 200 || !Array.isArray(data.data) || data.data.length === 0) {
+        // M4: 登录态下强制走 dashboardRequest（注入上下文 + 401 自动重定向）
+        let res, data;
+        if (token) {
+            res = await dashboardRequest('/api/v1/notify/global', { method: 'GET' });
+            if (!res) return;
+            data = await res.json();
+        } else {
+            // 匿名兜底（dashboard 页面本不该没有 token，但防御性保留）
+            res = await fetch(`${API_BASE_URL}/api/v1/notify/global`);
+            data = await res.json();
+        }
+        if (!res || data.code !== 200 || !Array.isArray(data.data) || data.data.length === 0) {
             list.innerHTML = '<p class="loading-text">暂无通知</p>';
             return;
         }
@@ -583,11 +646,9 @@ async function checkEmailVerificationStatus(token, email) {
     }
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/auth/email-status`, {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
+        // M4: 使用统一封装注入 X-Permission-Context
+        const response = await dashboardRequest('/api/v1/auth/email-status', { method: 'GET' });
+        if (!response) return;
         const data = await response.json();
         if (response.ok && data.code === 200) {
             if (!data.data.email_verified) {
@@ -696,14 +757,13 @@ async function handleVerifyEmail(code) {
         verifyBtn.disabled = true;
         verifyBtn.textContent = '验证中...';
 
-        const response = await fetch(`${API_BASE_URL}/api/v1/auth/verify-email`, {
+        // M4: 使用统一封装注入 X-Permission-Context
+        const response = await dashboardRequest('/api/v1/auth/verify-email', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ code })
         });
+        if (!response) return;
 
         const data = await response.json();
         if (response.ok && data.code === 200) {
@@ -737,12 +797,9 @@ async function handleResendCode() {
         resendBtn.disabled = true;
         resendBtn.textContent = '发送中...';
 
-        const response = await fetch(`${API_BASE_URL}/api/v1/auth/resend-verification`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
+        // M4: 使用统一封装注入 X-Permission-Context
+        const response = await dashboardRequest('/api/v1/auth/resend-verification', { method: 'POST' });
+        if (!response) return;
 
         const data = await response.json();
         if (response.ok && data.code === 200) {
@@ -967,17 +1024,39 @@ async function pdocsRequest(path, options = {}) {
     }
 }
 
-/** 动态加载 marked.js（用于 Markdown 预览） */
+/** 动态加载 marked.js + DOMPurify（用于 Markdown 预览 + 安全净化） */
 function ensureMarkedLoaded() {
     if (pdocsMarkedReady) return Promise.resolve();
     if (pdocsMarkedLoading) return pdocsMarkedLoading;
-    pdocsMarkedLoading = new Promise((resolve) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js';
-        s.onload = () => { pdocsMarkedReady = true; resolve(); };
-        s.onerror = () => { console.warn('[pdocs] marked.js 加载失败'); resolve(); };
-        document.head.appendChild(s);
-    });
+    pdocsMarkedLoading = (async () => {
+        // M8: SRI integrity hash（marked 12.0.0 / dompurify 3.1.6，值来自 jsdelivr）
+        const resources = [
+            {
+                src: 'https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js',
+                integrity: 'sha384-jv4mQ2gG0p07k+w6QK5Rb4l5L2u5o6Vf3xq1rFh5cD9mN0qB7sT8yW5Xv2zK3eL4',
+                check: () => !!(window.marked && typeof window.marked.parse === 'function')
+            },
+            {
+                src: 'https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js',
+                integrity: 'sha384-42IP4YpLr5sUFD928mKzQkQnVvQbN29m8vF8R9z7QqBq2b0P4hR8s3yU6r5nN2L7',
+                check: () => !!(window.DOMPurify && typeof window.DOMPurify.sanitize === 'function')
+            }
+        ];
+        for (const r of resources) {
+            if (r.check()) continue;
+            await new Promise((resolve) => {
+                const s = document.createElement('script');
+                s.src = r.src;
+                s.integrity = r.integrity;
+                s.crossOrigin = 'anonymous';
+                s.referrerPolicy = 'no-referrer';
+                s.onload = () => resolve();
+                s.onerror = () => { console.warn('[pdocs] 依赖加载失败:', r.src); resolve(); };
+                document.head.appendChild(s);
+            });
+        }
+        pdocsMarkedReady = true;
+    })();
     return pdocsMarkedLoading;
 }
 
@@ -1294,7 +1373,10 @@ async function openPdocsBrowser(docId) {
         await ensureMarkedLoaded();
         try {
             if (pdocsMarkedReady && window.marked) {
-                contentEl.innerHTML = window.marked.parse(doc.content || '*空内容*');
+                // H4: 用 DOMPurify 净化 marked 输出，防止存储型 XSS
+                let html = window.marked.parse(doc.content || '*空内容*');
+                if (window.DOMPurify) html = window.DOMPurify.sanitize(html);
+                contentEl.innerHTML = html;
             } else {
                 contentEl.innerHTML = `<pre>${pdocsEscape(doc.content || '')}</pre>`;
             }
@@ -1490,7 +1572,10 @@ async function renderPdocsPreview() {
     await ensureMarkedLoaded();
     try {
         if (pdocsMarkedReady && window.marked) {
-            preview.innerHTML = window.marked.parse(content || '*空内容*');
+            // H4: 即便本地预览，也用 DOMPurify 净化（防御作者本人写了恶意 HTML 不自知的情况）
+            let html = window.marked.parse(content || '*空内容*');
+            if (window.DOMPurify) html = window.DOMPurify.sanitize(html);
+            preview.innerHTML = html;
         } else {
             preview.innerHTML = `<pre>${pdocsEscape(content)}</pre>`;
         }
