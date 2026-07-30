@@ -50,6 +50,15 @@
       <div class="doc-sidebar__search">
         <input type="text" id="docSearchInput" class="doc-search-input" placeholder="🔍 搜索文档标题..." aria-label="搜索文档">
       </div>
+      <div class="doc-folders" id="docFoldersSection">
+        <div class="doc-folders__head">
+          <span class="doc-folders__title">📁 文件夹</span>
+          <button class="doc-folders__add" id="docFolderAddBtn" style="display:none;" title="新建公共文件夹">+</button>
+        </div>
+        <div class="doc-folders__list" id="docFoldersList">
+          <p class="doc-loading-text">加载中...</p>
+        </div>
+      </div>
       <nav class="doc-sidebar__tree" id="docSidebarTree" aria-label="文档目录">
         <p class="doc-loading-text">正在加载文档目录...</p>
       </nav>
@@ -191,6 +200,6 @@
   <script src="./theme.js"></script>
   <script src="./toast.js"></script>
   <script src="./index.js"></script>
-  <script src="./document.js?v=20260729a"></script>
+  <script src="./document.js?v=20260730a"></script>
 </body>
 </html>

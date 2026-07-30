@@ -1163,6 +1163,114 @@ body.theme-dark_green .calendar-day--checked {
     color: var(--color-text-main, #1f2937);
 }
 
+/* 个人文件夹 bar */
+.pdocs-folders {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: var(--color-bg-section, #fff);
+    border: 1px solid var(--color-border, #e5e5e5);
+    border-radius: 8px;
+}
+
+.pdocs-folders__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.pdocs-folders__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text, #333);
+}
+
+.pdocs-folders__add {
+    background: var(--color-primary, #2ea043);
+    color: #fff;
+    border: none;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.pdocs-folders__add:hover {
+    opacity: 0.85;
+}
+
+.pdocs-folders__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.pdocs-folder-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: var(--color-bg-section-alt, #f5f5f5);
+    border: 1px solid var(--color-border, #e5e5e5);
+    border-radius: 16px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.pdocs-folder-chip:hover {
+    background: var(--color-bg-hover, #ececec);
+}
+
+.pdocs-folder-chip.is-active {
+    background: var(--color-primary, #2ea043);
+    color: #fff;
+    border-color: var(--color-primary, #2ea043);
+}
+
+.pdocs-folder-chip__name {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pdocs-folder-chip__actions {
+    display: inline-flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.pdocs-folder-chip:hover .pdocs-folder-chip__actions {
+    opacity: 1;
+}
+
+.pdocs-folder-chip__btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 0 2px;
+    color: inherit;
+    line-height: 1;
+}
+
+.pdocs-folder-chip__btn:hover {
+    opacity: 0.7;
+}
+
+.pdocs-move-select {
+    font-size: 12px;
+    padding: 2px 4px;
+    border: 1px solid var(--color-border, #e5e5e5);
+    border-radius: 4px;
+    background: var(--color-bg-section, #fff);
+    cursor: pointer;
+    max-width: 110px;
+}
+
 .pdocs-preview h1,
 .pdocs-preview h2,
 .pdocs-preview h3 {

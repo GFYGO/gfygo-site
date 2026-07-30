@@ -1237,3 +1237,85 @@ body.theme-gray       .doc-content pre {
   background: #0b1220;
   border: 1px solid var(--color-border);
 }
+
+/* --- 15.9 公共文件夹区段（侧栏） --- */
+.doc-folders {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border, #e5e5e5);
+}
+.doc-folders__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.doc-folders__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.doc-folders__add {
+  background: transparent;
+  border: none;
+  color: var(--color-primary, #2ea043);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.doc-folders__add:hover { opacity: 0.7; }
+.doc-folders__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.doc-folder-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--color-text, #333);
+  transition: background 0.15s;
+}
+.doc-folder-item:hover { background: var(--color-bg-section-alt, #f5f5f5); }
+.doc-folder-item.is-active {
+  background: var(--color-primary, #2ea043);
+  color: #fff;
+}
+.doc-folder-item.is-active .doc-folder-item__actions { opacity: 1; }
+.doc-folder-item__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.doc-folder-item__icon { font-size: 14px; }
+.doc-folder-item__actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.doc-folder-item:hover .doc-folder-item__actions { opacity: 1; }
+.doc-folder-item__btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  color: inherit;
+}
+.doc-folder-item__btn:hover { background: rgba(0,0,0,0.1); }
+.doc-folder-item.is-active .doc-folder-item__btn { color: #fff; }

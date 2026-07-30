@@ -70,6 +70,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const data = await response.json();
         if (response.ok && data.code === 200) {
             const user = data.data.user;
+            pdocsCurrentUserId = user.id;
             renderUserProfile(user);
             renderPermissionButtons(user.permission_level);
             renderTopNavAuth(user);
@@ -864,6 +865,9 @@ function handleCheckin() {
 let pdocsEditingId = null;      // 当前编辑的文档 id（null=新建）
 let pdocsMarkedReady = false;   // marked.js 是否已加载
 let pdocsMarkedLoading = null;  // 加载中的 Promise（防重复）
+let pdocsFolders = [];          // 当前用户的个人文件夹列表
+let pdocsCurrentFolderId = null; // null=全部；0=未归类；正整数=该文件夹
+let pdocsCurrentUserId = null;   // 从 auth/status 拿到，用于过滤个人文件夹
 
 /** 统一请求封装（统一走 /api/v1/document 接口） */
 async function pdocsRequest(path, options = {}) {
@@ -958,6 +962,7 @@ function initPersonalDocs() {
     }
 
     loadPersonalDocs();
+    loadPersonalFolders();
 }
 
 /** 切换子视图 */
@@ -976,7 +981,13 @@ async function loadPersonalDocs() {
     if (!container) return;
     container.innerHTML = '<p class="loading-text">加载中...</p>';
 
-    const data = await pdocsRequest('/mine');
+    // 根据 pdocsCurrentFolderId 拼接 folder_id query
+    // null=不拼（全部）；0=未归类；正整数=该文件夹下
+    let query = '';
+    if (pdocsCurrentFolderId === 0 || (typeof pdocsCurrentFolderId === 'number' && pdocsCurrentFolderId > 0)) {
+        query = `folder_id=${pdocsCurrentFolderId}`;
+    }
+    const data = await pdocsRequest('/mine' + (query ? '?' + query : ''));
     if (!data || data.code !== 200) {
         container.innerHTML = '<p class="loading-text">加载失败</p>';
         return;
@@ -1022,6 +1033,11 @@ function renderPdocsList(docs) {
             <div class="pdocs-doc-card__footer">
                 <span class="pdocs-doc-card__time">更新于 ${pdocsFmtTime(doc.updated_at)}</span>
                 <div class="pdocs-doc-card__actions">
+                    <select class="pdocs-move-select" data-action="move" data-id="${doc.id}" title="移动到文件夹">
+                        <option value="" disabled selected>📁 移动到...</option>
+                        <option value="0">无文件夹</option>
+                        ${pdocsFolders.map(f => `<option value="${f.id}" ${doc.folder_id === f.id ? 'selected' : ''}>${pdocsEscape(f.name)}</option>`).join('')}
+                    </select>
                     <button class="pdocs-btn pdocs-btn--ghost pdocs-btn--sm" data-action="edit" data-id="${doc.id}">编辑</button>
                     <button class="pdocs-btn pdocs-btn--danger pdocs-btn--sm" data-action="delete" data-id="${doc.id}">删除</button>
                 </div>
@@ -1037,6 +1053,16 @@ function renderPdocsList(docs) {
             const id = parseInt(btn.dataset.id, 10);
             if (action === 'edit') openPdocsEditor(id);
             else if (action === 'delete') softDeletePersonalDoc(id);
+            // action === 'move' 由 select 的 change 事件处理
+        });
+    });
+
+    // 绑定"移动到文件夹"下拉框
+    container.querySelectorAll('.pdocs-move-select').forEach(sel => {
+        sel.addEventListener('change', () => {
+            const docId = parseInt(sel.dataset.id, 10);
+            const folderId = parseInt(sel.value, 10);
+            movePersonalDoc(docId, folderId);
         });
     });
 
@@ -1139,14 +1165,19 @@ async function savePersonalDoc() {
     saveBtn.textContent = '保存中...';
     saveBtn.disabled = true;
 
-    const body = JSON.stringify({
+    const bodyObj = {
         title,
         content,
         summary: pdocsExtractSummary(content),
         // 个人文档语义：私有 + 仅作者本人（等级1位）可见
         visibility: 'private',
         permission_bits: '100000'
-    });
+    };
+    // 新建文档时，若当前处于某个个人文件夹视图下，自动归属该文件夹
+    if (!pdocsEditingId && typeof pdocsCurrentFolderId === 'number' && pdocsCurrentFolderId > 0) {
+        bodyObj.folder_id = pdocsCurrentFolderId;
+    }
+    const body = JSON.stringify(bodyObj);
 
     let data;
     if (pdocsEditingId) {
@@ -1235,4 +1266,147 @@ async function renderPdocsPreview() {
     } catch (e) {
         preview.innerHTML = `<pre>${pdocsEscape(content)}</pre>`;
     }
+}
+
+
+// =========================================
+// 个人文件夹相关函数
+// =========================================
+
+/** 加载个人文件夹列表（过滤出 user_id === pdocsCurrentUserId 的项作为个人文件夹） */
+async function loadPersonalFolders() {
+    const data = await pdocsRequest('/folders');
+    if (!data || data.code !== 200) {
+        console.error('[pdocs] 加载文件夹失败:', data);
+        return;
+    }
+    const all = Array.isArray(data.data) ? data.data : [];
+    pdocsFolders = all.filter(f => f.user_id === pdocsCurrentUserId);
+    renderPdocsFolders();
+}
+
+/** 渲染文件夹 chip 列表 */
+function renderPdocsFolders() {
+    const container = document.getElementById('pdocsFoldersList');
+    if (!container) return;
+
+    const items = [];
+    // 第一个 chip：全部
+    items.push(`
+        <div class="pdocs-folder-chip ${pdocsCurrentFolderId === null ? 'is-active' : ''}" data-folder-id="">
+            <span class="pdocs-folder-chip__name">📋 全部</span>
+        </div>
+    `);
+    // 每个个人文件夹
+    pdocsFolders.forEach(folder => {
+        items.push(`
+            <div class="pdocs-folder-chip ${pdocsCurrentFolderId === folder.id ? 'is-active' : ''}" data-folder-id="${folder.id}">
+                <span class="pdocs-folder-chip__name">${pdocsEscape(folder.name)}</span>
+                <span class="pdocs-folder-chip__actions">
+                    <button class="pdocs-folder-chip__btn" data-action="rename" data-id="${folder.id}" title="重命名">✏️</button>
+                    <button class="pdocs-folder-chip__btn" data-action="delete" data-id="${folder.id}" title="删除">🗑</button>
+                </span>
+            </div>
+        `);
+    });
+    container.innerHTML = items.join('');
+
+    // 绑定 chip 主体点击
+    container.querySelectorAll('.pdocs-folder-chip').forEach(chip => {
+        chip.addEventListener('click', (e) => {
+            // 点击的是 chip__btn 时不触发主体
+            if (e.target.closest('.pdocs-folder-chip__btn')) return;
+            const fid = chip.dataset.folderId;
+            if (fid === '') {
+                pdocsCurrentFolderId = null;
+            } else {
+                pdocsCurrentFolderId = parseInt(fid, 10);
+            }
+            renderPdocsFolders();
+            loadPersonalDocs();
+        });
+    });
+
+    // 绑定 rename / delete 按钮
+    container.querySelectorAll('.pdocs-folder-chip__btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const action = btn.dataset.action;
+            const id = parseInt(btn.dataset.id, 10);
+            if (action === 'rename') {
+                const folder = pdocsFolders.find(f => f.id === id);
+                const newName = prompt('重命名文件夹:', folder ? folder.name : '');
+                if (newName !== null && newName.trim()) {
+                    renamePersonalFolder(id, newName.trim());
+                }
+            } else if (action === 'delete') {
+                deletePersonalFolder(id);
+            }
+        });
+    });
+
+    // 绑定新建按钮（防重复）
+    const addBtn = document.getElementById('pdocsFolderAddBtn');
+    if (addBtn && !addBtn.dataset.pdocsBound) {
+        addBtn.dataset.pdocsBound = '1';
+        addBtn.addEventListener('click', addPersonalFolder);
+    }
+}
+
+/** 新建个人文件夹 */
+async function addPersonalFolder() {
+    const name = prompt('请输入文件夹名称:');
+    if (!name || !name.trim()) return;
+    const data = await pdocsRequest('/folders', {
+        method: 'POST',
+        body: JSON.stringify({ name: name.trim(), scope: 'personal' })
+    });
+    if (!data || data.code !== 200) {
+        if (typeof Toast !== 'undefined') Toast.show(data?.msg || '创建失败', 'error');
+        return;
+    }
+    if (typeof Toast !== 'undefined') Toast.show('文件夹已创建', 'success');
+    loadPersonalFolders();
+}
+
+/** 重命名个人文件夹 */
+async function renamePersonalFolder(id, newName) {
+    const data = await pdocsRequest(`/folders/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name: newName })
+    });
+    if (!data || data.code !== 200) {
+        if (typeof Toast !== 'undefined') Toast.show(data?.msg || '重命名失败', 'error');
+        return;
+    }
+    if (typeof Toast !== 'undefined') Toast.show('已重命名', 'success');
+    loadPersonalFolders();
+}
+
+/** 删除个人文件夹 */
+async function deletePersonalFolder(id) {
+    if (!confirm('删除文件夹后，文件夹内的文档将变为未归类，确认删除？')) return;
+    const data = await pdocsRequest(`/folders/${id}`, { method: 'DELETE' });
+    if (!data || data.code !== 200) {
+        if (typeof Toast !== 'undefined') Toast.show(data?.msg || '删除失败', 'error');
+        return;
+    }
+    if (typeof Toast !== 'undefined') Toast.show('已删除文件夹', 'success');
+    // 如果当前选中的就是被删除的文件夹，重置为"全部"
+    if (pdocsCurrentFolderId === id) pdocsCurrentFolderId = null;
+    loadPersonalFolders();
+    loadPersonalDocs();
+}
+
+/** 移动文档到指定文件夹（folderId: 0=清空归属，正整数=该文件夹） */
+async function movePersonalDoc(docId, folderId) {
+    // 后端要求 body 中含 'folder_id' 键才更新；null 表示清空
+    const body = JSON.stringify({ folder_id: folderId === 0 ? null : folderId });
+    const data = await pdocsRequest(`/${docId}`, { method: 'PUT', body });
+    if (!data || data.code !== 200) {
+        if (typeof Toast !== 'undefined') Toast.show(data?.msg || '移动失败', 'error');
+        return;
+    }
+    if (typeof Toast !== 'undefined') Toast.show('已移动', 'success');
+    loadPersonalDocs();
 }

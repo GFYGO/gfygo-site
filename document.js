@@ -17,7 +17,10 @@ const __DOC = {
   revisions: [],           // 当前文档修订缓存
   markedReady: false,      // marked.js 是否已加载
   markedLoading: false,    // marked.js 是否正在加载中（防止并发脚本注入）
-  visFilter: 'public'      // 侧栏可见类型筛选：public / group / private
+  visFilter: 'public',     // 侧栏可见类型筛选：public / group / private
+  folders: [],              // 公共文件夹列表
+  currentFolderId: null,    // null=不过滤；0=未归类；正整数=该文件夹
+  isAdmin: false            // 等级≥5 才为 true
 };
 
 const DOC_LEVEL_ROLES = {
@@ -35,13 +38,16 @@ const DOC_LEVEL_ROLES = {
 document.addEventListener('DOMContentLoaded', () => {
   initDocSidebarControls();
 
-  // 启动时并发：拿分类 / 拿列表 / 拿身份
+  // 启动时并发：拿分类 / 拿列表 / 拿身份 / 拿公共文件夹
   Promise.all([
     fetchDocCategories(),
     fetchDocList(),
-    fetchDocAuthState()
+    fetchDocAuthState(),
+    fetchDocFolders()
   ])
     .then(() => {
+      // 先渲染文件夹 chips（用于 active 状态显示），再渲染依赖 docs 的目录树与首页卡片
+      renderDocFolders();
       renderDocSidebarTree();
       renderHomeCategoryGrids();
       bindDocSearch();
@@ -173,7 +179,12 @@ async function fetchDocList() {
   try {
     const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-    const r = await fetch(`${API_BASE_URL}/api/v1/document/list`, { headers });
+    // folder_id 过滤：null=不过滤；0=未归类；正整数=该文件夹
+    let url = `${API_BASE_URL}/api/v1/document/list`;
+    if (__DOC.currentFolderId !== null && __DOC.currentFolderId !== undefined) {
+      url += `?folder_id=${encodeURIComponent(__DOC.currentFolderId)}`;
+    }
+    const r = await fetch(url, { headers });
     const d = await r.json();
     if (r.ok && d.code === 200) {
       __DOC.docs = d.data || [];
@@ -193,6 +204,7 @@ async function fetchDocAuthState() {
   const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
   if (!token) {
     __DOC.user = { isLoggedIn: false, permissionLevel: null, username: '', group: 'default' };
+    __DOC.isAdmin = false;
     return;
   }
   try {
@@ -209,18 +221,43 @@ async function fetchDocAuthState() {
         username: u.username || '',
         group: (u.profile && u.profile.group) ? u.profile.group : 'default'
       };
+      // 等级≥5 才能管理公共文件夹
+      __DOC.isAdmin = (u.permission_level || 0) >= 5;
     } else {
       __DOC.user = { isLoggedIn: false, permissionLevel: null, username: '', group: 'default' };
+      __DOC.isAdmin = false;
     }
   } catch (e) {
     console.error('[auth] 网络错误，按匿名处理:', e);
     __DOC.user = { isLoggedIn: false, permissionLevel: null, username: '', group: 'default' };
+    __DOC.isAdmin = false;
+  }
+}
+
+/**
+ * 拉取公共文件夹列表（JWT optional）
+ */
+async function fetchDocFolders() {
+  try {
+    const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    const r = await fetch(`${API_BASE_URL}/api/v1/document/folders/public`, { headers });
+    const d = await r.json();
+    if (r.ok && d.code === 200) {
+      __DOC.folders = d.data || [];
+    } else {
+      console.warn('[folders] 获取失败:', d.msg);
+    }
+  } catch (e) {
+    console.warn('[folders] 网络错误:', e);
   }
 }
 
 // =========================================
 // 4. 渲染：侧边栏目录树
 // =========================================
+// 注：folder_id 过滤由后端完成（fetchDocList 内部按 __DOC.currentFolderId 拼 ?folder_id=），
+// 此函数只基于已过滤的 __DOC.docs 渲染，无需再做 folder 过滤。
 function renderDocSidebarTree(keyword = '') {
   const root = document.getElementById('docSidebarTree');
   if (!root) return;
@@ -300,6 +337,8 @@ function docItemHTML(d) {
 // =========================================
 // 5. 渲染：主页按分类 feature-grid 填充卡片
 // =========================================
+// 注：folder_id 过滤由后端完成（fetchDocList 内部按 __DOC.currentFolderId 拼 ?folder_id=），
+// 此函数只基于已过滤的 __DOC.docs 渲染。
 function renderHomeCategoryGrids() {
   const lvl = __DOC.user.permissionLevel;
   const uid = __DOC.user.id;
@@ -385,6 +424,247 @@ function bindVisTabs() {
       renderHomeCategoryGrids();
     });
   });
+}
+
+// =========================================
+// 6.2 公共文件夹（侧栏 chips + 增删改）
+// =========================================
+
+/**
+ * 切换文件夹筛选：重新拉取文档列表（后端按 folder_id 过滤）并刷新相关视图。
+ * 所有文件夹点击切换都走这个函数，避免前端过滤漏掉边缘情况。
+ */
+async function applyDocFolderFilter() {
+  await fetchDocList();
+  renderDocSidebarTree();
+  renderHomeCategoryGrids();
+  renderDocFolders();
+}
+
+/**
+ * 渲染侧栏文件夹 chips
+ * - 第一项永远是 "📋 全部"（currentFolderId=null）
+ * - 之后每个公共文件夹一个 .doc-folder-item
+ * - 管理员可看到 ✏️ / 🗑 操作按钮
+ */
+function renderDocFolders() {
+  const section = document.getElementById('docFoldersSection');
+  const list = document.getElementById('docFoldersList');
+  const addBtn = document.getElementById('docFolderAddBtn');
+  if (!section || !list) return;
+
+  // 管理员才显示新建按钮
+  if (addBtn) addBtn.style.display = __DOC.isAdmin ? '' : 'none';
+
+  // 没有公共文件夹且非管理员 → 隐藏整个区段
+  if (__DOC.folders.length === 0 && !__DOC.isAdmin) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+
+  // 管理员且无文件夹 → 显示空提示
+  if (__DOC.folders.length === 0 && __DOC.isAdmin) {
+    list.innerHTML = `<p class="doc-loading-text" style="padding:6px 8px;">暂无公共文件夹，点击 + 新建</p>`;
+    bindDocFolderActions();
+    return;
+  }
+
+  const items = [];
+  // 第一项：全部
+  const allActive = __DOC.currentFolderId === null ? ' is-active' : '';
+  items.push(`<div class="doc-folder-item${allActive}" data-folder-id="" data-folder-name="">
+    <span class="doc-folder-item__label">
+      <span class="doc-folder-item__icon">📋</span>
+      <span>全部</span>
+    </span>
+  </div>`);
+
+  // 每个公共文件夹
+  for (const f of __DOC.folders) {
+    const active = __DOC.currentFolderId === f.id ? ' is-active' : '';
+    const actions = __DOC.isAdmin
+      ? `<span class="doc-folder-item__actions">
+          <button class="doc-folder-item__btn" data-action="rename" data-id="${f.id}" data-name="${escapeAttr(f.name)}" title="重命名">✏️</button>
+          <button class="doc-folder-item__btn" data-action="delete" data-id="${f.id}" title="删除">🗑</button>
+        </span>`
+      : '';
+    items.push(`<div class="doc-folder-item${active}" data-folder-id="${f.id}" data-folder-name="${escapeAttr(f.name)}">
+      <span class="doc-folder-item__label">
+        <span class="doc-folder-item__icon">📁</span>
+        <span>${escapeHtml(f.name)}</span>
+      </span>
+      ${actions}
+    </div>`);
+  }
+
+  list.innerHTML = items.join('');
+  bindDocFolderActions();
+}
+
+/**
+ * 绑定文件夹区段的点击事件：
+ * - + 按钮 → 新建
+ * - ✏️ 按钮 → 重命名
+ * - 🗑 按钮 → 删除
+ * - chip 主体（非按钮区域） → 切换筛选
+ */
+function bindDocFolderActions() {
+  const addBtn = document.getElementById('docFolderAddBtn');
+  if (addBtn) {
+    // 替换节点以避免重复绑定
+    const clone = addBtn.cloneNode(true);
+    addBtn.parentNode.replaceChild(clone, addBtn);
+    clone.addEventListener('click', () => addDocFolder());
+  }
+
+  document.querySelectorAll('.doc-folder-item').forEach(item => {
+    // 克隆以清除旧监听
+    const fresh = item.cloneNode(true);
+    item.parentNode.replaceChild(fresh, item);
+
+    // 操作按钮
+    fresh.querySelectorAll('.doc-folder-item__btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const action = btn.getAttribute('data-action');
+        const id = Number(btn.getAttribute('data-id'));
+        const name = btn.getAttribute('data-name') || '';
+        if (action === 'rename') {
+          renameDocFolder(id, name);
+        } else if (action === 'delete') {
+          deleteDocFolder(id);
+        }
+      });
+    });
+
+    // chip 主体点击 → 切换筛选
+    fresh.addEventListener('click', (e) => {
+      // 点在按钮上则跳过
+      if (e.target.closest('.doc-folder-item__btn')) return;
+      const idRaw = fresh.getAttribute('data-folder-id');
+      const newId = idRaw === '' ? null : Number(idRaw);
+      // 点击已选中项不再重复请求
+      if (newId === __DOC.currentFolderId) return;
+      __DOC.currentFolderId = newId;
+      applyDocFolderFilter().catch(err => console.error('[folder] 切换失败:', err));
+    });
+  });
+}
+
+/**
+ * 新建公共文件夹（仅管理员）
+ */
+async function addDocFolder() {
+  if (!__DOC.isAdmin) {
+    alert('仅等级≥5 的管理员可创建公共文件夹');
+    return;
+  }
+  const name = prompt('请输入公共文件夹名称：', '');
+  if (!name || !name.trim()) return;
+  const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
+  if (!token) {
+    alert('请先登录');
+    return;
+  }
+  try {
+    const r = await fetch(`${API_BASE_URL}/api/v1/document/folders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ name: name.trim(), scope: 'public' })
+    });
+    const d = await r.json();
+    if (r.ok && d.code === 200) {
+      await fetchDocFolders();
+      renderDocFolders();
+    } else {
+      console.error('[folder] 新建失败:', d.msg);
+      alert('新建失败：' + (d.msg || '未知错误'));
+    }
+  } catch (e) {
+    console.error('[folder] 新建网络错误:', e);
+    alert('新建失败：网络错误');
+  }
+}
+
+/**
+ * 重命名公共文件夹（仅管理员）
+ */
+async function renameDocFolder(id, oldName) {
+  if (!__DOC.isAdmin) {
+    alert('仅等级≥5 的管理员可重命名公共文件夹');
+    return;
+  }
+  const name = prompt('请输入新的文件夹名称：', oldName || '');
+  if (!name || !name.trim() || name.trim() === oldName) return;
+  const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
+  if (!token) {
+    alert('请先登录');
+    return;
+  }
+  try {
+    const r = await fetch(`${API_BASE_URL}/api/v1/document/folders/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ name: name.trim() })
+    });
+    const d = await r.json();
+    if (r.ok && d.code === 200) {
+      await fetchDocFolders();
+      renderDocFolders();
+    } else {
+      console.error('[folder] 重命名失败:', d.msg);
+      alert('重命名失败：' + (d.msg || '未知错误'));
+    }
+  } catch (e) {
+    console.error('[folder] 重命名网络错误:', e);
+    alert('重命名失败：网络错误');
+  }
+}
+
+/**
+ * 删除公共文件夹（仅管理员）
+ * 删除后文件夹内文档将变为未归类。
+ */
+async function deleteDocFolder(id) {
+  if (!__DOC.isAdmin) {
+    alert('仅等级≥5 的管理员可删除公共文件夹');
+    return;
+  }
+  const ok = confirm('删除文件夹后，文件夹内的文档将变为未归类，确认删除？');
+  if (!ok) return;
+  const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
+  if (!token) {
+    alert('请先登录');
+    return;
+  }
+  try {
+    const r = await fetch(`${API_BASE_URL}/api/v1/document/folders/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const d = await r.json();
+    if (r.ok && d.code === 200) {
+      // 如果当前正在查看被删除的文件夹，重置为"全部"
+      if (__DOC.currentFolderId === id) {
+        __DOC.currentFolderId = null;
+      }
+      await fetchDocFolders();
+      await applyDocFolderFilter();
+    } else {
+      console.error('[folder] 删除失败:', d.msg);
+      alert('删除失败：' + (d.msg || '未知错误'));
+    }
+  } catch (e) {
+    console.error('[folder] 删除网络错误:', e);
+    alert('删除失败：网络错误');
+  }
 }
 
 // =========================================
