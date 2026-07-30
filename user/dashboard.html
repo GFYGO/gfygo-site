@@ -118,6 +118,9 @@
 
                 <!-- 个人文档 -->
                 <section class="tab-panel" id="panel-personal-docs" style="display: none;">
+                    <!-- 面包屑路径（section 顶部）-->
+                    <div class="pdocs-breadcrumb" id="pdocsPathBreadcrumb"></div>
+
                     <!-- 文档列表视图 -->
                     <div class="pdocs-view" id="pdocs-view-list">
                         <div class="pdocs-toolbar">
@@ -138,6 +141,26 @@
                         </div>
                         <div class="pdocs-doc-grid" id="pdocsListContainer">
                             <p class="loading-text">加载中...</p>
+                        </div>
+                    </div>
+
+                    <!-- 浏览视图（只读 Markdown 预览） -->
+                    <div class="pdocs-view" id="pdocs-view-browse" style="display: none;">
+                        <div class="pdocs-browser-toolbar">
+                            <button class="pdocs-btn pdocs-btn--secondary" id="pdocsBrowserBackBtn">← 返回列表</button>
+                            <div class="pdocs-browser-titlebar" id="pdocsBrowserTitlebar">
+                                <span class="pdocs-browser-icon" id="pdocsBrowserIcon">📄</span>
+                                <span class="pdocs-browser-title" id="pdocsBrowserTitle">加载中...</span>
+                            </div>
+                            <div class="pdocs-browser-actions">
+                                <button class="pdocs-btn pdocs-btn--ghost" id="pdocsBrowserOpenInDocBtn" title="在文档中心打开">🔗 外部打开</button>
+                                <button class="pdocs-btn pdocs-btn--secondary" id="pdocsBrowserEditBtn">✏️ 编辑</button>
+                                <button class="pdocs-btn pdocs-btn--danger" id="pdocsBrowserDeleteBtn">🗑 删除</button>
+                            </div>
+                        </div>
+                        <div class="pdocs-browser-meta" id="pdocsBrowserMeta"></div>
+                        <div class="pdocs-browser-body">
+                            <div id="pdocsBrowserContent" class="pdocs-browser-content markdown-body"></div>
                         </div>
                     </div>
 

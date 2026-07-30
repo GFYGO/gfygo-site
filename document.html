@@ -67,6 +67,9 @@
     <main class="doc-main">
       <button class="doc-sidebar-toggle" id="docSidebarToggle" aria-label="打开文档目录">☰ 目录</button>
 
+      <!-- 全局面包屑：进入文件夹或文档详情时显示路径 -->
+      <div id="docMainPathBreadcrumb" class="doc-path-breadcrumb-wrap"></div>
+
       <!-- ===== 视图1：文档主页（静态骨架，卡片数据来自后端） ===== -->
       <section class="doc-view doc-view--home" id="viewHome">
         <section class="home-section">
@@ -111,11 +114,31 @@
           <div class="feature-grid" id="catApi" data-category-slug="api"></div>
           <p class="doc-empty-tip" id="emptyCatTip" style="display:none; margin-top: 24px; color: var(--color-text-muted);">当前分类暂无公开文档。</p>
         </section>
+
+        <!-- 私人 / 组 筛选时的空态占位（按 tab 展示） -->
+        <section class="home-section home-section--private-empty" id="visPrivateEmpty" style="display:none;">
+          <div class="doc-state doc-state--empty">
+            <div class="doc-state__icon">🔒</div>
+            <h3 class="doc-state__title">暂无私有文档</h3>
+            <p class="doc-state__desc">您当前还没有创建任何私有文档。可以在个人资料页（Dashboard）的个人文档中新建。</p>
+            <a href="./user/dashboard.html#personal-docs" class="btn-primary doc-state__btn">去 Dashboard 新建</a>
+          </div>
+        </section>
+        <section class="home-section home-section--group-empty" id="visGroupEmpty" style="display:none;">
+          <div class="doc-state doc-state--empty">
+            <div class="doc-state__icon">👥</div>
+            <h3 class="doc-state__title">暂无组文档（功能占位）</h3>
+            <p class="doc-state__desc">组权限文档功能尚未实现，后续会基于权限节点式管理开放。</p>
+          </div>
+        </section>
       </section>
 
       <!-- ===== 视图2：文档详情（根据 hash 动态渲染） ===== -->
       <section class="doc-view doc-view--detail" id="viewDetail" style="display:none;">
         <div class="doc-detail-wrap">
+          <!-- 详情页专属面包屑（包含返回上一层 → 返回到首页） -->
+          <div id="docDetailPathBreadcrumb" class="doc-path-breadcrumb-wrap"></div>
+
           <!-- 顶部返回按钮 + 标题 -->
           <header class="doc-header">
             <a href="#/" class="doc-back-btn" id="docBackBtn">← 返回文档主页</a>

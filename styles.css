@@ -1503,3 +1503,118 @@ body.theme-gray       .doc-content pre {
     width: 100%;
   }
 }
+
+/* ============================================================
+ * 文档中心：面包屑（section / doc-main 顶部显示）
+ * ============================================================ */
+.doc-path-breadcrumb-wrap {
+  margin: 0 0 16px;
+}
+.doc-path-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--color-bg-white, #fff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.85rem;
+}
+.doc-path-breadcrumb__item {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 4px;
+  color: var(--color-text-sub, #4b5563);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.doc-path-breadcrumb__item:hover {
+  background: var(--color-bg-secondary, #f3f4f6);
+  color: var(--color-text-main, #111827);
+}
+.doc-path-breadcrumb__item.is-active {
+  background: var(--color-primary, #2563eb);
+  color: #fff;
+  cursor: default;
+}
+.doc-path-breadcrumb__sep {
+  color: var(--color-text-muted, #9ca3af);
+  user-select: none;
+}
+
+/* ============================================================
+ * 文档中心：公共文件夹树形列表（替代原 chip 扁平结构）
+ * ============================================================ */
+.doc-folder-quick {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px dashed var(--color-border, #e5e7eb);
+}
+.doc-folder-node {
+  display: flex;
+  flex-direction: column;
+}
+.doc-folder-node__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 6px 0;
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  min-height: 28px;
+  transition: background-color 0.15s;
+}
+.doc-folder-node__row:hover {
+  background: var(--color-bg-secondary, #f3f4f6);
+}
+.doc-folder-node__row.is-active {
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--color-primary, #2563eb);
+}
+.doc-folder-node__arrow {
+  width: 16px;
+  text-align: center;
+  font-size: 10px;
+  color: var(--color-text-muted, #9ca3af);
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+.doc-folder-node__arrow.is-expandable {
+  cursor: pointer;
+}
+.doc-folder-node__arrow.is-expanded {
+  transform: rotate(90deg);
+}
+.doc-folder-node__icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+.doc-folder-node__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+.doc-folder-node__actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+.doc-folder-node__row:hover .doc-folder-node__actions {
+  opacity: 1;
+}
+.doc-folder-node__children {
+  display: flex;
+  flex-direction: column;
+}

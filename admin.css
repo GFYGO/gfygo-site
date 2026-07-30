@@ -1,0 +1,274 @@
+/*
+ * admin.css - 管理员面板样式（继承 dashboard.css）
+ * 仅写差异样式
+ */
+
+/* ========== 全局：管理员特有颜色 ========== */
+
+.admin-sidebar__logo {
+    position: relative;
+    padding-left: 3.2rem;
+    color: var(--accent-color);
+    font-weight: 900;
+}
+.admin-sidebar__logo::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 0.4rem;
+    background: linear-gradient(135deg, var(--accent-color), #7c3aed);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(124, 58, 237, 0.35);
+}
+.admin-badge-sidebar {
+    position: absolute;
+    top: -0.2rem;
+    right: -0.4rem;
+    font-size: 0.6rem;
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    color: #fff;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.25rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    transform: translate(20%, -50%);
+}
+
+/* ========== 顶部 Header：管理员模式徽章 ========== */
+
+.admin-mode-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.8rem;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(59, 130, 246, 0.15));
+    color: var(--accent-color);
+    font-weight: 700;
+    font-size: 0.85rem;
+    border: 1px solid rgba(124, 58, 237, 0.35);
+    margin-left: 0.5rem;
+    backdrop-filter: blur(4px);
+}
+.admin-mode-badge::before {
+    content: "🛡️";
+    margin-right: 0.4rem;
+}
+
+.header-nav__item--active {
+    color: var(--accent-color) !important;
+    font-weight: 700;
+}
+.header-nav__item--active::after {
+    content: "";
+    display: block;
+    height: 2px;
+    background: var(--accent-color);
+    border-radius: 2px;
+    margin-top: 2px;
+}
+
+/* ========== 统计卡片（Overview） ========== */
+
+.overview-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.admin-stat-card {
+    position: relative;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1.25rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.admin-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+.admin-stat-card__icon {
+    font-size: 1.8rem;
+    margin-bottom: 0.4rem;
+}
+.admin-stat-card__value {
+    font-size: 1.8rem;
+    font-weight: 900;
+    line-height: 1.2;
+    color: var(--text-primary);
+    margin-bottom: 0.2rem;
+}
+.admin-stat-card__label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* ========== 占位标记 ========== */
+
+.placeholder-tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    background: rgba(245, 158, 11, 0.15);
+    color: #b45309;
+    border-radius: 0.25rem;
+    font-weight: 600;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    margin-top: 0.5rem;
+}
+.placeholder-tag--top {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    margin: 0;
+    z-index: 2;
+}
+
+.empty-state--placeholder .empty-state__text {
+    max-width: 480px;
+    line-height: 1.7;
+}
+
+/* ========== 管理表格 ========== */
+
+.admin-table-wrap {
+    position: relative;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1rem 1rem 1.2rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.admin-table-scroll {
+    overflow-x: auto;
+    margin-top: 0.75rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+}
+.admin-table {
+    width: 100%;
+    min-width: 640px;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+.admin-table thead {
+    background: var(--body-bg);
+}
+.admin-table th {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border-color);
+    white-space: nowrap;
+}
+.admin-table td {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+.admin-table tbody tr:hover {
+    background: rgba(124, 58, 237, 0.05);
+}
+.admin-table__empty {
+    text-align: center !important;
+    color: var(--text-secondary);
+    padding: 2rem !important;
+    font-style: italic;
+}
+.admin-table a {
+    color: var(--accent-color);
+    font-weight: 600;
+    text-decoration: none;
+}
+.admin-table a:hover {
+    text-decoration: underline;
+}
+.admin-table code {
+    background: var(--body-bg);
+    padding: 0.1rem 0.35rem;
+    border-radius: 0.2rem;
+    font-size: 0.85rem;
+    border: 1px solid var(--border-color);
+}
+
+/* ========== 权限节点说明卡片 ========== */
+
+.perm-explain-card {
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(59, 130, 246, 0.06));
+    border: 1px solid rgba(124, 58, 237, 0.25);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+}
+.perm-explain-card h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+.perm-explain-card h4 {
+    margin: 1rem 0 0.5rem;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+.perm-status {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    border-radius: 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+.perm-status--pending {
+    background: rgba(245, 158, 11, 0.15);
+    color: #b45309;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.perm-status--active {
+    background: rgba(16, 185, 129, 0.15);
+    color: #047857;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.perm-nodes-list {
+    margin: 0.5rem 0 0 1.1rem;
+    padding: 0;
+    line-height: 1.8;
+    color: var(--text-primary);
+}
+
+/* ========== 响应式 ========== */
+
+@media (max-width: 768px) {
+    .overview-stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.75rem;
+    }
+    .admin-stat-card {
+        padding: 1rem;
+    }
+    .admin-stat-card__value {
+        font-size: 1.4rem;
+    }
+    .admin-mode-badge {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.6rem;
+    }
+    .admin-table-wrap {
+        padding: 0.75rem;
+    }
+    .admin-table th,
+    .admin-table td {
+        padding: 0.5rem 0.6rem;
+        font-size: 0.8rem;
+    }
+}

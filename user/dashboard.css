@@ -1438,3 +1438,246 @@ body.theme-dark_green .calendar-day--checked {
         align-items: flex-start;
     }
 }
+
+/* ============================================================
+ * 面包屑（文件夹路径）显示在 section 顶部
+ * ============================================================ */
+.pdocs-breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    margin-bottom: 14px;
+    background: var(--color-bg-white, #fff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: var(--radius-md, 8px);
+    font-size: 0.85rem;
+}
+
+.pdocs-breadcrumb__item {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 3px 8px;
+    border-radius: 4px;
+    color: var(--color-text-sub, #4b5563);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+.pdocs-breadcrumb__item:hover {
+    background: var(--color-bg-secondary, #f3f4f6);
+    color: var(--color-text-main, #111827);
+}
+.pdocs-breadcrumb__item.is-active {
+    background: var(--color-primary, #2563eb);
+    color: #fff;
+    cursor: default;
+}
+.pdocs-breadcrumb__sep {
+    color: var(--color-text-muted, #9ca3af);
+    user-select: none;
+}
+
+/* ============================================================
+ * 浏览视图（只读 Markdown 查看）
+ * ============================================================ */
+.pdocs-browser {
+    background: var(--color-bg-white, #fff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: var(--radius-md, 8px);
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.pdocs-browser__toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.pdocs-browser__toolbar-left,
+.pdocs-browser__toolbar-right {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.pdocs-browser__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--color-border, #e5e7eb);
+    padding-bottom: 12px;
+}
+
+.pdocs-browser__icon {
+    font-size: 1.8rem;
+    flex-shrink: 0;
+}
+
+.pdocs-browser__title {
+    margin: 0;
+    font-size: 1.4rem;
+    color: var(--color-text-main, #1f2937);
+    word-break: break-word;
+}
+
+.pdocs-browser__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    font-size: 0.8rem;
+    color: var(--color-text-muted, #9ca3af);
+}
+
+.pdocs-browser__content {
+    min-height: 300px;
+    padding: 10px 2px 40px;
+    line-height: 1.7;
+    color: var(--color-text-main, #1f2937);
+    overflow: auto;
+}
+
+.pdocs-browser__content h1,
+.pdocs-browser__content h2,
+.pdocs-browser__content h3 {
+    margin: 18px 0 8px;
+    color: var(--color-text-main, #1f2937);
+}
+.pdocs-browser__content h1 { font-size: 1.5rem; }
+.pdocs-browser__content h2 { font-size: 1.25rem; }
+.pdocs-browser__content h3 { font-size: 1.1rem; }
+
+.pdocs-browser__content p { margin: 8px 0; }
+
+.pdocs-browser__content pre {
+    background: #f3f4f6;
+    padding: 12px;
+    border-radius: var(--radius-md, 8px);
+    overflow-x: auto;
+    font-size: 0.85rem;
+}
+.pdocs-browser__content code {
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+.pdocs-browser__content pre code {
+    background: none;
+    padding: 0;
+}
+.pdocs-browser__content ul,
+.pdocs-browser__content ol { padding-left: 24px; }
+.pdocs-browser__content blockquote {
+    border-left: 4px solid var(--color-border, #d1d5db);
+    padding-left: 12px;
+    color: var(--color-text-sub, #4b5563);
+    margin: 12px 0;
+}
+.pdocs-browser__content a {
+    color: var(--color-primary, #2563eb);
+    text-decoration: none;
+}
+.pdocs-browser__content a:hover { text-decoration: underline; }
+.pdocs-browser__content img { max-width: 100%; border-radius: 6px; }
+.pdocs-browser__content table {
+    border-collapse: collapse;
+    margin: 10px 0;
+    width: 100%;
+}
+.pdocs-browser__content th,
+.pdocs-browser__content td {
+    border: 1px solid var(--color-border, #e5e7eb);
+    padding: 6px 10px;
+    font-size: 0.9rem;
+}
+.pdocs-browser__content th {
+    background: var(--color-bg-secondary, #f9fafb);
+    text-align: left;
+}
+
+/* ============================================================
+ * 文件夹树形列表（替代原 chip 扁平结构）
+ * ============================================================ */
+.pdocs-folder-tree__quick {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+    border-bottom: 1px dashed var(--color-border, #e5e7eb);
+}
+
+.pdocs-folder-tree__empty {
+    padding: 10px 12px;
+    color: var(--color-text-muted, #9ca3af);
+    font-size: 0.8rem;
+    margin: 4px 0;
+}
+
+.pdocs-folder-tree__row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px 6px 0;
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+    min-height: 28px;
+    transition: background-color 0.15s;
+}
+.pdocs-folder-tree__row:hover {
+    background: var(--color-bg-secondary, #f3f4f6);
+}
+.pdocs-folder-tree__row.is-active {
+    background: rgba(37, 99, 235, 0.1);
+    color: var(--color-primary, #2563eb);
+}
+
+.pdocs-folder-tree__arrow {
+    width: 16px;
+    text-align: center;
+    font-size: 10px;
+    color: var(--color-text-muted, #9ca3af);
+    transition: transform 0.15s;
+    flex-shrink: 0;
+}
+.pdocs-folder-tree__arrow.is-expandable {
+    cursor: pointer;
+}
+.pdocs-folder-tree__arrow.is-expanded {
+    transform: rotate(90deg);
+}
+.pdocs-folder-tree__icon {
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+.pdocs-folder-tree__name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.9rem;
+}
+.pdocs-folder-tree__actions {
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    flex-shrink: 0;
+}
+.pdocs-folder-tree__row:hover .pdocs-folder-tree__actions {
+    opacity: 1;
+}
+
+.pdocs-folder-tree__children {
+    display: flex;
+    flex-direction: column;
+}

@@ -46,13 +46,15 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchDocFolders()
   ])
     .then(() => {
-      // 先渲染文件夹 chips（用于 active 状态显示），再渲染依赖 docs 的目录树与首页卡片
+      // 先渲染文件夹（用于 active 状态显示），再渲染依赖 docs 的目录树与首页卡片
       renderDocFolders();
       renderDocSidebarTree();
       renderHomeCategoryGrids();
       bindDocSearch();
       bindVisTabs();
       bindRevisionsToggle();
+      updateVisEmptyPlaceholders();
+      renderDocBreadcrumb();
       // 最后按当前 hash 决定去哪
       routeByHash();
       window.addEventListener('hashchange', routeByHash);
@@ -427,30 +429,168 @@ function bindVisTabs() {
       const input = document.getElementById('docSearchInput');
       renderDocSidebarTree(input ? input.value : '');
       renderHomeCategoryGrids();
+      updateVisEmptyPlaceholders();
     });
   });
 }
 
+/**
+ * 切换 visFilter 后，主页的空态占位显隐（私有/组 空时才显示；公共/默认不显示占位因为有分类区块）
+ */
+function updateVisEmptyPlaceholders() {
+  const lvl = __DOC.user.permissionLevel;
+  const uid = __DOC.user.id;
+  let visibleDocs = __DOC.docs.filter(doc =>
+    (uid && doc.author_id === uid) || canViewByBits(doc.permission_bits, doc.visibility, lvl)
+  );
+  if (__DOC.visFilter === 'private') {
+    visibleDocs = visibleDocs.filter(d => d.visibility === 'private' && uid && d.author_id === uid);
+  } else if (__DOC.visFilter) {
+    visibleDocs = visibleDocs.filter(d => d.visibility === __DOC.visFilter);
+  }
+  const has = visibleDocs.length > 0;
+  const privEmpty = document.getElementById('visPrivateEmpty');
+  const grpEmpty = document.getElementById('visGroupEmpty');
+  if (privEmpty) privEmpty.style.display = (__DOC.visFilter === 'private' && !has) ? '' : 'none';
+  if (grpEmpty)  grpEmpty.style.display  = (__DOC.visFilter === 'group'   && !has) ? '' : 'none';
+}
+
 // =========================================
-// 6.2 公共文件夹（侧栏 chips + 增删改）
+// 6.2 公共文件夹（侧栏树形 + 面包屑 + 增删改）
 // =========================================
 
 /**
- * 切换文件夹筛选：重新拉取文档列表（后端按 folder_id 过滤）并刷新相关视图。
- * 所有文件夹点击切换都走这个函数，避免前端过滤漏掉边缘情况。
+ * 构建文件夹树：返回 [rootLevelNodes]，每个节点扩展 children=[...]
+ */
+function buildDocFolderTree(flat) {
+  const map = new Map(flat.map(f => [f.id, { ...f, children: [] }]));
+  const roots = [];
+  for (const node of map.values()) {
+    if (node.parent_id && map.has(node.parent_id)) {
+      map.get(node.parent_id).children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  const sortFn = (a, b) => (a.name || '').localeCompare(b.name || '');
+  roots.sort(sortFn);
+  for (const node of map.values()) node.children.sort(sortFn);
+  return roots;
+}
+
+/**
+ * 渲染单个树节点 HTML（可展开/折叠）
+ */
+function renderDocFolderTreeNode(node, depth = 0) {
+  const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+  const isActive = __DOC.currentFolderId === node.id;
+  return `
+    <div class="doc-folder-node" data-folder-id="${node.id}" style="padding-left:${10 + depth * 16}px">
+      <div class="doc-folder-node__row ${isActive ? 'is-active' : ''}">
+        <span class="doc-folder-node__arrow ${hasChildren ? 'is-expandable' : ''}" data-action="toggle" title="${hasChildren ? '展开/折叠' : ''}">▶</span>
+        <span class="doc-folder-node__icon">📁</span>
+        <span class="doc-folder-node__name">${escapeHtml(node.name)}</span>
+        <span class="doc-folder-node__actions">
+          ${__DOC.isAdmin ? `
+            <button class="doc-folder-item__btn" data-action="rename" data-id="${node.id}" data-name="${escapeAttr(node.name)}" title="重命名">✏️</button>
+            <button class="doc-folder-item__btn" data-action="delete" data-id="${node.id}" title="删除">🗑</button>
+          ` : ''}
+        </span>
+      </div>
+      <div class="doc-folder-node__children" style="${hasChildren ? '' : 'display:none'}">
+        ${hasChildren ? node.children.map(c => renderDocFolderTreeNode(c, depth + 1)).join('') : ''}
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * 渲染全局面包屑（doc-main 顶部 & 详情页顶部 两处位置）
+ */
+async function renderDocBreadcrumb(folderId = __DOC.currentFolderId, docFolderId = null) {
+  const mainWrap = document.getElementById('docMainPathBreadcrumb');
+  if (mainWrap) {
+    if (folderId === null || folderId === undefined || folderId === 0) {
+      mainWrap.innerHTML = '';
+    } else {
+      mainWrap.innerHTML = `<div class="doc-path-breadcrumb"><span class="doc-loading-text">加载路径中...</span></div>`;
+      mainWrap.innerHTML = await __buildDocBreadcrumbHTML(folderId);
+      __bindDocBreadcrumbClicks(mainWrap);
+    }
+  }
+
+  const detailWrap = document.getElementById('docDetailPathBreadcrumb');
+  if (detailWrap) {
+    if (!docFolderId) {
+      detailWrap.innerHTML = '';
+    } else {
+      detailWrap.innerHTML = `<div class="doc-path-breadcrumb"><span class="doc-loading-text">加载路径中...</span></div>`;
+      detailWrap.innerHTML = await __buildDocBreadcrumbHTML(docFolderId);
+      __bindDocBreadcrumbClicks(detailWrap, true);
+    }
+  }
+}
+
+async function __buildDocBreadcrumbHTML(folderId) {
+  let chain = [];
+  const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
+  try {
+    const r = await fetch(`${API_BASE_URL}/api/v1/document/folders/${folderId}/path`, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    });
+    const d = await r.json();
+    if (r.ok && d.code === 200 && Array.isArray(d.data)) chain = d.data;
+  } catch (e) { /* ignore */ }
+
+  if (!chain.length) {
+    const byId = new Map(__DOC.folders.map(f => [f.id, f]));
+    let cur = byId.get(folderId);
+    while (cur) {
+      chain.unshift(cur);
+      cur = cur.parent_id ? byId.get(cur.parent_id) : null;
+    }
+  }
+
+  const items = [];
+  items.push(`<button class="doc-path-breadcrumb__item" data-folder-id="__all__">📋 文档中心</button>`);
+  chain.forEach((f, idx) => {
+    items.push(`<span class="doc-path-breadcrumb__sep">/</span>`);
+    const isLast = idx === chain.length - 1;
+    items.push(`<button class="doc-path-breadcrumb__item ${isLast ? 'is-active' : ''}" data-folder-id="${f.id}">${escapeHtml(f.name)}</button>`);
+  });
+  return `<div class="doc-path-breadcrumb">${items.join('')}</div>`;
+}
+
+function __bindDocBreadcrumbClicks(container, scrollToTop = false) {
+  container.querySelectorAll('[data-folder-id]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const fid = btn.dataset.folderId;
+      if (fid === '__all__') __DOC.currentFolderId = null;
+      else __DOC.currentFolderId = Number(fid);
+      const vDetail = document.getElementById('viewDetail');
+      if (vDetail && vDetail.style.display !== 'none') {
+        window.location.hash = '#/';
+      }
+      await applyDocFolderFilter();
+      if (scrollToTop) window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+}
+
+/**
+ * 切换文件夹筛选：重新拉取文档列表 + 刷新面包屑 + 空态
  */
 async function applyDocFolderFilter() {
   await fetchDocList();
   renderDocSidebarTree();
   renderHomeCategoryGrids();
   renderDocFolders();
+  updateVisEmptyPlaceholders();
+  renderDocBreadcrumb();
 }
 
 /**
- * 渲染侧栏文件夹 chips
- * - 第一项永远是 "📋 全部"（currentFolderId=null）
- * - 之后每个公共文件夹一个 .doc-folder-item
- * - 管理员可看到 ✏️ / 🗑 操作按钮
+ * 渲染侧栏文件夹（树形，替代原 chip 结构）
  */
 function renderDocFolders() {
   const section = document.getElementById('docFoldersSection');
@@ -458,107 +598,113 @@ function renderDocFolders() {
   const addBtn = document.getElementById('docFolderAddBtn');
   if (!section || !list) return;
 
-  // 管理员才显示新建按钮
   if (addBtn) addBtn.style.display = __DOC.isAdmin ? '' : 'none';
 
-  // 没有公共文件夹且非管理员 → 隐藏整个区段
   if (__DOC.folders.length === 0 && !__DOC.isAdmin) {
     section.style.display = 'none';
     return;
   }
   section.style.display = '';
 
-  // 管理员且无文件夹 → 显示空提示
+  let html = `
+    <div class="doc-folder-quick">
+      <div class="doc-folder-node__row ${__DOC.currentFolderId === null ? 'is-active' : ''}" data-folder-id="__all__" style="padding-left:10px">
+        <span class="doc-folder-node__arrow"></span>
+        <span class="doc-folder-node__icon">📋</span>
+        <span class="doc-folder-node__name">全部文档</span>
+        <span class="doc-folder-node__actions"></span>
+      </div>
+      <div class="doc-folder-node__row ${__DOC.currentFolderId === 0 ? 'is-active' : ''}" data-folder-id="__uncategorized__" style="padding-left:10px">
+        <span class="doc-folder-node__arrow"></span>
+        <span class="doc-folder-node__icon">🗂</span>
+        <span class="doc-folder-node__name">未归类</span>
+        <span class="doc-folder-node__actions"></span>
+      </div>
+    </div>
+  `;
+
   if (__DOC.folders.length === 0 && __DOC.isAdmin) {
-    list.innerHTML = `<p class="doc-loading-text" style="padding:6px 8px;">暂无公共文件夹，点击 + 新建</p>`;
+    html += `<p class="doc-loading-text" style="padding:6px 8px;">暂无公共文件夹，点击 + 新建</p>`;
+    list.innerHTML = html;
     bindDocFolderActions();
     return;
   }
 
-  const items = [];
-  // 第一项：全部
-  const allActive = __DOC.currentFolderId === null ? ' is-active' : '';
-  items.push(`<div class="doc-folder-item${allActive}" data-folder-id="" data-folder-name="">
-    <span class="doc-folder-item__label">
-      <span class="doc-folder-item__icon">📋</span>
-      <span>全部</span>
-    </span>
-  </div>`);
-
-  // 每个公共文件夹
-  for (const f of __DOC.folders) {
-    const active = __DOC.currentFolderId === f.id ? ' is-active' : '';
-    const actions = __DOC.isAdmin
-      ? `<span class="doc-folder-item__actions">
-          <button class="doc-folder-item__btn" data-action="rename" data-id="${f.id}" data-name="${escapeAttr(f.name)}" title="重命名">✏️</button>
-          <button class="doc-folder-item__btn" data-action="delete" data-id="${f.id}" title="删除">🗑</button>
-        </span>`
-      : '';
-    items.push(`<div class="doc-folder-item${active}" data-folder-id="${f.id}" data-folder-name="${escapeAttr(f.name)}">
-      <span class="doc-folder-item__label">
-        <span class="doc-folder-item__icon">📁</span>
-        <span>${escapeHtml(f.name)}</span>
-      </span>
-      ${actions}
-    </div>`);
-  }
-
-  list.innerHTML = items.join('');
+  const roots = buildDocFolderTree(__DOC.folders);
+  html += roots.map(r => renderDocFolderTreeNode(r, 0)).join('');
+  list.innerHTML = html;
   bindDocFolderActions();
 }
 
 /**
- * 绑定文件夹区段的点击事件：
- * - + 按钮 → 新建
- * - ✏️ 按钮 → 重命名
- * - 🗑 按钮 → 删除
- * - chip 主体（非按钮区域） → 切换筛选
+ * 绑定文件夹区段的点击事件（树形版）
  */
 function bindDocFolderActions() {
+  const list = document.getElementById('docFoldersList');
+  if (!list) return;
+
   const addBtn = document.getElementById('docFolderAddBtn');
   if (addBtn) {
-    // 替换节点以避免重复绑定
     const clone = addBtn.cloneNode(true);
     addBtn.parentNode.replaceChild(clone, addBtn);
     clone.addEventListener('click', () => addDocFolder());
   }
 
-  document.querySelectorAll('.doc-folder-item').forEach(item => {
-    // 克隆以清除旧监听
-    const fresh = item.cloneNode(true);
-    item.parentNode.replaceChild(fresh, item);
-
-    // 操作按钮
-    fresh.querySelectorAll('.doc-folder-item__btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const action = btn.getAttribute('data-action');
-        const id = Number(btn.getAttribute('data-id'));
-        const name = btn.getAttribute('data-name') || '';
-        if (action === 'rename') {
-          renameDocFolder(id, name);
-        } else if (action === 'delete') {
-          deleteDocFolder(id);
-        }
-      });
-    });
-
-    // chip 主体点击 → 切换筛选
-    fresh.addEventListener('click', (e) => {
-      // 点在按钮上则跳过
-      if (e.target.closest('.doc-folder-item__btn')) return;
-      const idRaw = fresh.getAttribute('data-folder-id');
-      const newId = idRaw === '' ? null : Number(idRaw);
-      // 点击已选中项不再重复请求
+  list.querySelectorAll('[data-folder-id="__all__"], [data-folder-id="__uncategorized__"]').forEach(row => {
+    row.addEventListener('click', async () => {
+      const fid = row.dataset.folderId;
+      const newId = (fid === '__all__') ? null : ((fid === '__uncategorized__') ? 0 : __DOC.currentFolderId);
       if (newId === __DOC.currentFolderId) return;
       __DOC.currentFolderId = newId;
-      applyDocFolderFilter().catch(err => console.error('[folder] 切换失败:', err));
+      await applyDocFolderFilter();
+    });
+  });
+
+  list.querySelectorAll('.doc-folder-node > .doc-folder-node__row').forEach(row => {
+    row.addEventListener('click', async (e) => {
+      if (e.target.closest('.doc-folder-item__btn')) return;
+      if (e.target.closest('[data-action="toggle"]')) return;
+      const node = row.closest('.doc-folder-node');
+      if (!node) return;
+      const fid = Number(node.dataset.folderId);
+      if (fid === __DOC.currentFolderId) return;
+      __DOC.currentFolderId = fid;
+      await applyDocFolderFilter();
+    });
+  });
+
+  list.querySelectorAll('[data-action="toggle"]').forEach(arrow => {
+    arrow.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const node = arrow.closest('.doc-folder-node');
+      if (!node) return;
+      const childrenEl = node.querySelector(':scope > .doc-folder-node__children');
+      if (!childrenEl || childrenEl.style.display === 'none') return;
+      const expanded = arrow.classList.contains('is-expanded');
+      if (expanded) {
+        childrenEl.style.display = 'none';
+        arrow.classList.remove('is-expanded');
+      } else {
+        childrenEl.style.display = '';
+        arrow.classList.add('is-expanded');
+      }
+    });
+  });
+
+  list.querySelectorAll('.doc-folder-item__btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const action = btn.getAttribute('data-action');
+      const id = Number(btn.getAttribute('data-id'));
+      const name = btn.getAttribute('data-name') || '';
+      if (action === 'rename') renameDocFolder(id, name);
+      else if (action === 'delete') deleteDocFolder(id);
     });
   });
 }
 
 /**
- * 新建公共文件夹（仅管理员）
+ * 新建公共文件夹（仅管理员；当前选中某文件夹时作为 parent_id 传）
  */
 async function addDocFolder() {
   if (!__DOC.isAdmin) {
@@ -572,6 +718,10 @@ async function addDocFolder() {
     alert('请先登录');
     return;
   }
+  const body = { name: name.trim(), scope: 'public' };
+  if (typeof __DOC.currentFolderId === 'number' && __DOC.currentFolderId > 0) {
+    body.parent_id = __DOC.currentFolderId;
+  }
   try {
     const r = await fetch(`${API_BASE_URL}/api/v1/document/folders`, {
       method: 'POST',
@@ -579,12 +729,12 @@ async function addDocFolder() {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ name: name.trim(), scope: 'public' })
+      body: JSON.stringify(body)
     });
     const d = await r.json();
     if (r.ok && d.code === 200) {
       await fetchDocFolders();
-      renderDocFolders();
+      await applyDocFolderFilter();
     } else {
       console.error('[folder] 新建失败:', d.msg);
       alert('新建失败：' + (d.msg || '未知错误'));
@@ -757,6 +907,9 @@ async function showDocDetail(slug) {
 // 8. 详情渲染（元信息 + Markdown 正文）
 // =========================================
 function renderDocDetailView(doc) {
+  // 详情页专属面包屑（按文档所属文件夹渲染）
+  renderDocBreadcrumb(null, doc.folder_id || doc.folderId || null);
+
   const $title = document.getElementById('docTitle');
   const $meta = document.getElementById('docMeta');
   const $content = document.getElementById('docContent');

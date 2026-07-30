@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员面板 | GWL</title>
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./user/dashboard.css">
+    <link rel="stylesheet" href="./admin.css">
+    <link rel="icon" href="./favicon.png" type="image/png">
+</head>
+<body>
+    <div class="dashboard-layout admin-layout">
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <aside class="dashboard-sidebar admin-sidebar" id="dashboardSidebar">
+            <div class="sidebar__header">
+                <button class="sidebar-close" id="sidebarClose" aria-label="关闭侧边栏">&times;</button>
+                <div class="sidebar__logo admin-sidebar__logo">
+                    <span class="admin-badge-sidebar">ADMIN</span>
+                    GWL
+                </div>
+            </div>
+
+            <nav class="sidebar__nav">
+                <!-- 管理员菜单项（前端写死） -->
+                <a href="#" class="sidebar__nav-item" data-tab="overview">
+                    <span class="sidebar__nav-icon">📊</span>
+                    <span class="sidebar__nav-text">仪表盘概览</span>
+                </a>
+                <a href="#" class="sidebar__nav-item" data-tab="users">
+                    <span class="sidebar__nav-icon">👥</span>
+                    <span class="sidebar__nav-text">用户管理</span>
+                </a>
+                <a href="#" class="sidebar__nav-item" data-tab="documents">
+                    <span class="sidebar__nav-icon">📚</span>
+                    <span class="sidebar__nav-text">文档管理</span>
+                </a>
+                <a href="#" class="sidebar__nav-item" data-tab="notifications">
+                    <span class="sidebar__nav-icon">📣</span>
+                    <span class="sidebar__nav-text">通知管理</span>
+                </a>
+                <a href="#" class="sidebar__nav-item" data-tab="invites">
+                    <span class="sidebar__nav-icon">🎟️</span>
+                    <span class="sidebar__nav-text">邀请码管理</span>
+                </a>
+                <a href="#" class="sidebar__nav-item" data-tab="settings">
+                    <span class="sidebar__nav-icon">⚙️</span>
+                    <span class="sidebar__nav-text">系统设置</span>
+                </a>
+                <a href="#" class="sidebar__nav-item" data-tab="permission-nodes">
+                    <span class="sidebar__nav-icon">🔐</span>
+                    <span class="sidebar__nav-text">权限节点</span>
+                </a>
+            </nav>
+
+            <div class="sidebar__footer">
+                <div class="sidebar__user" id="sidebarUserTrigger" data-tab="overview" title="管理员信息">
+                    <div class="sidebar__avatar">
+                        <img id="sidebarAvatar" src="./favicon.png" alt="Avatar">
+                    </div>
+                    <div class="sidebar__user-info">
+                        <span class="sidebar__username" id="sidebarUsername">加载中...</span>
+                        <span class="sidebar__user-role" id="sidebarUserRole">--</span>
+                    </div>
+                </div>
+                <a class="sidebar__settings-btn" href="./user/dashboard.html" aria-label="返回 Dashboard" title="返回用户 Dashboard">
+                    🏠
+                </a>
+            </div>
+        </aside>
+
+        <main class="dashboard-main admin-main">
+            <header class="dashboard-header admin-header">
+                <button class="dashboard-header__menu-btn" id="menuToggle" aria-label="菜单">☰</button>
+                <nav class="dashboard-header__nav header__nav" id="dashboardNav">
+                    <a href="./index.html">首页</a>
+                    <a href="./document.html">文档</a>
+                    <a href="./user/dashboard.html">个人主页</a>
+                    <a href="./admin.html" class="header-nav__item--active">管理员面板</a>
+                </nav>
+                <div class="dashboard-header__right">
+                    <div id="global-notifications-container" class="notification-toast"></div>
+                    <div id="auth-container"></div>
+                    <span class="admin-mode-badge" title="管理员模式 - 所有操作使用您的真实管理员权限">管理员模式</span>
+                </div>
+            </header>
+
+            <div class="dashboard-content admin-content">
+                <!-- 仪表盘概览 -->
+                <section class="tab-panel" id="panel-overview" style="display: none;">
+                    <h2 class="panel-title">📊 仪表盘概览</h2>
+                    <div id="overviewStatsGrid" class="overview-stats-grid">
+                        <div class="loading-text">统计加载中...</div>
+                    </div>
+                    <div class="empty-state empty-state--placeholder">
+                        <div class="empty-state__icon">📈</div>
+                        <p class="empty-state__text">更多仪表盘指标开发中</p>
+                    </div>
+                </section>
+
+                <!-- 用户管理 -->
+                <section class="tab-panel" id="panel-users" style="display: none;">
+                    <div class="pdocs-toolbar">
+                        <h2 class="panel-title">👥 用户管理</h2>
+                        <div class="pdocs-toolbar-actions">
+                            <button class="pdocs-btn pdocs-btn--secondary" id="usersRefreshBtn">🔄 刷新列表</button>
+                        </div>
+                    </div>
+                    <div id="usersTableWrap" class="admin-table-wrap">
+                        <p class="loading-text">用户列表加载中...</p>
+                    </div>
+                    <div class="empty-state empty-state--placeholder">
+                        <div class="empty-state__icon">🔐</div>
+                        <p class="empty-state__text">
+                            用户编辑/禁用/改权限功能待开发。
+                            <br>
+                            <strong>权限节点式权限管理功能规划中，当前仅超级管理员可访问管理面板。</strong>
+                        </p>
+                    </div>
+                </section>
+
+                <!-- 文档管理 -->
+                <section class="tab-panel" id="panel-documents" style="display: none;">
+                    <div class="pdocs-toolbar">
+                        <h2 class="panel-title">📚 文档管理</h2>
+                        <div class="pdocs-toolbar-actions">
+                            <button class="pdocs-btn pdocs-btn--secondary" id="docsRefreshBtn">🔄 刷新</button>
+                        </div>
+                    </div>
+                    <div id="docsTableWrap" class="admin-table-wrap">
+                        <p class="loading-text">文档列表加载中...</p>
+                    </div>
+                    <div class="empty-state empty-state--placeholder">
+                        <div class="empty-state__icon">📝</div>
+                        <p class="empty-state__text">文档编辑/下架操作占位中（权限节点上线后开放）。</p>
+                    </div>
+                </section>
+
+                <!-- 通知管理 -->
+                <section class="tab-panel" id="panel-notifications" style="display: none;">
+                    <div class="pdocs-toolbar">
+                        <h2 class="panel-title">📣 通知管理</h2>
+                        <div class="pdocs-toolbar-actions">
+                            <button class="pdocs-btn pdocs-btn--primary" id="notifyNewBtn">+ 新建通知</button>
+                        </div>
+                    </div>
+                    <div id="notifyTableWrap" class="admin-table-wrap">
+                        <p class="loading-text">通知列表加载中...</p>
+                    </div>
+                    <div class="empty-state empty-state--placeholder">
+                        <div class="empty-state__icon">🔔</div>
+                        <p class="empty-state__text">通知创建/编辑/删除功能待权限节点系统上线后开放。</p>
+                    </div>
+                </section>
+
+                <!-- 邀请码管理 -->
+                <section class="tab-panel" id="panel-invites" style="display: none;">
+                    <div class="pdocs-toolbar">
+                        <h2 class="panel-title">🎟️ 邀请码管理</h2>
+                        <div class="pdocs-toolbar-actions">
+                            <button class="pdocs-btn pdocs-btn--primary" id="invitesNewBtn">+ 生成邀请码</button>
+                        </div>
+                    </div>
+                    <div id="invitesTableWrap" class="admin-table-wrap">
+                        <p class="loading-text">邀请码列表加载中...</p>
+                    </div>
+                    <div class="empty-state empty-state--placeholder">
+                        <div class="empty-state__icon">🎫</div>
+                        <p class="empty-state__text">邀请码生成/删除功能占位（权限节点上线后开放）。</p>
+                    </div>
+                </section>
+
+                <!-- 系统设置 -->
+                <section class="tab-panel" id="panel-settings" style="display: none;">
+                    <h2 class="panel-title">⚙️ 系统设置</h2>
+                    <div class="settings-section">
+                        <h3>主题</h3>
+                        <div class="theme-options" id="themeOptions">
+                            <button class="theme-opt" data-theme="light">浅色</button>
+                            <button class="theme-opt" data-theme="green">护眼绿</button>
+                            <button class="theme-opt" data-theme="gray">灰色</button>
+                            <button class="theme-opt" data-theme="dark_green">暗绿</button>
+                        </div>
+                    </div>
+                    <div class="empty-state empty-state--placeholder">
+                        <div class="empty-state__icon">🛠️</div>
+                        <p class="empty-state__text">站点设置（名称/注册开关/维护模式/邮件设置等）占位开发中。</p>
+                    </div>
+                </section>
+
+                <!-- 权限节点（未来） -->
+                <section class="tab-panel" id="panel-permission-nodes" style="display: none;">
+                    <h2 class="panel-title">🔐 权限节点</h2>
+                    <div id="permNodesExplain" class="perm-nodes-explain">
+                        <p class="loading-text">加载中...</p>
+                    </div>
+                    <div class="empty-state empty-state--placeholder">
+                        <div class="empty-state__icon">🔐</div>
+                        <p class="empty-state__text">
+                            权限节点式权限管理功能规划中。<br>
+                            支持细粒度节点分配：用户管理 / 文档管理 / 通知管理 / 邀请码 / 系统设置 / 权限节点。
+                        </p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Footer -->
+            <footer class="footer">
+                <div class="footer__container">
+                    <div class="footer__top">
+                        <div class="footer__brand">
+                            <h3 class="footer__logo">GWL Works Lab</h3>
+                            <p class="footer__slogan">探索学习的无限可能</p>
+                        </div>
+                        <div class="footer__links">
+                            <div class="footer__links-group">
+                                <h4>快速链接</h4>
+                                <a href="./index.html">首页</a>
+                                <a href="./document.html">文档</a>
+                                <a href="./user/dashboard.html">个人主页</a>
+                                <a href="./login.html">登录</a>
+                            </div>
+                            <div class="footer__links-group">
+                                <h4>关于</h4>
+                                <a href="#">关于我们</a>
+                                <a href="#">隐私政策</a>
+                                <a href="#">服务条款</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="footer__bottom">
+                        <p>&copy; 2026 GFYGO. All rights reserved.</p>
+                        <div class="footer__social">
+                            <a href="#" aria-label="GitHub">GitHub</a>
+                            <a href="#" aria-label="Bilibili">Bilibili</a>
+                        </div>
+                    </div>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
+
+    <script src="./config.js"></script>
+    <script src="./theme.js"></script>
+    <script src="./toast.js"></script>
+    <script src="./modal.js"></script>
+    <script src="./index.js"></script>
+    <script src="./admin.js"></script>
+</body>
+</html>
