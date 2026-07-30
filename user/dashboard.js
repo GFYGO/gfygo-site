@@ -75,6 +75,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             const user = data.data.user;
             pdocsCurrentUserId = user.id;
             renderUserProfile(user);
+            // 根据当前 dashboard 页面路径同步视角等级（用于权限按钮高亮）
+            // admin1=等级2(一级管理员), admin2=等级3(二级管理员), admin3=等级4(三级管理员), superadmin=等级5
+            const __pathMatch = window.location.pathname.match(/\/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i);
+            if (__pathMatch) {
+                const __folderToLevel = { user: 1, admin1: 2, admin2: 3, admin3: 4, superadmin: 5 };
+                const __inferred = __folderToLevel[__pathMatch[1]];
+                if (__inferred === 1) {
+                    localStorage.removeItem('view_as_level');
+                } else if (__inferred && __inferred <= (user.permission_level || 1)) {
+                    localStorage.setItem('view_as_level', String(__inferred));
+                }
+            }
             if (typeof window.renderPermissionButtons === 'function') {
                 window.renderPermissionButtons(user.permission_level);
             }
@@ -477,10 +489,7 @@ window.renderPermissionButtons = window.renderPermissionButtons || function rend
     const effectiveLevel = Number.isInteger(viewOverride) ? viewOverride : 1;
 
     // 管理员用户：显示等级 1 + 从 2 到当前等级的按钮
-    // 超级管理员（5）：额外显示等级 0
-    const levels = [];
-    if (permissionLevel >= 5) levels.push(0);
-    levels.push(1);
+    const levels = [1];
     for (let level = 2; level <= permissionLevel; level++) {
         levels.push(level);
     }
@@ -522,18 +531,11 @@ window.handlePermissionClick = window.handlePermissionClick || function handlePe
     // 判断当前页面是否是 dashboard 类页面（需要跳转）
     const isDashboardPage = /\/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname);
 
-    // 访客视角（level=0）：跳转首页并设置访客模式
-    if (level === 0) {
-        localStorage.setItem('guest_view_mode', 'true');
-        localStorage.removeItem('view_as_level');
-        window.location.href = `${BASE_PATH}/index.html`;
-        return;
-    }
-
+    // admin 文件夹与等级对应：admin1=一级管理员(2), admin2=二级管理员(3), admin3=三级管理员(4), superadmin=超级管理员(5)
     const adminPaths = {
-        2: 'admin2',
-        3: 'admin3',
-        4: 'admin1',
+        2: 'admin1',
+        3: 'admin2',
+        4: 'admin3',
         5: 'superadmin'
     };
 
@@ -549,6 +551,8 @@ window.handlePermissionClick = window.handlePermissionClick || function handlePe
         const folder = adminPaths[level];
         if (folder) {
             localStorage.removeItem('guest_view_mode');
+            // 记录视角等级，供跳转后按钮高亮使用
+            localStorage.setItem('view_as_level', String(level));
             window.location.href = `${BASE_PATH}/${folder}/dashboard.html`;
         }
         return;

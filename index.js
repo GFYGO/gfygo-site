@@ -266,9 +266,8 @@ window.renderPermissionButtons = window.renderPermissionButtons || function (per
   const viewOverride = viewOverrideRaw ? parseInt(viewOverrideRaw, 10) : null;
   const effectiveLevel = Number.isInteger(viewOverride) ? viewOverride : 1;
 
-  const levels = [];
-  if (permissionLevel >= 5) levels.push(0);
-  levels.push(1);
+  // 显示等级 1 到当前等级的按钮（不再提供访客 0 视角）
+  const levels = [1];
   for (let level = 2; level <= permissionLevel; level++) {
     levels.push(level);
   }
@@ -292,19 +291,11 @@ window.handlePermissionClick = window.handlePermissionClick || function (level) 
   // 判断当前页面是否是 dashboard 类页面（需要跳转）
   const isDashboardPage = /\/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname);
 
-  // 访客视角（level=0）
-  if (level === 0) {
-    localStorage.setItem('guest_view_mode', 'true');
-    localStorage.removeItem('view_as_level');
-    // 访问客模式一律跳首页（避免在 dashboard 里残留）
-    window.location.href = `${BASE_PATH}/index.html`;
-    return;
-  }
-
+  // admin 文件夹与等级对应：admin1=一级管理员(2), admin2=二级管理员(3), admin3=三级管理员(4), superadmin=超级管理员(5)
   const adminPaths = {
-    2: 'admin2',
-    3: 'admin3',
-    4: 'admin1',
+    2: 'admin1',
+    3: 'admin2',
+    4: 'admin3',
     5: 'superadmin'
   };
 
@@ -320,6 +311,8 @@ window.handlePermissionClick = window.handlePermissionClick || function (level) 
     const folder = adminPaths[level];
     if (folder) {
       localStorage.removeItem('guest_view_mode');
+      // 记录视角等级，供跳转后按钮高亮使用
+      localStorage.setItem('view_as_level', String(level));
       window.location.href = `${BASE_PATH}/${folder}/dashboard.html`;
     }
     return;
