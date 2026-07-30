@@ -557,14 +557,16 @@ function bindDocFolderActions() {
  */
 async function addDocFolder() {
   if (!__DOC.isAdmin) {
-    alert('仅等级≥5 的管理员可创建公共文件夹');
+    if (typeof Modal !== 'undefined') await Modal.alert('仅等级≥5 的管理员可创建公共文件夹', { title: '权限不足', icon: '🔒' });
     return;
   }
-  const name = prompt('请输入公共文件夹名称：', '');
+  const name = typeof Modal !== 'undefined'
+    ? await Modal.prompt('请输入公共文件夹名称：', '', { title: '新建公共文件夹' })
+    : prompt('请输入公共文件夹名称：', '');
   if (!name || !name.trim()) return;
   const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
   if (!token) {
-    alert('请先登录');
+    if (typeof Modal !== 'undefined') await Modal.alert('请先登录', { icon: '🔒' });
     return;
   }
   try {
@@ -582,11 +584,15 @@ async function addDocFolder() {
       renderDocFolders();
     } else {
       console.error('[folder] 新建失败:', d.msg);
-      alert('新建失败：' + (d.msg || '未知错误'));
+      if (typeof Modal !== 'undefined') {
+        await Modal.alert('新建失败：' + (d.msg || '未知错误'), { icon: '❌' });
+      }
     }
   } catch (e) {
     console.error('[folder] 新建网络错误:', e);
-    alert('新建失败：网络错误');
+    if (typeof Modal !== 'undefined') {
+      await Modal.alert('新建失败：网络错误', { icon: '❌' });
+    }
   }
 }
 
@@ -595,14 +601,16 @@ async function addDocFolder() {
  */
 async function renameDocFolder(id, oldName) {
   if (!__DOC.isAdmin) {
-    alert('仅等级≥5 的管理员可重命名公共文件夹');
+    if (typeof Modal !== 'undefined') await Modal.alert('仅等级≥5 的管理员可重命名公共文件夹', { title: '权限不足', icon: '🔒' });
     return;
   }
-  const name = prompt('请输入新的文件夹名称：', oldName || '');
+  const name = typeof Modal !== 'undefined'
+    ? await Modal.prompt('请输入新的文件夹名称：', oldName || '', { title: '重命名文件夹' })
+    : prompt('请输入新的文件夹名称：', oldName || '');
   if (!name || !name.trim() || name.trim() === oldName) return;
   const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
   if (!token) {
-    alert('请先登录');
+    if (typeof Modal !== 'undefined') await Modal.alert('请先登录', { icon: '🔒' });
     return;
   }
   try {
@@ -620,11 +628,15 @@ async function renameDocFolder(id, oldName) {
       renderDocFolders();
     } else {
       console.error('[folder] 重命名失败:', d.msg);
-      alert('重命名失败：' + (d.msg || '未知错误'));
+      if (typeof Modal !== 'undefined') {
+        await Modal.alert('重命名失败：' + (d.msg || '未知错误'), { icon: '❌' });
+      }
     }
   } catch (e) {
     console.error('[folder] 重命名网络错误:', e);
-    alert('重命名失败：网络错误');
+    if (typeof Modal !== 'undefined') {
+      await Modal.alert('重命名失败：网络错误', { icon: '❌' });
+    }
   }
 }
 
@@ -634,14 +646,16 @@ async function renameDocFolder(id, oldName) {
  */
 async function deleteDocFolder(id) {
   if (!__DOC.isAdmin) {
-    alert('仅等级≥5 的管理员可删除公共文件夹');
+    if (typeof Modal !== 'undefined') await Modal.alert('仅等级≥5 的管理员可删除公共文件夹', { title: '权限不足', icon: '🔒' });
     return;
   }
-  const ok = confirm('删除文件夹后，文件夹内的文档将变为未归类，确认删除？');
+  const ok = typeof Modal !== 'undefined'
+    ? await Modal.confirm('删除文件夹后，文件夹内的文档将变为未归类，确认删除？', { title: '删除文件夹', okText: '确认删除', cancelText: '取消', icon: '🗑️' })
+    : confirm('删除文件夹后，文件夹内的文档将变为未归类，确认删除？');
   if (!ok) return;
   const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
   if (!token) {
-    alert('请先登录');
+    if (typeof Modal !== 'undefined') await Modal.alert('请先登录', { icon: '🔒' });
     return;
   }
   try {
@@ -659,11 +673,15 @@ async function deleteDocFolder(id) {
       await applyDocFolderFilter();
     } else {
       console.error('[folder] 删除失败:', d.msg);
-      alert('删除失败：' + (d.msg || '未知错误'));
+      if (typeof Modal !== 'undefined') {
+        await Modal.alert('删除失败：' + (d.msg || '未知错误'), { icon: '❌' });
+      }
     }
   } catch (e) {
     console.error('[folder] 删除网络错误:', e);
-    alert('删除失败：网络错误');
+    if (typeof Modal !== 'undefined') {
+      await Modal.alert('删除失败：网络错误', { icon: '❌' });
+    }
   }
 }
 

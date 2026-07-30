@@ -621,7 +621,216 @@ a.feature-tile:hover .feature-tile__desc {
 }
 
 /* =========================================
-   14. Footer 样式
+   14. Modal 弹窗组件 (配合 modal.js，替换原生 confirm / prompt / alert)
+   ========================================= */
+
+/* 遮罩层：居中覆盖整屏 */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background-color: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+.modal-overlay--show {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* body 打开弹窗时禁止背景滚动 */
+body.modal-open {
+  overflow: hidden;
+}
+
+/* 弹窗容器 */
+.modal-dialog {
+  width: 100%;
+  max-width: 440px;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-bg-white);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25), var(--shadow-lg);
+  color: var(--color-text-main);
+  font-size: 0.95rem;
+  outline: none;
+
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  transform: translateY(16px) scale(0.98);
+  opacity: 0;
+  transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2), opacity 0.25s ease;
+}
+.modal-overlay--show .modal-dialog {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+/* 顶部 */
+.modal__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-bg-soft);
+}
+.modal__icon {
+  font-size: 1.25rem;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background-color: var(--color-primary-soft);
+}
+.modal__icon[data-modal-icon-type="confirm"] {
+  background-color: #fff4e5;
+}
+.modal__icon[data-modal-icon-type="prompt"] {
+  background-color: #e6f4ff;
+}
+.modal__icon[data-modal-icon-type="alert"] {
+  background-color: var(--color-primary-soft);
+}
+.modal__title {
+  flex: 1;
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--color-text-main);
+}
+.modal__close {
+  background: none;
+  border: none;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 2px 8px;
+  border-radius: 6px;
+  transition: color 0.2s, background-color 0.2s;
+}
+.modal__close:hover {
+  color: var(--color-text-main);
+  background-color: var(--color-bg-hover);
+}
+
+/* 正文 */
+.modal__body {
+  padding: 22px 20px 18px;
+}
+.modal__message {
+  line-height: 1.65;
+  color: var(--color-text-main);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.modal__input-wrap {
+  margin-top: 16px;
+}
+.modal__input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-soft);
+  color: var(--color-text-main);
+  font-size: 0.95rem;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+  outline: none;
+  box-sizing: border-box;
+}
+.modal__input::placeholder {
+  color: var(--color-text-muted);
+}
+.modal__input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-glow);
+  background-color: var(--color-bg-white);
+}
+
+/* 底部按钮 */
+.modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px 20px;
+  border-top: 1px solid var(--color-border);
+  background-color: var(--color-bg-soft);
+}
+.modal__btn {
+  min-width: 88px;
+  padding: 9px 18px;
+  border-radius: var(--radius-md);
+  font-size: 0.92rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.08s ease;
+  user-select: none;
+}
+.modal__btn:active {
+  transform: translateY(1px);
+}
+.modal__btn--cancel {
+  background-color: var(--color-bg-white);
+  border-color: var(--color-border);
+  color: var(--color-text-main);
+}
+.modal__btn--cancel:hover {
+  background-color: var(--color-bg-hover);
+  border-color: var(--color-border-strong);
+}
+.modal__btn--confirm {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+.modal__btn--confirm:hover {
+  filter: brightness(1.08);
+  border-color: transparent;
+}
+
+/* 移动端适配 */
+@media (max-width: 640px) {
+  .modal-overlay {
+    padding: 12px;
+  }
+  .modal-dialog {
+    max-width: 100%;
+    border-radius: 14px;
+  }
+  .modal__header {
+    padding: 16px;
+  }
+  .modal__body {
+    padding: 18px 16px 14px;
+  }
+  .modal__footer {
+    padding: 12px 16px 18px;
+    flex-direction: column-reverse;
+  }
+  .modal__btn {
+    width: 100%;
+    min-width: 0;
+    padding: 11px 18px;
+  }
+}
+
+/* =========================================
+   15. Footer 样式
    ========================================= */
 
 .footer {
