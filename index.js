@@ -88,8 +88,8 @@ async function fetchGlobalNotifications() {
  * 任务 FE-JS-02: 处理 /api/v1/auth/status 的响应并渲染用户信息
  */
 async function fetchAuthStatus() {
-  // Dashboard 页面由 dashboard.js 独立处理认证状态，避免重复渲染冲突
-  if (window.location.pathname.includes('/user/dashboard')) {
+  // 所有 dashboard 类页面由 dashboard.js 独立处理认证状态，避免重复渲染冲突
+  if (/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname)) {
     return;
   }
 
@@ -166,6 +166,11 @@ function renderGlobalNotifications(notifications) {
  * @param {Object|null} userInfo 用户信息对象 (data.data.user)，未登录时为 null
  */
 function renderAuthStatus(userInfo) {
+  // 暂存当前用户实际权限等级，供非 dashboard 页切换按钮重绘时使用
+  if (userInfo) {
+    window.__currentUserPermissionLevel = userInfo.permission_level || 1;
+  }
+
   const authContainer = document.getElementById('auth-container');
   if (!authContainer) return;
 
@@ -214,8 +219,112 @@ function renderAuthStatus(userInfo) {
         window.location.href = `${BASE_PATH}/index.html`;
       });
     }
+
+    // 渲染权限切换按钮（仅管理员可见）
+    renderPermissionButtons(userInfo ? userInfo.permission_level : 0);
   } else {
     navLoginLinks.forEach(link => link.style.display = '');
     navRegisterLinks.forEach(link => link.style.display = '');
+    renderPermissionButtons(0);
   }
+}
+
+const ROLE_NAMES = {
+  0: '未登录',
+  1: '普通用户',
+  2: '一级管理员',
+  3: '二级管理员',
+  4: '三级管理员',
+  5: '超级管理员'
+};
+
+/**
+ * 渲染右上角权限等级切换按钮
+ *  - permissionLevel <= 1：不显示按钮（非管理员）
+ *  - 视角等级语义：
+ *      1 = 用户视角（默认）
+ *      2~N = 该等级管理员视角
+ *      0 = 访客视角（仅超管可见）
+ *  - 行为：仅在各 dashboard 页面点击后跳转；其他页面仅切换 localStorage 视角，不做跳转
+ */
+function renderPermissionButtons(permissionLevel) {
+  const container = document.getElementById('permissionButtons');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  if (!permissionLevel || permissionLevel <= 1) return;
+
+  const viewOverrideRaw = localStorage.getItem('view_as_level');
+  const viewOverride = viewOverrideRaw ? parseInt(viewOverrideRaw, 10) : null;
+  const effectiveLevel = Number.isInteger(viewOverride) ? viewOverride : 1;
+
+  const levels = [];
+  if (permissionLevel >= 5) levels.push(0);
+  levels.push(1);
+  for (let level = 2; level <= permissionLevel; level++) {
+    levels.push(level);
+  }
+
+  levels.forEach(level => {
+    const btn = document.createElement('button');
+    btn.className = 'perm-btn';
+    if (level === effectiveLevel) {
+      btn.classList.add('perm-btn--current');
+    }
+    btn.textContent = level;
+    btn.title = `切换到 ${ROLE_NAMES[level] || `等级${level}`} 视角`;
+    btn.addEventListener('click', () => handlePermissionClick(level));
+    container.appendChild(btn);
+  });
+}
+
+function handlePermissionClick(level) {
+  // 判断当前页面是否是 dashboard 类页面（需要跳转）
+  const isDashboardPage = /\/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname);
+
+  // 访客视角（level=0）
+  if (level === 0) {
+    localStorage.setItem('guest_view_mode', 'true');
+    localStorage.removeItem('view_as_level');
+    // 访问客模式一律跳首页（避免在 dashboard 里残留）
+    window.location.href = `${BASE_PATH}/index.html`;
+    return;
+  }
+
+  const adminPaths = {
+    2: 'admin2',
+    3: 'admin3',
+    4: 'admin1',
+    5: 'superadmin'
+  };
+
+  // ============== dashboard 页面：执行跳转 ==============
+  if (isDashboardPage) {
+    if (level === 1) {
+      // 等级 1：回用户 dashboard
+      localStorage.removeItem('view_as_level');
+      localStorage.removeItem('guest_view_mode');
+      window.location.href = `${BASE_PATH}/user/dashboard.html`;
+      return;
+    }
+    const folder = adminPaths[level];
+    if (folder) {
+      localStorage.removeItem('guest_view_mode');
+      window.location.href = `${BASE_PATH}/${folder}/dashboard.html`;
+    }
+    return;
+  }
+
+  // ============== 非 dashboard 页面：不跳转，只更新视角高亮（存 localStorage，刷新按钮重绘） ==============
+  if (level === 1) {
+    localStorage.removeItem('view_as_level');
+  } else {
+    localStorage.setItem('view_as_level', String(level));
+  }
+  localStorage.removeItem('guest_view_mode');
+
+  // 重绘按钮高亮（不跳转）
+  const userPerm = window.__currentUserPermissionLevel || level;
+  renderPermissionButtons(userPerm);
 }

@@ -514,6 +514,9 @@ function renderPermissionButtons(permissionLevel) {
 }
 
 function handlePermissionClick(level) {
+    // 判断当前页面是否是 dashboard 类页面（需要跳转）
+    const isDashboardPage = /\/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname);
+
     // 访客视角（level=0）：跳转首页并设置访客模式
     if (level === 0) {
         localStorage.setItem('guest_view_mode', 'true');
@@ -522,27 +525,40 @@ function handlePermissionClick(level) {
         return;
     }
 
-    // 等级 1：刷新当前页（已是 dashboard）
-    if (level === 1) {
-        localStorage.removeItem('view_as_level');
-        localStorage.removeItem('guest_view_mode');
-        window.location.reload();
-        return;
-    }
-
-    // 等级 2~5：跳转到对应管理员 dashboard 页面
-    // 映射关系：2 -> /admin2/dashboard.html，3 -> /admin3/dashboard.html，4 -> /admin1/dashboard.html，5 -> /superadmin/dashboard.html
     const adminPaths = {
         2: 'admin2',
         3: 'admin3',
         4: 'admin1',
         5: 'superadmin'
     };
-    const folder = adminPaths[level];
-    if (folder) {
-        localStorage.removeItem('guest_view_mode');
-        window.location.href = `${BASE_PATH}/${folder}/dashboard.html`;
+
+    // ============== dashboard 页面：执行跳转 ==============
+    if (isDashboardPage) {
+        if (level === 1) {
+            // 等级 1：回用户 dashboard
+            localStorage.removeItem('view_as_level');
+            localStorage.removeItem('guest_view_mode');
+            window.location.href = `${BASE_PATH}/user/dashboard.html`;
+            return;
+        }
+        const folder = adminPaths[level];
+        if (folder) {
+            localStorage.removeItem('guest_view_mode');
+            window.location.href = `${BASE_PATH}/${folder}/dashboard.html`;
+        }
+        return;
     }
+
+    // ============== 非 dashboard 页面：不跳转，只更新视角高亮（存 localStorage，刷新按钮重绘） ==============
+    if (level === 1) {
+        localStorage.removeItem('view_as_level');
+    } else {
+        localStorage.setItem('view_as_level', String(level));
+    }
+    localStorage.removeItem('guest_view_mode');
+
+    const userPerm = (typeof window.__currentUserPermissionLevel === 'number') ? window.__currentUserPermissionLevel : level;
+    renderPermissionButtons(userPerm);
 }
 
 // =========================================
