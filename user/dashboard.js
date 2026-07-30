@@ -1203,10 +1203,8 @@ async function savePersonalDoc() {
 
 /** 软删除（移入回收站） */
 async function softDeletePersonalDoc(docId) {
-    const ok = typeof Modal !== 'undefined'
-        ? await Modal.confirm('确认将此文档移入回收站？', { title: '删除文档', okText: '确认移入', cancelText: '取消', icon: '🗑️' })
-        : confirm('确认将此文档移入回收站？');
-    if (!ok) return;
+    const confirmed = await Modal.confirm('确认将此文档移入回收站？', { title: '删除文档' });
+    if (!confirmed) return;
     const data = await pdocsRequest(`/${docId}`, { method: 'DELETE' });
     if (!data || data.code !== 200) {
         if (typeof Toast !== 'undefined') Toast.show(data?.msg || '删除失败', 'error');
@@ -1229,10 +1227,8 @@ async function restorePersonalDoc(docId) {
 
 /** 彻底删除 */
 async function permanentDeletePersonalDoc(docId) {
-    const ok = typeof Modal !== 'undefined'
-        ? await Modal.confirm('彻底删除后无法恢复，确认删除？', { title: '彻底删除', okText: '确认删除', cancelText: '取消', icon: '⚠️' })
-        : confirm('彻底删除后无法恢复，确认删除？');
-    if (!ok) return;
+    const confirmed = await Modal.confirm('彻底删除后无法恢复，确认删除？', { title: '彻底删除' });
+    if (!confirmed) return;
     const data = await pdocsRequest(`/${docId}/permanent`, { method: 'DELETE' });
     if (!data || data.code !== 200) {
         if (typeof Toast !== 'undefined') Toast.show(data?.msg || '删除失败', 'error');
@@ -1335,15 +1331,13 @@ function renderPdocsFolders() {
 
     // 绑定 rename / delete 按钮
     container.querySelectorAll('.pdocs-folder-chip__btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', async (e) => {
             e.stopPropagation();
             const action = btn.dataset.action;
             const id = parseInt(btn.dataset.id, 10);
             if (action === 'rename') {
                 const folder = pdocsFolders.find(f => f.id === id);
-                const newName = typeof Modal !== 'undefined'
-                    ? await Modal.prompt('重命名文件夹:', folder ? folder.name : '', { title: '重命名文件夹' })
-                    : prompt('重命名文件夹:', folder ? folder.name : '');
+                const newName = await Modal.prompt('重命名文件夹:', folder ? folder.name : '', { title: '重命名文件夹' });
                 if (newName !== null && newName.trim()) {
                     renamePersonalFolder(id, newName.trim());
                 }
@@ -1363,10 +1357,8 @@ function renderPdocsFolders() {
 
 /** 新建个人文件夹 */
 async function addPersonalFolder() {
-    const name = typeof Modal !== 'undefined'
-        ? await Modal.prompt('请输入文件夹名称:', '', { title: '新建文件夹' })
-        : prompt('请输入文件夹名称:');
-    if (!name || !name.trim()) return;
+    const name = await Modal.prompt('请输入文件夹名称:', '', { title: '新建文件夹' });
+    if (name === null || !name.trim()) return;
     const data = await pdocsRequest('/folders', {
         method: 'POST',
         body: JSON.stringify({ name: name.trim(), scope: 'personal' })
@@ -1395,10 +1387,8 @@ async function renamePersonalFolder(id, newName) {
 
 /** 删除个人文件夹 */
 async function deletePersonalFolder(id) {
-    const ok = typeof Modal !== 'undefined'
-        ? await Modal.confirm('删除文件夹后，文件夹内的文档将变为未归类，确认删除？', { title: '删除文件夹', okText: '确认删除', cancelText: '取消', icon: '🗑️' })
-        : confirm('删除文件夹后，文件夹内的文档将变为未归类，确认删除？');
-    if (!ok) return;
+    const confirmed = await Modal.confirm('删除文件夹后，文件夹内的文档将变为未归类，确认删除？', { title: '删除文件夹' });
+    if (!confirmed) return;
     const data = await pdocsRequest(`/folders/${id}`, { method: 'DELETE' });
     if (!data || data.code !== 200) {
         if (typeof Toast !== 'undefined') Toast.show(data?.msg || '删除失败', 'error');

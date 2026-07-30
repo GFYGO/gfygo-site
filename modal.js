@@ -1,231 +1,293 @@
 /**
- * modal.js
- * 自定义弹窗组件，替换原生 confirm / prompt / alert
- * 采用 Promise 模式：Modal.confirm(msg) / Modal.prompt(msg, defaultVal) / Modal.alert(msg)
- *
- * 使用示例：
- *   const ok = await Modal.confirm('确认删除？');
- *   if (ok) { ... }
- *
- *   const name = await Modal.prompt('请输入名称：', '默认值');
- *   if (name !== null) { ... }
- *
- *   await Modal.alert('提示信息');
+ * Modal - 自定义弹窗组件
+ * 替换原生 confirm 和 prompt，不改变任何功能逻辑
  */
-const Modal = (function () {
-    const overlayEl = document.createElement('div');
-    overlayEl.className = 'modal-overlay';
-    overlayEl.setAttribute('aria-hidden', 'true');
-    overlayEl.innerHTML = `
-        <div class="modal-dialog" role="dialog" aria-modal="true" tabindex="-1">
-            <div class="modal__header">
-                <div class="modal__icon" data-modal-icon></div>
-                <div class="modal__title" data-modal-title>提示</div>
-                <button class="modal__close" type="button" aria-label="关闭" data-modal-close>&times;</button>
-            </div>
-            <div class="modal__body">
-                <div class="modal__message" data-modal-message></div>
-                <div class="modal__input-wrap" data-modal-input-wrap hidden>
-                    <input type="text" class="modal__input" data-modal-input autocomplete="off" />
-                </div>
-            </div>
-            <div class="modal__footer">
-                <button class="modal__btn modal__btn--cancel" type="button" data-modal-cancel>取消</button>
-                <button class="modal__btn modal__btn--confirm" type="button" data-modal-ok>确定</button>
-            </div>
+
+const Modal = {
+  /**
+   * 显示确认对话框（替换 confirm）
+   * @param {string} message - 提示消息
+   * @param {object} options - 可选配置 { title, confirmText, cancelText }
+   * @returns {Promise<boolean>} - 返回用户选择结果
+   */
+  confirm(message, options = {}) {
+    return new Promise((resolve) => {
+      const {
+        title = '确认',
+        confirmText = '确认',
+        cancelText = '取消'
+      } = options;
+
+      const modal = this._createModal({
+        title,
+        content: `<p class="modal-message">${this._escapeHtml(message)}</p>`,
+        buttons: [
+          {
+            text: cancelText,
+            class: 'modal-btn-cancel',
+            onClick: () => {
+              this._closeModal(modal);
+              resolve(false);
+            }
+          },
+          {
+            text: confirmText,
+            class: 'modal-btn-confirm',
+            onClick: () => {
+              this._closeModal(modal);
+              resolve(true);
+            }
+          }
+        ]
+      });
+
+      this._showModal(modal);
+    });
+  },
+
+  /**
+   * 显示输入对话框（替换 prompt）
+   * @param {string} message - 提示消息
+   * @param {string} defaultValue - 默认值
+   * @param {object} options - 可选配置 { title, confirmText, cancelText, placeholder, inputType }
+   * @returns {Promise<string|null>} - 返回用户输入值或 null
+   */
+  prompt(message, defaultValue = '', options = {}) {
+    return new Promise((resolve) => {
+      const {
+        title = '请输入',
+        confirmText = '确认',
+        cancelText = '取消',
+        placeholder = '',
+        inputType = 'text'
+      } = options;
+
+      const escapedMessage = this._escapeHtml(message);
+      const escapedDefault = this._escapeHtml(defaultValue);
+      const escapedPlaceholder = this._escapeHtml(placeholder);
+
+      const modal = this._createModal({
+        title,
+        content: `
+          <p class="modal-message">${escapedMessage}</p>
+          <input 
+            type="${inputType}" 
+            class="modal-input" 
+            value="${escapedDefault}" 
+            placeholder="${escapedPlaceholder}"
+          >
+        `,
+        buttons: [
+          {
+            text: cancelText,
+            class: 'modal-btn-cancel',
+            onClick: () => {
+              this._closeModal(modal);
+              resolve(null);
+            }
+          },
+          {
+            text: confirmText,
+            class: 'modal-btn-confirm',
+            onClick: () => {
+              const input = modal.querySelector('.modal-input');
+              const value = input ? input.value : '';
+              this._closeModal(modal);
+              resolve(value);
+            }
+          }
+        ],
+        onShow: (modalEl) => {
+          // 自动聚焦输入框并选中默认值
+          const input = modalEl.querySelector('.modal-input');
+          if (input) {
+            input.focus();
+            input.select();
+          }
+        }
+      });
+
+      this._showModal(modal);
+    });
+  },
+
+  /**
+   * 显示警告对话框（替换 alert）
+   * @param {string} message - 提示消息
+   * @param {object} options - 可选配置 { title, confirmText }
+   * @returns {Promise<void>}
+   */
+  alert(message, options = {}) {
+    return new Promise((resolve) => {
+      const {
+        title = '提示',
+        confirmText = '确定'
+      } = options;
+
+      const modal = this._createModal({
+        title,
+        content: `<p class="modal-message">${this._escapeHtml(message)}</p>`,
+        buttons: [
+          {
+            text: confirmText,
+            class: 'modal-btn-confirm',
+            onClick: () => {
+              this._closeModal(modal);
+              resolve();
+            }
+          }
+        ]
+      });
+
+      this._showModal(modal);
+    });
+  },
+
+  /**
+   * 创建弹窗 DOM 结构
+   * @private
+   */
+  _createModal({ title, content, buttons, onShow }) {
+    const modalHtml = `
+      <div class="modal-overlay">
+        <div class="modal-container" role="dialog" aria-modal="true">
+          <div class="modal-header">
+            <h3 class="modal-title">${this._escapeHtml(title)}</h3>
+          </div>
+          <div class="modal-body">
+            ${content}
+          </div>
+          <div class="modal-footer">
+            ${buttons.map((btn, index) => `
+              <button 
+                type="button" 
+                class="modal-btn ${btn.class}" 
+                data-index="${index}"
+              >
+                ${this._escapeHtml(btn.text)}
+              </button>
+            `).join('')}
+          </div>
         </div>
+      </div>
     `;
 
-    const titleEl = overlayEl.querySelector('[data-modal-title]');
-    const iconEl = overlayEl.querySelector('[data-modal-icon]');
-    const msgEl = overlayEl.querySelector('[data-modal-message]');
-    const inputWrapEl = overlayEl.querySelector('[data-modal-input-wrap]');
-    const inputEl = overlayEl.querySelector('[data-modal-input]');
-    const okBtn = overlayEl.querySelector('[data-modal-ok]');
-    const cancelBtn = overlayEl.querySelector('[data-modal-cancel]');
-    const closeBtn = overlayEl.querySelector('[data-modal-close]');
-    const dialogEl = overlayEl.querySelector('.modal-dialog');
+    const container = document.createElement('div');
+    container.className = 'modal-wrapper';
+    container.innerHTML = modalHtml;
 
-    let resolver = null;
-    let mode = null; // 'confirm' | 'prompt' | 'alert'
-    let lastFocus = null;
+    // 绑定按钮事件
+    buttons.forEach((btn, index) => {
+      const btnEl = container.querySelector(`button[data-index="${index}"]`);
+      if (btnEl && btn.onClick) {
+        btnEl.addEventListener('click', btn.onClick);
+      }
+    });
 
-    function ensureMounted() {
-        if (!overlayEl.parentNode) document.body.appendChild(overlayEl);
-    }
-
-    function bindOnce() {
-        if (bindOnce._done) return;
-        bindOnce._done = true;
-        okBtn.addEventListener('click', onOk);
-        cancelBtn.addEventListener('click', onCancel);
-        closeBtn.addEventListener('click', onCancel);
-        overlayEl.addEventListener('click', (e) => {
-            if (e.target === overlayEl) onCancel();
-        });
-        inputEl.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                onOk();
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                onCancel();
+    // 点击遮罩层关闭（等同于取消）
+    const overlay = container.querySelector('.modal-overlay');
+    if (overlay) {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          // 查找取消按钮并触发
+          const cancelBtn = buttons.find(b => b.class === 'modal-btn-cancel');
+          if (cancelBtn && cancelBtn.onClick) {
+            cancelBtn.onClick();
+          } else {
+            // 如果没有取消按钮，点击确认按钮
+            const confirmBtn = buttons.find(b => b.class === 'modal-btn-confirm');
+            if (confirmBtn && confirmBtn.onClick) {
+              confirmBtn.onClick();
             }
-        });
-        overlayEl.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && document.activeElement !== inputEl) {
-                e.preventDefault();
-                onCancel();
-            }
-        });
-    }
-
-    function open(config) {
-        mode = config.mode;
-        ensureMounted();
-        bindOnce();
-        lastFocus = document.activeElement;
-
-        // 标题 / 图标
-        titleEl.textContent = config.title || defaultTitle(mode);
-        iconEl.textContent = config.icon || defaultIcon(mode);
-        iconEl.dataset.modalIconType = mode;
-
-        // 消息
-        msgEl.textContent = config.message || '';
-
-        // 输入框
-        if (mode === 'prompt') {
-            inputWrapEl.hidden = false;
-            inputEl.value = config.defaultValue != null ? String(config.defaultValue) : '';
-            cancelBtn.style.display = '';
-        } else {
-            inputWrapEl.hidden = true;
-            inputEl.value = '';
-            if (mode === 'alert') {
-                cancelBtn.style.display = 'none';
-            } else {
-                cancelBtn.style.display = '';
-            }
+          }
         }
+      });
+    }
 
-        // 按钮文字
-        okBtn.textContent = config.okText || defaultOkText(mode);
-        cancelBtn.textContent = config.cancelText || '取消';
-
-        // 显示
-        overlayEl.classList.add('modal-overlay--show');
-        overlayEl.setAttribute('aria-hidden', 'false');
-        document.body.classList.add('modal-open');
-        dialogEl.focus();
-
-        // prompt 模式聚焦输入框并选中文字
-        if (mode === 'prompt') {
-            requestAnimationFrame(() => {
-                inputEl.focus();
-                inputEl.select();
-            });
-        } else {
-            requestAnimationFrame(() => okBtn.focus());
+    // 键盘事件处理
+    const handleKeydown = (e) => {
+      if (e.key === 'Escape') {
+        // ESC 键触发取消
+        const cancelBtn = buttons.find(b => b.class === 'modal-btn-cancel');
+        if (cancelBtn && cancelBtn.onClick) {
+          cancelBtn.onClick();
         }
-
-        return new Promise((resolve) => {
-            resolver = resolve;
-        });
-    }
-
-    function close() {
-        overlayEl.classList.remove('modal-overlay--show');
-        overlayEl.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove('modal-open');
-        if (lastFocus && typeof lastFocus.focus === 'function') {
-            lastFocus.focus();
+      } else if (e.key === 'Enter') {
+        // Enter 键触发确认
+        const confirmBtn = buttons.find(b => b.class === 'modal-btn-confirm');
+        if (confirmBtn && confirmBtn.onClick) {
+          confirmBtn.onClick();
         }
-        resolver = null;
-        mode = null;
-    }
-
-    function onOk() {
-        if (!resolver) return;
-        let result;
-        if (mode === 'prompt') {
-            result = inputEl.value;
-        } else {
-            result = true;
-        }
-        const fn = resolver;
-        close();
-        fn(result);
-    }
-
-    function onCancel() {
-        if (!resolver) return;
-        let result;
-        if (mode === 'prompt') {
-            result = null;
-        } else if (mode === 'confirm') {
-            result = false;
-        } else {
-            result = undefined;
-        }
-        const fn = resolver;
-        close();
-        fn(result);
-    }
-
-    function defaultTitle(m) {
-        return m === 'confirm' ? '确认操作'
-            : m === 'prompt' ? '请输入'
-            : '提示';
-    }
-
-    function defaultIcon(m) {
-        return m === 'confirm' ? '⚠️'
-            : m === 'prompt' ? '✏️'
-            : 'ℹ️';
-    }
-
-    function defaultOkText(m) {
-        return m === 'confirm' ? '确认'
-            : m === 'prompt' ? '提交'
-            : '知道了';
-    }
-
-    return {
-        /**
-         * 确认弹窗
-         * @param {string} message
-         * @param {{title?:string, okText?:string, cancelText?:string, icon?:string}} [opts]
-         * @returns {Promise<boolean>} 确认=true，取消=false
-         */
-        confirm(message, opts = {}) {
-            return open({ mode: 'confirm', message, ...opts });
-        },
-
-        /**
-         * 输入弹窗
-         * @param {string} message
-         * @param {string} [defaultValue]
-         * @param {{title?:string, okText?:string, cancelText?:string, icon?:string}} [opts]
-         * @returns {Promise<string|null>} 提交=输入字符串，取消=null
-         */
-        prompt(message, defaultValue, opts = {}) {
-            return open({ mode: 'prompt', message, defaultValue, ...opts });
-        },
-
-        /**
-         * 提示弹窗（无取消按钮）
-         * @param {string} message
-         * @param {{title?:string, okText?:string, icon?:string}} [opts]
-         * @returns {Promise<void>}
-         */
-        alert(message, opts = {}) {
-            return open({ mode: 'alert', message, ...opts });
-        },
-
-        /** 立即关闭（用于异常兜底） */
-        forceClose() {
-            if (resolver) onCancel();
-        }
+      }
     };
-})();
+
+    container._handleKeydown = handleKeydown;
+    container._onShow = onShow;
+
+    return container;
+  },
+
+  /**
+   * 显示弹窗
+   * @private
+   */
+  _showModal(modal) {
+    document.body.appendChild(modal);
+    document.body.style.overflow = 'hidden';
+
+    // 添加键盘监听
+    document.addEventListener('keydown', modal._handleKeydown);
+
+    // 触发动画
+    requestAnimationFrame(() => {
+      modal.querySelector('.modal-overlay').classList.add('modal-show');
+    });
+
+    // 执行 onShow 回调
+    if (modal._onShow) {
+      modal._onShow(modal.querySelector('.modal-container'));
+    }
+  },
+
+  /**
+   * 关闭弹窗
+   * @private
+   */
+  _closeModal(modal) {
+    // 移除键盘监听
+    document.removeEventListener('keydown', modal._handleKeydown);
+
+    // 触发关闭动画
+    const overlay = modal.querySelector('.modal-overlay');
+    if (overlay) {
+      overlay.classList.remove('modal-show');
+      overlay.classList.add('modal-hide');
+    }
+
+    // 动画结束后移除 DOM
+    setTimeout(() => {
+      if (modal && modal.parentNode) {
+        modal.parentNode.removeChild(modal);
+      }
+      // 检查是否还有其他弹窗
+      const modals = document.querySelectorAll('.modal-wrapper');
+      if (modals.length === 0) {
+        document.body.style.overflow = '';
+      }
+    }, 200);
+  },
+
+  /**
+   * HTML 转义
+   * @private
+   */
+  _escapeHtml(str) {
+    if (typeof str !== 'string') return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+};
+
+// 全局导出
+window.Modal = Modal;
