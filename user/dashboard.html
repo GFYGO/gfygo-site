@@ -121,25 +121,18 @@
                     <!-- 面包屑路径（section 顶部）-->
                     <div class="pdocs-breadcrumb" id="pdocsPathBreadcrumb"></div>
 
-                    <!-- 文档列表视图 -->
+                    <!-- 文档列表视图（资源管理器平铺风格） -->
                     <div class="pdocs-view" id="pdocs-view-list">
                         <div class="pdocs-toolbar">
                             <h2 class="panel-title">个人文档</h2>
                             <div class="pdocs-toolbar-actions">
+                                <button class="pdocs-btn pdocs-btn--secondary" id="pdocsUpBtn" title="返回上一级">↑ 返回上一级</button>
+                                <button class="pdocs-btn pdocs-btn--secondary" id="pdocsFolderAddBtn" title="新建文件夹">📁 新建文件夹</button>
                                 <button class="pdocs-btn pdocs-btn--primary" id="pdocsNewBtn">+ 新建文档</button>
                                 <button class="pdocs-btn pdocs-btn--secondary" id="pdocsTrashBtn">🗑 回收站</button>
                             </div>
                         </div>
-                        <div class="pdocs-folders" id="pdocsFoldersBar">
-                            <div class="pdocs-folders__head">
-                                <span class="pdocs-folders__title">📁 我的文件夹</span>
-                                <button class="pdocs-folders__add" id="pdocsFolderAddBtn" title="新建文件夹">➕ 新建文件夹</button>
-                            </div>
-                            <div class="pdocs-folders__chips" id="pdocsFoldersList">
-                                <p class="loading-text">加载中...</p>
-                            </div>
-                        </div>
-                        <div class="pdocs-doc-grid" id="pdocsListContainer">
+                        <div class="pdocs-explorer-grid" id="pdocsListContainer">
                             <p class="loading-text">加载中...</p>
                         </div>
                     </div>

@@ -899,8 +899,9 @@ let pdocsEditingId = null;      // 当前编辑的文档 id（null=新建）
 let pdocsMarkedReady = false;   // marked.js 是否已加载
 let pdocsMarkedLoading = null;  // 加载中的 Promise（防重复）
 let pdocsFolders = [];          // 当前用户的个人文件夹列表
-let pdocsCurrentFolderId = null; // null=全部；0=未归类；正整数=该文件夹
+let pdocsCurrentFolderId = null; // null=根目录（个人文档根）；正整数=某文件夹内（资源管理器模型）
 let pdocsCurrentUserId = null;   // 从 auth/status 拿到，用于过滤个人文件夹
+let pdocsCurrentDocs = null;     // 当前层级的文档列表（null=未加载）
 
 /** 统一请求封装（统一走 /api/v1/document 接口）
  *  所有 dashboard 请求强制携带 X-Permission-Context: dashboard，后端将按等级 1 收紧权限。
@@ -984,6 +985,8 @@ function initPersonalDocs() {
     bind('pdocsTrashBtn', () => showPdocsView('trash'));
     bind('pdocsTrashBackBtn', () => showPdocsView('list'));
     bind('pdocsBackBtn', () => showPdocsView('list'));
+    bind('pdocsUpBtn', () => goUpOneLevel());
+    bind('pdocsFolderAddBtn', addPersonalFolder);
     bind('pdocsSaveBtn', savePersonalDoc);
     bind('pdocsPreviewToggleBtn', togglePdocsPreview);
     // 浏览视图按钮
@@ -1031,24 +1034,17 @@ function showPdocsView(viewName) {
     if (viewName === 'trash') loadPersonalTrash();
 }
 
-/** 加载文档列表（当前用户创建的正常文档） */
+/** 加载当前层级的文档（资源管理器模型）
+ *  - 根目录（pdocsCurrentFolderId=null）：加载未归类文档（folder_id=0）
+ *  - 文件夹内（正整数）：加载该文件夹文档（folder_id=id）
+ */
 async function loadPersonalDocs() {
-    const container = document.getElementById('pdocsListContainer');
-    if (!container) return;
-    container.innerHTML = '<p class="loading-text">加载中...</p>';
-
-    // 根据 pdocsCurrentFolderId 拼接 folder_id query
-    // null=不拼（全部）；0=未归类；正整数=该文件夹下
-    let query = '';
-    if (pdocsCurrentFolderId === 0 || (typeof pdocsCurrentFolderId === 'number' && pdocsCurrentFolderId > 0)) {
-        query = `folder_id=${pdocsCurrentFolderId}`;
-    }
-    const data = await pdocsRequest('/mine' + (query ? '?' + query : ''));
-    if (!data || data.code !== 200) {
-        container.innerHTML = '<p class="loading-text">加载失败</p>';
-        return;
-    }
-    renderPdocsList(data.data || []);
+    const folderQuery = (typeof pdocsCurrentFolderId === 'number' && pdocsCurrentFolderId > 0)
+        ? `folder_id=${pdocsCurrentFolderId}`
+        : `folder_id=0`;
+    const data = await pdocsRequest('/mine?' + folderQuery);
+    pdocsCurrentDocs = (data && data.code === 200 && Array.isArray(data.data)) ? data.data : [];
+    renderExplorerGrid();
 }
 
 /** 加载回收站列表 */
@@ -1065,47 +1061,112 @@ async function loadPersonalTrash() {
     renderPdocsTrash(data.data || []);
 }
 
-/** 渲染文档列表
- *  卡片主体点击 = 浏览文档（只读）；编辑需点「编辑」按钮；另有 👁 浏览按钮。
+/** 渲染资源管理器平铺网格（文件夹 + 文档混合，类似 Windows 资源管理器）
+ *  数据来源：pdocsFolders（过滤当前层级子文件夹）+ pdocsCurrentDocs（当前层级文档）
  */
-function renderPdocsList(docs) {
+function renderExplorerGrid() {
     const container = document.getElementById('pdocsListContainer');
     if (!container) return;
 
-    if (!docs.length) {
+    const inFolder = (typeof pdocsCurrentFolderId === 'number' && pdocsCurrentFolderId > 0);
+
+    // 控制工具栏"返回上一级"按钮可见性（根目录隐藏）
+    const upBtn = document.getElementById('pdocsUpBtn');
+    if (upBtn) upBtn.style.visibility = inFolder ? '' : 'hidden';
+
+    // 文档未加载完
+    if (pdocsCurrentDocs === null) {
+        container.innerHTML = '<p class="loading-text">加载中...</p>';
+        return;
+    }
+
+    // 当前层级的子文件夹
+    const subFolders = pdocsFolders.filter(f => {
+        if (inFolder) return f.parent_id === pdocsCurrentFolderId;
+        return !f.parent_id || f.parent_id === 0;
+    }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    const docs = [...pdocsCurrentDocs].sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+
+    const items = [];
+
+    // 返回上一级（仅在子文件夹内显示）
+    if (inFolder) {
+        items.push(`
+            <div class="pdocs-explorer-item pdocs-explorer-item--up" data-action="up" title="返回上一级">
+                <div class="pdocs-explorer-item__icon">⬆️</div>
+                <div class="pdocs-explorer-item__name">返回上一级</div>
+            </div>`);
+    }
+
+    // 文件夹项
+    subFolders.forEach(f => {
+        items.push(`
+            <div class="pdocs-explorer-item pdocs-explorer-item--folder" data-folder-id="${f.id}" title="${pdocsEscape(f.name)}">
+                <div class="pdocs-explorer-item__icon">📁</div>
+                <div class="pdocs-explorer-item__name">${pdocsEscape(f.name)}</div>
+                <div class="pdocs-explorer-item__actions">
+                    <button class="pdocs-explorer-item__btn" data-action="rename-folder" data-id="${f.id}" title="重命名">✏️</button>
+                    <button class="pdocs-explorer-item__btn" data-action="delete-folder" data-id="${f.id}" title="删除">🗑</button>
+                </div>
+            </div>`);
+    });
+
+    // 文档项
+    docs.forEach(doc => {
+        items.push(`
+            <div class="pdocs-explorer-item pdocs-explorer-item--doc" data-doc-id="${doc.id}" title="${pdocsEscape(doc.title)}">
+                <div class="pdocs-explorer-item__icon">${pdocsEscape(doc.icon || '📄')}</div>
+                <div class="pdocs-explorer-item__name">${pdocsEscape(doc.title)}</div>
+                <div class="pdocs-explorer-item__meta">${pdocsFmtTime(doc.updated_at)}</div>
+                <div class="pdocs-explorer-item__actions">
+                    <select class="pdocs-explorer-move" data-action="move" data-id="${doc.id}" title="移动到文件夹">
+                        <option value="" disabled selected>📁</option>
+                        <option value="0">无文件夹</option>
+                        ${pdocsFolders.map(f => `<option value="${f.id}" ${doc.folder_id === f.id ? 'selected' : ''}>${pdocsEscape(f.name)}</option>`).join('')}
+                    </select>
+                    <button class="pdocs-explorer-item__btn" data-action="browse" data-id="${doc.id}" title="浏览">👁</button>
+                    <button class="pdocs-explorer-item__btn" data-action="edit" data-id="${doc.id}" title="编辑">✏️</button>
+                    <button class="pdocs-explorer-item__btn" data-action="delete" data-id="${doc.id}" title="删除">🗑</button>
+                </div>
+            </div>`);
+    });
+
+    if (!items.length) {
         container.innerHTML = `
             <div class="pdocs-empty">
-                <div class="pdocs-empty__icon">📝</div>
-                <p class="pdocs-empty__text">还没有文档，点击「新建文档」开始记录</p>
+                <div class="pdocs-empty__icon">${inFolder ? '📂' : '📝'}</div>
+                <p class="pdocs-empty__text">${inFolder ? '此文件夹为空' : '还没有文档，点击「新建文档」开始记录'}</p>
             </div>`;
         return;
     }
 
-    container.innerHTML = docs.map(doc => `
-        <div class="pdocs-doc-card" data-doc-id="${doc.id}">
-            <div class="pdocs-doc-card__header">
-                <span class="pdocs-doc-card__icon">${pdocsEscape(doc.icon || '📄')}</span>
-                <h3 class="pdocs-doc-card__title">${pdocsEscape(doc.title)}</h3>
-            </div>
-            <p class="pdocs-doc-card__summary">${pdocsEscape((doc.summary && doc.summary.trim()) ? doc.summary : '无内容')}</p>
-            <div class="pdocs-doc-card__footer">
-                <span class="pdocs-doc-card__time">更新于 ${pdocsFmtTime(doc.updated_at)}</span>
-                <div class="pdocs-doc-card__actions">
-                    <select class="pdocs-move-select" data-action="move" data-id="${doc.id}" title="移动到文件夹">
-                        <option value="" disabled selected>📁 移动到...</option>
-                        <option value="0">无文件夹</option>
-                        ${pdocsFolders.map(f => `<option value="${f.id}" ${doc.folder_id === f.id ? 'selected' : ''}>${pdocsEscape(f.name)}</option>`).join('')}
-                    </select>
-                    <button class="pdocs-btn pdocs-btn--ghost pdocs-btn--sm" data-action="browse" data-id="${doc.id}" title="浏览">👁</button>
-                    <button class="pdocs-btn pdocs-btn--ghost pdocs-btn--sm" data-action="edit" data-id="${doc.id}">编辑</button>
-                    <button class="pdocs-btn pdocs-btn--danger pdocs-btn--sm" data-action="delete" data-id="${doc.id}">删除</button>
-                </div>
-            </div>
-        </div>
-    `).join('');
+    container.innerHTML = items.join('');
 
-    // 绑定卡片操作
-    container.querySelectorAll('[data-action]').forEach(btn => {
+    // 文件夹项：点击进入
+    container.querySelectorAll('.pdocs-explorer-item--folder').forEach(el => {
+        el.addEventListener('click', (e) => {
+            if (e.target.closest('.pdocs-explorer-item__btn')) return;
+            const fid = parseInt(el.dataset.folderId, 10);
+            navigateToFolder(fid);
+        });
+    });
+
+    // 返回上一级
+    const upEl = container.querySelector('.pdocs-explorer-item--up');
+    if (upEl) upEl.addEventListener('click', () => goUpOneLevel());
+
+    // 文档项：点击主体浏览
+    container.querySelectorAll('.pdocs-explorer-item--doc').forEach(el => {
+        el.addEventListener('click', (e) => {
+            if (e.target.closest('.pdocs-explorer-item__btn') || e.target.closest('.pdocs-explorer-move')) return;
+            const id = parseInt(el.dataset.docId, 10);
+            openPdocsBrowser(id);
+        });
+    });
+
+    // 操作按钮
+    container.querySelectorAll('.pdocs-explorer-item__btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const action = btn.dataset.action;
@@ -1113,26 +1174,44 @@ function renderPdocsList(docs) {
             if (action === 'browse') openPdocsBrowser(id);
             else if (action === 'edit') openPdocsEditor(id);
             else if (action === 'delete') softDeletePersonalDoc(id);
-            // action === 'move' 由 select 的 change 事件处理
+            else if (action === 'rename-folder') {
+                const folder = pdocsFolders.find(f => f.id === id);
+                Modal.prompt('重命名文件夹:', folder ? folder.name : '', { title: '重命名文件夹' }).then(newName => {
+                    if (newName !== null && newName.trim()) renamePersonalFolder(id, newName.trim());
+                });
+            } else if (action === 'delete-folder') {
+                deletePersonalFolder(id);
+            }
         });
     });
 
-    // 绑定"移动到文件夹"下拉框
-    container.querySelectorAll('.pdocs-move-select').forEach(sel => {
-        sel.addEventListener('change', () => {
+    // 移动 select
+    container.querySelectorAll('.pdocs-explorer-move').forEach(sel => {
+        sel.addEventListener('change', (e) => {
+            e.stopPropagation();
             const docId = parseInt(sel.dataset.id, 10);
             const folderId = parseInt(sel.value, 10);
             movePersonalDoc(docId, folderId);
         });
+        sel.addEventListener('click', (e) => e.stopPropagation());
     });
+}
 
-    // 点击卡片主体 → 浏览
-    container.querySelectorAll('.pdocs-doc-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const id = parseInt(card.dataset.docId, 10);
-            openPdocsBrowser(id);
-        });
-    });
+/** 资源管理器导航：切换到指定文件夹 */
+function navigateToFolder(folderId) {
+    pdocsCurrentFolderId = (typeof folderId === 'number' && folderId > 0) ? folderId : null;
+    pdocsCurrentDocs = null; // 标记未加载，渲染时显示 loading
+    renderExplorerGrid();
+    renderPdocsBreadcrumb();
+    loadPersonalDocs();
+}
+
+/** 返回上一级 */
+function goUpOneLevel() {
+    if (typeof pdocsCurrentFolderId !== 'number' || pdocsCurrentFolderId <= 0) return; // 已在根
+    const parent = pdocsFolders.find(f => f.id === pdocsCurrentFolderId);
+    const parentId = (parent && parent.parent_id) ? parent.parent_id : null;
+    navigateToFolder(parentId);
 }
 
 /** 打开浏览视图（只读） */
@@ -1395,228 +1474,72 @@ async function loadPersonalFolders() {
     }
     const all = Array.isArray(data.data) ? data.data : [];
     pdocsFolders = all.filter(f => f.user_id === pdocsCurrentUserId);
-    renderPdocsFolders();
+    renderExplorerGrid();
     renderPdocsBreadcrumb();
 }
 
-/** 构建文件夹树：返回 [rootLevelNodes]，每个节点扩展 children=[...] */
-function buildFolderTree(flat) {
-    const map = new Map(flat.map(f => [f.id, { ...f, children: [] }]));
-    const roots = [];
-    for (const node of map.values()) {
-        if (node.parent_id && map.has(node.parent_id)) {
-            map.get(node.parent_id).children.push(node);
-        } else {
-            roots.push(node);
-        }
-    }
-    // 排序：name
-    const sortFn = (a, b) => (a.name || '').localeCompare(b.name || '');
-    roots.sort(sortFn);
-    for (const node of map.values()) node.children.sort(sortFn);
-    return roots;
-}
-
-/** 渲染指定 folderId 的面包屑（从根到父节点链），只在选中具体文件夹时显示 */
+/** 渲染面包屑路径（资源管理器风格，始终显示，每段可点击回到该级目录） */
 async function renderPdocsBreadcrumb() {
     const container = document.getElementById('pdocsPathBreadcrumb');
     if (!container) return;
 
-    const currentId = (typeof pdocsCurrentFolderId === 'number' && pdocsCurrentFolderId > 0) ? pdocsCurrentFolderId : null;
-
-    // 不展示：未选中具体文件夹
-    if (!currentId) {
-        container.innerHTML = '';
-        return;
-    }
-
-    // 尝试走后端 GET /folders/:id/path 接口（有面包屑语义）
-    let chain = [];
-    try {
-        const res = await pdocsRequest(`/folders/${currentId}/path`);
-        if (res && res.code === 200 && Array.isArray(res.data)) {
-            chain = res.data;
-        }
-    } catch (e) { /* ignore */ }
-
-    // 若后端没给，本地算
-    if (!chain.length) {
-        const byId = new Map(pdocsFolders.map(f => [f.id, f]));
-        const tmp = [];
-        let cur = byId.get(currentId);
-        while (cur) {
-            tmp.unshift(cur);
-            cur = cur.parent_id ? byId.get(cur.parent_id) : null;
-        }
-        chain = tmp;
-    }
-
+    const isRoot = !(typeof pdocsCurrentFolderId === 'number' && pdocsCurrentFolderId > 0);
     const items = [];
-    // 根入口：全部文档
-    items.push(`<button class="pdocs-breadcrumb__item" data-folder-id="__all__">📋 全部文档</button>`);
-    chain.forEach((f, idx) => {
-        items.push(`<span class="pdocs-breadcrumb__sep">/</span>`);
-        const isLast = idx === chain.length - 1;
-        items.push(`<button class="pdocs-breadcrumb__item ${isLast ? 'is-active' : ''}" data-folder-id="${f.id}" data-is-folder="1">${pdocsEscape(f.name)}</button>`);
-    });
+
+    // 根节点：个人文档
+    items.push(`<button class="pdocs-breadcrumb__item ${isRoot ? 'is-active' : ''}" data-folder-id="__root__">📁 个人文档</button>`);
+
+    if (!isRoot) {
+        // 路径链：优先后端 /folders/:id/path，失败本地计算
+        let chain = [];
+        try {
+            const res = await pdocsRequest(`/folders/${pdocsCurrentFolderId}/path`);
+            if (res && res.code === 200 && Array.isArray(res.data)) {
+                chain = res.data;
+            }
+        } catch (e) { /* ignore */ }
+
+        if (!chain.length) {
+            const byId = new Map(pdocsFolders.map(f => [f.id, f]));
+            const tmp = [];
+            let cur = byId.get(pdocsCurrentFolderId);
+            while (cur) {
+                tmp.unshift(cur);
+                cur = cur.parent_id ? byId.get(cur.parent_id) : null;
+            }
+            chain = tmp;
+        }
+
+        chain.forEach((f, idx) => {
+            const isLast = idx === chain.length - 1;
+            items.push(`<span class="pdocs-breadcrumb__sep">›</span>`);
+            items.push(`<button class="pdocs-breadcrumb__item ${isLast ? 'is-active' : ''}" data-folder-id="${f.id}">${pdocsEscape(f.name)}</button>`);
+        });
+    }
 
     container.innerHTML = `<div class="pdocs-breadcrumb">${items.join('')}</div>`;
 
     container.querySelectorAll('[data-folder-id]').forEach(btn => {
         btn.addEventListener('click', () => {
             const fid = btn.dataset.folderId;
-            if (fid === '__all__') {
-                pdocsCurrentFolderId = null;
+            if (fid === '__root__') {
+                navigateToFolder(null);
             } else {
-                pdocsCurrentFolderId = parseInt(fid, 10);
+                navigateToFolder(parseInt(fid, 10));
             }
-            renderPdocsFolders();
-            renderPdocsBreadcrumb();
-            loadPersonalDocs();
         });
     });
 }
 
-/** 递归渲染一个文件夹节点 HTML（可展开/折叠） */
-function renderFolderTreeNode(node, depth = 0) {
-    const hasChildren = Array.isArray(node.children) && node.children.length > 0;
-    const isActive = pdocsCurrentFolderId === node.id;
-    return `
-        <div class="pdocs-folder-tree__node" data-folder-id="${node.id}" style="padding-left:${12 + depth * 18}px">
-            <div class="pdocs-folder-tree__row ${isActive ? 'is-active' : ''}">
-                <span class="pdocs-folder-tree__arrow ${hasChildren ? 'is-expandable' : ''}" data-action="toggle" title="${hasChildren ? '展开/折叠' : ''}">▶</span>
-                <span class="pdocs-folder-tree__icon">📁</span>
-                <span class="pdocs-folder-tree__name">${pdocsEscape(node.name)}</span>
-                <span class="pdocs-folder-tree__actions">
-                    <button class="pdocs-folder-chip__btn" data-action="rename" data-id="${node.id}" title="重命名">✏️</button>
-                    <button class="pdocs-folder-chip__btn" data-action="delete" data-id="${node.id}" title="删除">🗑</button>
-                </span>
-            </div>
-            <div class="pdocs-folder-tree__children" style="${hasChildren ? '' : 'display:none'}">
-                ${hasChildren ? node.children.map(c => renderFolderTreeNode(c, depth + 1)).join('') : ''}
-            </div>
-        </div>
-    `;
-}
-
-/** 渲染文件夹树形列表（替代原 chip 列表） */
-function renderPdocsFolders() {
-    const container = document.getElementById('pdocsFoldersList');
-    if (!container) return;
-
-    const roots = buildFolderTree(pdocsFolders);
-
-    const quickFilters = `
-        <div class="pdocs-folder-tree__quick">
-            <div class="pdocs-folder-tree__row ${pdocsCurrentFolderId === null ? 'is-active' : ''}" data-folder-id="__all__" style="padding-left:12px">
-                <span class="pdocs-folder-tree__arrow"></span>
-                <span class="pdocs-folder-tree__icon">📋</span>
-                <span class="pdocs-folder-tree__name">全部文档</span>
-                <span class="pdocs-folder-tree__actions"></span>
-            </div>
-            <div class="pdocs-folder-tree__row ${pdocsCurrentFolderId === 0 ? 'is-active' : ''}" data-folder-id="__uncategorized__" style="padding-left:12px">
-                <span class="pdocs-folder-tree__arrow"></span>
-                <span class="pdocs-folder-tree__icon">🗂</span>
-                <span class="pdocs-folder-tree__name">未归类</span>
-                <span class="pdocs-folder-tree__actions"></span>
-            </div>
-        </div>
-    `;
-
-    if (!roots.length) {
-        container.innerHTML = quickFilters + `<p class="pdocs-folder-tree__empty">暂无文件夹，点击「+」新建</p>`;
-    } else {
-        container.innerHTML = quickFilters + roots.map(n => renderFolderTreeNode(n, 0)).join('');
-    }
-
-    // 绑定 quick filter 点击
-    container.querySelectorAll('[data-folder-id="__all__"], [data-folder-id="__uncategorized__"]').forEach(row => {
-        row.addEventListener('click', () => {
-            const fid = row.dataset.folderId;
-            if (fid === '__all__') pdocsCurrentFolderId = null;
-            else if (fid === '__uncategorized__') pdocsCurrentFolderId = 0;
-            renderPdocsFolders();
-            renderPdocsBreadcrumb();
-            loadPersonalDocs();
-        });
-    });
-
-    // 绑定树节点行点击（进入文件夹）
-    container.querySelectorAll('.pdocs-folder-tree__node > .pdocs-folder-tree__row').forEach(row => {
-        row.addEventListener('click', (e) => {
-            if (e.target.closest('.pdocs-folder-chip__btn')) return;    // 点到重命名/删除按钮不切
-            if (e.target.closest('[data-action="toggle"]')) return;     // 点到箭头不切（toggle 处理）
-            const node = row.closest('.pdocs-folder-tree__node');
-            const fid = parseInt(node.dataset.folderId, 10);
-            if (!isNaN(fid)) {
-                pdocsCurrentFolderId = fid;
-                renderPdocsFolders();
-                renderPdocsBreadcrumb();
-                loadPersonalDocs();
-            }
-        });
-    });
-
-    // 绑定箭头：展开/折叠
-    container.querySelectorAll('[data-action="toggle"]').forEach(arrow => {
-        arrow.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const node = arrow.closest('.pdocs-folder-tree__node');
-            if (!node) return;
-            const childrenEl = node.querySelector(':scope > .pdocs-folder-tree__children');
-            if (!childrenEl || childrenEl.style.display === 'none') return;   // 无 children
-            const expanded = arrow.classList.contains('is-expanded');
-            if (expanded) {
-                childrenEl.style.display = 'none';
-                arrow.classList.remove('is-expanded');
-            } else {
-                childrenEl.style.display = '';
-                arrow.classList.add('is-expanded');
-            }
-        });
-    });
-
-    // 绑定 rename / delete 按钮
-    container.querySelectorAll('.pdocs-folder-chip__btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            const action = btn.dataset.action;
-            const id = parseInt(btn.dataset.id, 10);
-            if (action === 'rename') {
-                const folder = pdocsFolders.find(f => f.id === id);
-                const newName = await Modal.prompt('重命名文件夹:', folder ? folder.name : '', { title: '重命名文件夹' });
-                if (newName !== null && newName.trim()) {
-                    renamePersonalFolder(id, newName.trim());
-                }
-            } else if (action === 'delete') {
-                deletePersonalFolder(id);
-            }
-        });
-    });
-
-    // 绑定新建按钮（防重复）
-    const addBtn = document.getElementById('pdocsFolderAddBtn');
-    if (addBtn && !addBtn.dataset.pdocsBound) {
-        addBtn.dataset.pdocsBound = '1';
-        addBtn.addEventListener('click', addPersonalFolder);
-    }
-}
-
-/** 新建个人文件夹（若当前已选中某个文件夹，作为 parent_id；空文件夹禁止建子夹会由后端校验） */
+/** 新建个人文件夹（资源管理器模型：在当前文件夹下创建子文件夹；空文件夹禁止建子夹由后端校验） */
 async function addPersonalFolder() {
     const name = await Modal.prompt('请输入文件夹名称:', '', { title: '新建文件夹' });
     if (name === null || !name.trim()) return;
 
-    // 如果当前处于某个文件夹视图下，尝试作为子文件夹创建
+    // 在当前文件夹下创建（根目录时 parent_id=null）
     let parentId = null;
     if (typeof pdocsCurrentFolderId === 'number' && pdocsCurrentFolderId > 0) {
-        const parent = pdocsFolders.find(f => f.id === pdocsCurrentFolderId);
-        if (parent) {
-            // 前端先友好提示空文件夹不可建（后端为唯一校验）
-            const hasChildren = pdocsFolders.some(f => f.parent_id === parent.id);
-            // 由于后端还统计 documents，这里我们只在确实无 children 时提示但不阻塞，让后端正式拒绝
-            parentId = parent.id;
-        }
+        parentId = pdocsCurrentFolderId;
     }
 
     const body = { name: name.trim(), scope: 'personal' };
@@ -1658,7 +1581,7 @@ async function deletePersonalFolder(id) {
         return;
     }
     if (typeof Toast !== 'undefined') Toast.show('已删除文件夹', 'success');
-    // 如果当前选中的就是被删除的文件夹，重置为"全部"
+    // 如果当前就在被删除的文件夹内，回到根目录
     if (pdocsCurrentFolderId === id) pdocsCurrentFolderId = null;
     loadPersonalFolders();
     loadPersonalDocs();
