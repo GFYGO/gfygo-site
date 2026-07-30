@@ -234,7 +234,12 @@ function renderDocSidebarTree(keyword = '') {
 
   // 可见类型 tab 过滤（public / group / private）
   if (__DOC.visFilter) {
-    visibleDocs = visibleDocs.filter(d => d.visibility === __DOC.visFilter);
+    if (__DOC.visFilter === 'private') {
+      // 私有 tab：仅显示当前用户自己创建的私有文档
+      visibleDocs = visibleDocs.filter(d => d.visibility === 'private' && uid && d.author_id === uid);
+    } else {
+      visibleDocs = visibleDocs.filter(d => d.visibility === __DOC.visFilter);
+    }
   }
 
   // 搜索过滤（标题 or 摘要）
@@ -303,7 +308,12 @@ function renderHomeCategoryGrids() {
   );
   // 可见类型 tab 过滤（与侧边栏保持一致）
   if (__DOC.visFilter) {
-    visibleDocs = visibleDocs.filter(d => d.visibility === __DOC.visFilter);
+    if (__DOC.visFilter === 'private') {
+      // 私有 tab：仅显示当前用户自己创建的私有文档
+      visibleDocs = visibleDocs.filter(d => d.visibility === 'private' && uid && d.author_id === uid);
+    } else {
+      visibleDocs = visibleDocs.filter(d => d.visibility === __DOC.visFilter);
+    }
   }
 
   const mountPoints = document.querySelectorAll('[data-category-slug]');
