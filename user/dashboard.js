@@ -15,23 +15,10 @@ const ROLE_NAMES = {
     5: '超级管理员'
 };
 
-// 各管理员等级对应的独立 dashboard 目录（点击权限数字跳转目标）
-const ADMIN_DASHBOARD_PATHS = {
-    2: `${BASE_PATH}/moderator/dashboard.html`,
-    3: `${BASE_PATH}/editor/dashboard.html`,
-    4: `${BASE_PATH}/manager/dashboard.html`,
-    5: `${BASE_PATH}/superadmin/dashboard.html`
-};
-
-// 权限上下文：管理员页面通过 window.PERM_CONTEXT='admin' + window.ADMIN_LEVEL=N 覆盖
-// 默认 'dashboard' = 普通用户视角（权限收紧为 1）
-const PERM_CONTEXT = window.PERM_CONTEXT || 'dashboard';
-const ADMIN_LEVEL = window.ADMIN_LEVEL || null;   // 管理员页面设置真实等级（2~5）
-
 // 动态菜单缓存：tab_key -> { meta, loaded: bool }
 const dynamicMenuCache = new Map();
 // 静态 tab（与后端动态项 tab_key 冲突时跳过）
-const STATIC_TABS = ['workspace', 'home', 'notify', 'settings', 'personal-docs', 'admin-users', 'admin-documents', 'admin-permission-nodes'];
+const STATIC_TABS = ['workspace', 'home', 'notify', 'settings', 'personal-docs'];
 // 静态 panel 首次加载标记
 const staticPanelLoaded = new Set();
 
@@ -479,6 +466,11 @@ function renderPermissionButtons(permissionLevel) {
 
     if (permissionLevel <= 1) return;
 
+    // 读取视角覆盖等级
+    const viewOverrideRaw = localStorage.getItem('view_as_level');
+    const viewOverride = viewOverrideRaw ? parseInt(viewOverrideRaw, 10) : null;
+    const effectiveLevel = Number.isInteger(viewOverride) ? viewOverride : 1;
+
     // 管理员用户：显示等级 1 + 从 2 到当前等级的按钮
     // 超级管理员（5）：额外显示等级 0
     const levels = [];
@@ -488,46 +480,68 @@ function renderPermissionButtons(permissionLevel) {
         levels.push(level);
     }
 
-    // 当前高亮的等级：管理员页面高亮 ADMIN_LEVEL，普通 dashboard 高亮 1
-    const currentHighlight = (PERM_CONTEXT === 'admin' && ADMIN_LEVEL) ? ADMIN_LEVEL : 1;
-
     levels.forEach(level => {
         const btn = document.createElement('button');
         btn.className = 'perm-btn';
-        if (level === currentHighlight) {
+        // 当前视角等级高亮（若有覆盖则按覆盖，否则默认等级 1 高亮）
+        if (level === effectiveLevel) {
             btn.classList.add('perm-btn--current');
         }
         btn.textContent = level;
-        if (level === 0) {
-            btn.title = '访客视角预览';
-        } else if (level === 1) {
-            btn.title = '普通用户 Dashboard（权限等级 1）';
-        } else {
-            btn.title = `进入 ${ROLE_NAMES[level] || `等级${level}`} 管理面板`;
-        }
+        btn.title = `切换到 ${ROLE_NAMES[level] || `等级${level}`} 视角预览（仅前端渲染，不改变实际权限）`;
         btn.addEventListener('click', () => handlePermissionClick(level));
         container.appendChild(btn);
     });
+
+    // 如果视角覆盖等级生效，显示一个 banner 提示用户
+    const bannerEl = document.getElementById('viewOverrideBanner');
+    if (bannerEl) {
+        if (effectiveLevel !== 1) {
+            bannerEl.style.display = 'block';
+            bannerEl.innerHTML = `当前以 <strong>${ROLE_NAMES[effectiveLevel] || `等级${effectiveLevel}`}</strong> 视角预览（实际权限未改变） · <a href="#" id="clearViewOverrideBtn">返回真实视角</a>`;
+            const clearBtn = document.getElementById('clearViewOverrideBtn');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    localStorage.removeItem('view_as_level');
+                    window.location.reload();
+                });
+            }
+        } else {
+            bannerEl.style.display = 'none';
+        }
+    }
 }
 
 function handlePermissionClick(level) {
+    // 访客视角（level=0）：跳转首页并设置访客模式
     if (level === 0) {
-        // 访客视角预览：跳转首页
         localStorage.setItem('guest_view_mode', 'true');
+        localStorage.removeItem('view_as_level');
         window.location.href = `${BASE_PATH}/index.html`;
         return;
     }
 
+    // 等级 1：刷新当前页（已是 dashboard）
     if (level === 1) {
-        // 等级 1 = 普通用户 dashboard
-        window.location.href = `${BASE_PATH}/user/dashboard.html`;
+        localStorage.removeItem('view_as_level');
+        localStorage.removeItem('guest_view_mode');
+        window.location.reload();
         return;
     }
 
-    // 等级 2~5：跳转到对应管理员 dashboard 目录
-    const targetPath = ADMIN_DASHBOARD_PATHS[level];
-    if (targetPath) {
-        window.location.href = targetPath;
+    // 等级 2~5：跳转到对应管理员 dashboard 页面
+    // 映射关系：2 -> /admin2/dashboard.html，3 -> /admin3/dashboard.html，4 -> /admin1/dashboard.html，5 -> /superadmin/dashboard.html
+    const adminPaths = {
+        2: 'admin2',
+        3: 'admin3',
+        4: 'admin1',
+        5: 'superadmin'
+    };
+    const folder = adminPaths[level];
+    if (folder) {
+        localStorage.removeItem('guest_view_mode');
+        window.location.href = `${BASE_PATH}/${folder}/dashboard.html`;
     }
 }
 
@@ -898,20 +912,22 @@ let pdocsCurrentUserId = null;   // 从 auth/status 拿到，用于过滤个人�
 let pdocsCurrentDocs = null;     // 当前层级的文档列表（null=未加载）
 
 /** 统一请求封装（统一走 /api/v1/document 接口）
- *  请求头 X-Permission-Context 由 PERM_CONTEXT 决定：
- *    - 'dashboard'（默认）→ 后端按等级 1 收紧权限
- *    - 'admin'（管理员页面）→ 后端使用真实 permission_level
+ *  根据 URL 路径自动判断权限上下文：
+ *  - /user/ 目录：dashboard（权限 1）
+ *  - /admin1|admin2|admin3|superadmin/ 目录：admin（真实权限）
  */
 async function pdocsRequest(path, options = {}) {
     const token = AuthGuard.getToken();
     if (!token) { AuthGuard.handleAuthError(); return null; }
+    // 根据路径判断权限上下文
+    const pathCtx = window.location.pathname.match(/\/(admin1|admin2|admin3|superadmin)\//) ? 'admin' : 'dashboard';
     try {
         const res = await fetch(`${API_BASE_URL}/api/v1/document${path}`, {
             ...options,
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
-                'X-Permission-Context': PERM_CONTEXT,
+                'X-Permission-Context': pathCtx,
                 ...(options.headers || {})
             }
         });

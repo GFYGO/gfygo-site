@@ -3,23 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>三级管理员面板 | GWL</title>
+    <title>管理员 Level2 | GWL</title>
     <link rel="stylesheet" href="./../styles.css">
     <link rel="stylesheet" href="./../user/dashboard.css">
-    <link rel="stylesheet" href="./../admin.css">
     <link rel="icon" href="./../favicon.png" type="image/png">
 </head>
 <body>
-    <div class="dashboard-layout admin-layout">
+    <div class="dashboard-layout">
         <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-        <aside class="dashboard-sidebar admin-sidebar" id="dashboardSidebar">
+        <aside class="dashboard-sidebar" id="dashboardSidebar">
             <div class="sidebar__header">
                 <button class="sidebar-close" id="sidebarClose" aria-label="关闭侧边栏">&times;</button>
-                <div class="sidebar__logo admin-sidebar__logo">
-                    <span class="admin-badge-sidebar">MGR</span>
-                    GWL
-                </div>
+                <div class="sidebar__logo">GWL</div>
             </div>
 
             <nav class="sidebar__nav">
@@ -35,24 +31,27 @@
                     <span class="sidebar__nav-icon">📁</span>
                     <span class="sidebar__nav-text">个人文档</span>
                 </a>
-                <a href="#" class="sidebar__nav-item" data-tab="admin-users">
-                    <span class="sidebar__nav-icon">👥</span>
-                    <span class="sidebar__nav-text">用户管理</span>
-                </a>
-                <a href="#" class="sidebar__nav-item" data-tab="admin-documents">
-                    <span class="sidebar__nav-icon">📚</span>
-                    <span class="sidebar__nav-text">文档管理</span>
-                </a>
-                <a href="#" class="sidebar__nav-item" data-tab="admin-permission-nodes">
-                    <span class="sidebar__nav-icon">🔐</span>
-                    <span class="sidebar__nav-text">权限节点</span>
-                </a>
-                <div class="sidebar__nav-divider"></div>
+                <div class="sidebar__nav-divider" id="dynamicMenuDivider" style="display:none;"></div>
                 <div id="dynamicMenuContainer"></div>
             </nav>
 
+            <div class="sidebar__verification" id="emailVerificationSection" style="display: none;">
+                <div class="verification-card">
+                    <div class="verification-header">
+                        <span class="verification-icon">📧</span>
+                        <span class="verification-title">验证邮箱</span>
+                    </div>
+                    <p class="verification-desc" id="verificationDesc">您的邮箱尚未验证</p>
+                    <div class="verification-form">
+                        <input type="text" class="verification-input" id="verificationCodeInput" placeholder="输入6位验证码" maxlength="6">
+                        <button class="verification-btn" id="verifyEmailBtn">验证</button>
+                    </div>
+                    <button class="verification-resend" id="resendCodeBtn">重新发送验证码</button>
+                </div>
+            </div>
+
             <div class="sidebar__footer">
-                <div class="sidebar__user" id="sidebarUserTrigger" data-tab="home" title="管理员信息">
+                <div class="sidebar__user" id="sidebarUserTrigger" data-tab="home" title="查看个人主页">
                     <div class="sidebar__avatar">
                         <img id="sidebarAvatar" src="./../favicon.png" alt="Avatar">
                     </div>
@@ -61,29 +60,29 @@
                         <span class="sidebar__user-role" id="sidebarUserRole">--</span>
                     </div>
                 </div>
-                <a class="sidebar__settings-btn" href="./../user/dashboard.html" aria-label="返回用户 Dashboard" title="返回用户 Dashboard">
-                    🏠
-                </a>
+                <button class="sidebar__settings-btn" id="settingsBtn" aria-label="设置">
+                    ⚙️
+                </button>
             </div>
         </aside>
 
-        <main class="dashboard-main admin-main">
-            <header class="dashboard-header admin-header">
+        <main class="dashboard-main">
+            <header class="dashboard-header">
                 <button class="dashboard-header__menu-btn" id="menuToggle" aria-label="菜单">☰</button>
                 <nav class="dashboard-header__nav header__nav" id="dashboardNav">
                     <a href="./../index.html">首页</a>
                     <a href="./../document.html">文档</a>
-                    <a href="./../user/dashboard.html">个人主页</a>
+                    <a href="./../login.html">登录</a>
+                    <a href="./../register.html">注册</a>
                 </nav>
                 <div class="dashboard-header__right">
                     <div id="global-notifications-container" class="notification-toast"></div>
                     <div id="auth-container"></div>
-                    <span class="admin-mode-badge" title="三级管理员模式 - 使用真实权限等级 4">MANAGER</span>
                     <div class="permission-buttons" id="permissionButtons"></div>
                 </div>
             </header>
 
-            <div class="dashboard-content admin-content">
+            <div class="dashboard-content">
                 <!-- 工作台 -->
                 <section class="tab-panel" id="panel-workspace" style="display: none;">
                     <div class="empty-state">
@@ -117,6 +116,7 @@
                 <!-- 个人文档 -->
                 <section class="tab-panel" id="panel-personal-docs" style="display: none;">
                     <div class="pdocs-breadcrumb" id="pdocsPathBreadcrumb"></div>
+
                     <div class="pdocs-view" id="pdocs-view-list">
                         <div class="pdocs-toolbar">
                             <h2 class="panel-title">个人文档</h2>
@@ -131,6 +131,7 @@
                             <p class="loading-text">加载中...</p>
                         </div>
                     </div>
+
                     <div class="pdocs-view" id="pdocs-view-browse" style="display: none;">
                         <div class="pdocs-browser-toolbar">
                             <button class="pdocs-btn pdocs-btn--secondary" id="pdocsBrowserBackBtn">← 返回列表</button>
@@ -149,6 +150,7 @@
                             <div id="pdocsBrowserContent" class="pdocs-browser-content markdown-body"></div>
                         </div>
                     </div>
+
                     <div class="pdocs-view" id="pdocs-view-editor" style="display: none;">
                         <div class="pdocs-editor-toolbar">
                             <button class="pdocs-btn pdocs-btn--secondary" id="pdocsBackBtn">← 返回</button>
@@ -161,6 +163,7 @@
                             <div class="pdocs-preview" id="pdocsPreview" style="display: none;"></div>
                         </div>
                     </div>
+
                     <div class="pdocs-view" id="pdocs-view-trash" style="display: none;">
                         <div class="pdocs-toolbar">
                             <h2 class="panel-title">回收站</h2>
@@ -171,33 +174,6 @@
                         <div class="pdocs-trash-list" id="pdocsTrashContainer">
                             <p class="loading-text">加载中...</p>
                         </div>
-                    </div>
-                </section>
-
-                <!-- 管理员：用户管理（占位） -->
-                <section class="tab-panel" id="panel-admin-users" style="display: none;">
-                    <h2 class="panel-title">👥 用户管理</h2>
-                    <div class="empty-state empty-state--placeholder">
-                        <div class="empty-state__icon">🔐</div>
-                        <p class="empty-state__text">用户管理功能开发中（权限节点系统上线后开放）</p>
-                    </div>
-                </section>
-
-                <!-- 管理员：文档管理（占位） -->
-                <section class="tab-panel" id="panel-admin-documents" style="display: none;">
-                    <h2 class="panel-title">📚 文档管理</h2>
-                    <div class="empty-state empty-state--placeholder">
-                        <div class="empty-state__icon">📝</div>
-                        <p class="empty-state__text">文档管理功能开发中（权限节点系统上线后开放）</p>
-                    </div>
-                </section>
-
-                <!-- 管理员：权限节点（占位） -->
-                <section class="tab-panel" id="panel-admin-permission-nodes" style="display: none;">
-                    <h2 class="panel-title">🔐 权限节点</h2>
-                    <div class="empty-state empty-state--placeholder">
-                        <div class="empty-state__icon">🔐</div>
-                        <p class="empty-state__text">权限节点式权限管理功能规划中</p>
                     </div>
                 </section>
 
@@ -220,9 +196,12 @@
                             </div>
                         </div>
                     </div>
+
                     <div class="profile-cards">
                         <div class="card card--wide card--yesterday">
-                            <div class="card-header"><h3>📚 昨日学习</h3></div>
+                            <div class="card-header">
+                                <h3>📚 昨日学习</h3>
+                            </div>
                             <div class="card-body">
                                 <div class="empty-state">
                                     <div class="empty-state__icon">📝</div>
@@ -230,6 +209,7 @@
                                 </div>
                             </div>
                         </div>
+
                         <div class="card card--calendar">
                             <div class="calendar-header">
                                 <button class="calendar-nav" id="calPrev" aria-label="上个月">‹</button>
@@ -244,6 +224,7 @@
                                 <button class="checkin-btn" id="checkinBtn">打卡签到</button>
                             </div>
                         </div>
+
                         <div class="card"></div>
                         <div class="card"></div>
                         <div class="card card--wide"></div>
@@ -251,6 +232,7 @@
                 </section>
             </div>
 
+            <!-- Footer -->
             <footer class="footer">
                 <div class="footer__container">
                     <div class="footer__top">
@@ -263,7 +245,7 @@
                                 <h4>快速链接</h4>
                                 <a href="./../index.html">首页</a>
                                 <a href="./../document.html">文档</a>
-                                <a href="./../user/dashboard.html">个人主页</a>
+                                <a href="./../login.html">登录</a>
                             </div>
                             <div class="footer__links-group">
                                 <h4>关于</h4>
@@ -288,7 +270,6 @@
     <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
     <script src="./../config.js"></script>
-    <script>window.PERM_CONTEXT = 'admin'; window.ADMIN_LEVEL = 4;</script>
     <script src="./../theme.js"></script>
     <script src="./../toast.js"></script>
     <script src="./../modal.js"></script>
