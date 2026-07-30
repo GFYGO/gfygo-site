@@ -920,10 +920,15 @@ function renderDocDetailView(doc) {
   const isAdminView = lvl && lvl >= 5;
 
   const pills = [];
-  // 1. 可见性徽章
+  // 1. 可见性徽章（公开文档需进一步判断 bit[0] 决定访客是否真正可见）
   const isPublic = doc.visibility === 'public';
+  const __bits = doc.permission_bits || '000000';
+  const visitorCanView = isPublic && __bits[0] === '1';
+  const visText = isPublic
+    ? (visitorCanView ? '🌐 公开（访客可见）' : '🌐 公开（需登录）')
+    : '🔒 私密（仅登录）';
   pills.push(`<span class="meta-pill doc-visibility-badge ${isPublic ? 'is-public' : ''}" title="${isAdminView ? '仅超级管理员可切换公开/私密' : ''}">
-    <span>${isPublic ? '🌐 公开（访客可见）' : '🔒 私密（仅登录）'}</span>
+    <span>${visText}</span>
   </span>`);
 
   // 2. 权限展示：分档
@@ -944,9 +949,10 @@ function renderDocDetailView(doc) {
       ${rows}
     </div>`);
   } else {
-    // 普通用户版 - 一句话摘要
+    // 普通用户版 - 仅显示当前用户是否可查看（不暴露完整权限矩阵）
+    const userLevelText = lvl ? `等级 ${lvl}` : '访客';
     pills.push(`<span class="meta-pill doc-perm-summary">
-      🔑 ${permToSummaryText(doc.permission_bits, doc.visibility)}
+      ✅ ${userLevelText}可查看
     </span>`);
   }
 
