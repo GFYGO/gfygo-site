@@ -25,11 +25,11 @@ const __DOC = {
 
 const DOC_LEVEL_ROLES = {
   0: '未登录访客',
-  1: '普通注册用户',
-  2: '一级管理员',
-  3: '二级管理员',
-  4: '三级管理员',
-  5: '超级管理员'
+  1: 'user',
+  2: 'admin1',
+  3: 'admin2',
+  4: 'admin3',
+  5: 'superadmin'
 };
 
 // =========================================
@@ -617,7 +617,19 @@ function renderDocFolders() {
 
   if (addBtn) addBtn.style.display = __DOC.isAdmin ? '' : 'none';
 
-  if (__DOC.folders.length === 0 && !__DOC.isAdmin) {
+  // 按 visFilter 过滤文件夹：
+  //   - public / group tab：仅显示公共文件夹（user_id === null）
+  //   - private tab：仅显示个人文件夹（user_id === 当前用户）
+  //   - 无筛选（''）：显示全部（个人 + 公共）
+  const uid = __DOC.user.id;
+  let filteredFolders = __DOC.folders;
+  if (__DOC.visFilter === 'public' || __DOC.visFilter === 'group') {
+    filteredFolders = __DOC.folders.filter(f => f.user_id === null || f.user_id === undefined);
+  } else if (__DOC.visFilter === 'private') {
+    filteredFolders = __DOC.folders.filter(f => uid && f.user_id === uid);
+  }
+
+  if (filteredFolders.length === 0 && !__DOC.isAdmin) {
     section.style.display = 'none';
     return;
   }
@@ -640,13 +652,13 @@ function renderDocFolders() {
     </div>
   `;
 
-  if (__DOC.folders.length === 0 && __DOC.isAdmin) {
+  if (filteredFolders.length === 0) {
     list.innerHTML = html;
     bindDocFolderActions();
     return;
   }
 
-  const roots = buildDocFolderTree(__DOC.folders);
+  const roots = buildDocFolderTree(filteredFolders);
   html += roots.map(r => renderDocFolderTreeNode(r, 0)).join('');
   list.innerHTML = html;
   bindDocFolderActions();
@@ -947,56 +959,45 @@ function renderDocDetailView(doc) {
     <span>${visText}</span>
   </span>`);
 
-  // 2. 权限展示：分档
-  if (isAdminView) {
-    // 管理员版 - 6 行矩阵（等级 1~5 + 保留位）
-    const rows = parsePermBits(doc.permission_bits).map(row => {
-      const markClass = row.allow ? 'is-yes' : 'is-no';
-      const markTxt = row.allow ? '✅ 可见' : '❌ 不可见';
-      const forceClass = row.force ? ' is-force' : '';
-      return `<div class="doc-perm-grid__row${forceClass}">
-        <div class="doc-perm-grid__label">等级 ${row.level}</div>
-        <div class="doc-perm-grid__role">${DOC_LEVEL_ROLES[row.level] || ''}</div>
-        <div class="doc-perm-grid__mark ${markClass}">${markTxt}</div>
-      </div>`;
-    }).join('');
-    pills.push(`<div class="doc-perm-grid">
-      <div class="doc-perm-grid__raw" title="原始 6 位 permission_bits">${doc.permission_bits || '000000'}</div>
-      ${rows}
-    </div>`);
-  } else {
-    // 普通用户版：
-    //   - 公开文档：显示 0..当前等级 的权限行（≤自己权限可查看情况，不泄露更高等级设置）
-    //   - 私密文档：仅显示一句话（不暴露权限矩阵）
-    const __userMax = lvl || 0; // null/undefined=访客 => 0
-    if (isPublic) {
-      // 生成 0..__userMax 的可见性行
-      const showRows = [];
-      for (let lv = 0; lv <= __userMax; lv++) {
-        let allow = false;
-        if (lv === 0) {
-          // 访客：公开且 bit[0] == '1'
-          allow = __bits[0] === '1';
-        } else {
-          const idx = Math.min(4, Math.max(0, lv - 1));
-          allow = __bits[idx] === '1';
-        }
-        const mc = allow ? 'is-yes' : 'is-no';
-        const mt = allow ? '✅ 可见' : '❌ 不可见';
-        const label = lv === 0 ? '访客' : `等级 ${lv}`;
-        showRows.push(`<div class="doc-perm-grid__row">
-          <div class="doc-perm-grid__label">${label}</div>
-          <div class="doc-perm-grid__role">${DOC_LEVEL_ROLES[lv] || ''}</div>
-          <div class="doc-perm-grid__mark ${mc}">${mt}</div>
-        </div>`);
+  // 2. 权限展示：所有用户统一看过滤矩阵
+  //    等级映射（permission_bits 索引 0..5）：
+  //      0=未登录访客, 1=user, 2=admin1, 3=admin2, 4=admin3, 5=superadmin(强制允许)
+  //    用户 permissionLevel N → 仅可见 0..(N-1) 行（低于自己权限的查看情况）
+  //      - 匿名(null)/等级1 → maxRow=0（仅访客行）
+  //      - 等级2 → maxRow=1，... 等级6 → maxRow=5（全部，superadmin 行强制 ✅）
+  if (isPublic) {
+    const __userLevel = lvl || 0; // null/undefined=匿名 => 0
+    const __maxRow = Math.max(0, __userLevel - 1);
+    const showRows = [];
+    for (let row = 0; row <= __maxRow; row++) {
+      let allow = false;
+      let force = false;
+      if (row === 0) {
+        // 访客行：公开且 bit[0]=='1'
+        allow = __bits[0] === '1';
+      } else if (row === 5) {
+        // superadmin 行：强制允许
+        allow = true;
+        force = true;
+      } else {
+        allow = __bits[row] === '1';
       }
-      pills.push(`<div class="doc-perm-grid">${showRows.join('')}</div>`);
-    } else {
-      // 私密文档：仅本人可见（当前用户即作者或超管，但超管已走 admin 分支）
-      pills.push(`<span class="meta-pill doc-perm-summary">
-        🔒 私密文档 · 仅作者本人可见
-      </span>`);
+      const mc = allow ? 'is-yes' : 'is-no';
+      const mt = allow ? '✅ 可见' : '❌ 不可见';
+      const forceClass = force ? ' is-force' : '';
+      const label = row === 0 ? '访客' : `等级 ${row}`;
+      showRows.push(`<div class="doc-perm-grid__row${forceClass}">
+        <div class="doc-perm-grid__label">${label}</div>
+        <div class="doc-perm-grid__role">${DOC_LEVEL_ROLES[row] || ''}</div>
+        <div class="doc-perm-grid__mark ${mc}">${mt}</div>
+      </div>`);
     }
+    pills.push(`<div class="doc-perm-grid">${showRows.join('')}</div>`);
+  } else {
+    // 私密文档：仅显示一句话（不暴露权限矩阵）
+    pills.push(`<span class="meta-pill doc-perm-summary">
+      🔒 私密文档 · 仅作者本人可见
+    </span>`);
   }
 
   // 3. 作者 / 组
