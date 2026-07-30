@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>超级管理员 | GWL</title>
+    <link rel="stylesheet" href="./../styles.css">
+    <link rel="stylesheet" href="./../user/dashboard.css">
+    <link rel="stylesheet" href="./super-admin.css">
+    <link rel="icon" href="./../favicon.png" type="image/png">
+</head>
+<body>
+    <div class="dashboard-layout">
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <aside class="dashboard-sidebar" id="dashboardSidebar">
+            <div class="sidebar__header">
+                <button class="sidebar-close" id="sidebarClose" aria-label="关闭侧边栏">&times;</button>
+                <div class="sidebar__logo">GWL</div>
+            </div>
+
+            <nav class="sidebar__nav">
+                <!-- 管理员导航菜单 -->
+                <a href="#" class="sidebar__nav-item active" data-tab="users">
+                    <span class="sidebar__nav-icon">👥</span>
+                    <span class="sidebar__nav-text">用户管理</span>
+                </a>
+                <a href="#" class="sidebar__nav-item" data-tab="documents">
+                    <span class="sidebar__nav-icon">📄</span>
+                    <span class="sidebar__nav-text">文档管理</span>
+                </a>
+                <a href="#" class="sidebar__nav-item" data-tab="settings">
+                    <span class="sidebar__nav-icon">⚙️</span>
+                    <span class="sidebar__nav-text">系统设置</span>
+                </a>
+                <a href="#" class="sidebar__nav-item" data-tab="finance">
+                    <span class="sidebar__nav-icon">💰</span>
+                    <span class="sidebar__nav-text">财务管理</span>
+                </a>
+            </nav>
+
+            <div class="sidebar__footer">
+                <div class="sidebar__user" id="sidebarUserTrigger" data-tab="home" title="返回个人主页">
+                    <div class="sidebar__avatar">
+                        <img id="sidebarAvatar" src="./../favicon.png" alt="Avatar">
+                    </div>
+                    <div class="sidebar__user-info">
+                        <span class="sidebar__username" id="sidebarUsername">加载中...</span>
+                        <span class="sidebar__user-role" id="sidebarUserRole">超级管理员</span>
+                    </div>
+                </div>
+                <button class="sidebar__settings-btn" id="settingsBtn" aria-label="设置">
+                    ⚙️
+                </button>
+            </div>
+        </aside>
+
+        <main class="dashboard-main">
+            <header class="dashboard-header">
+                <button class="dashboard-header__menu-btn" id="menuToggle" aria-label="菜单">☰</button>
+                <nav class="dashboard-header__nav header__nav" id="dashboardNav">
+                    <a href="./../index.html">首页</a>
+                    <a href="./../document.html">文档</a>
+                </nav>
+                <div class="dashboard-header__right">
+                    <div id="global-notifications-container" class="notification-toast"></div>
+                    <div id="auth-container"></div>
+                </div>
+            </header>
+
+            <div class="dashboard-content">
+                <!-- 用户管理模块 -->
+                <section class="tab-panel" id="panel-users">
+                    <div class="admin-header">
+                        <h2 class="panel-title">用户管理</h2>
+                        <div class="admin-toolbar">
+                            <input type="text" class="admin-search" id="userSearchInput" placeholder="搜索用户名或邮箱...">
+                            <button class="admin-btn admin-btn--primary" id="refreshUsersBtn">🔄 刷新</button>
+                        </div>
+                    </div>
+                    <div class="admin-table-wrap">
+                        <table class="admin-table" id="usersTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>用户名</th>
+                                    <th>邮箱</th>
+                                    <th>权限等级</th>
+                                    <th>注册时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                                <tr><td colspan="6" class="loading-cell">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="admin-pagination" id="usersPagination"></div>
+                </section>
+
+                <!-- 文档管理模块 -->
+                <section class="tab-panel" id="panel-documents" style="display: none;">
+                    <div class="admin-header">
+                        <h2 class="panel-title">文档管理</h2>
+                        <div class="admin-toolbar">
+                            <input type="text" class="admin-search" id="docSearchInput" placeholder="搜索文档标题...">
+                            <button class="admin-btn admin-btn--primary" id="refreshDocsBtn">🔄 刷新</button>
+                        </div>
+                    </div>
+                    <div class="admin-table-wrap">
+                        <table class="admin-table" id="docsTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>标题</th>
+                                    <th>作者</th>
+                                    <th>可见性</th>
+                                    <th>更新时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="docsTableBody">
+                                <tr><td colspan="6" class="loading-cell">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="admin-pagination" id="docsPagination"></div>
+                </section>
+
+                <!-- 系统设置模块 -->
+                <section class="tab-panel" id="panel-settings" style="display: none;">
+                    <div class="admin-header">
+                        <h2 class="panel-title">系统设置</h2>
+                    </div>
+                    <div class="admin-placeholder">
+                        <div class="admin-placeholder__icon">⚙️</div>
+                        <h3 class="admin-placeholder__title">功能开发中</h3>
+                        <p class="admin-placeholder__desc">系统设置模块正在开发中，敬请期待</p>
+                    </div>
+                </section>
+
+                <!-- 财务管理模块 -->
+                <section class="tab-panel" id="panel-finance" style="display: none;">
+                    <div class="admin-header">
+                        <h2 class="panel-title">财务管理</h2>
+                    </div>
+                    <div class="admin-placeholder">
+                        <div class="admin-placeholder__icon">💰</div>
+                        <h3 class="admin-placeholder__title">功能开发中</h3>
+                        <p class="admin-placeholder__desc">财务管理模块正在开发中，敬请期待</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Footer -->
+            <footer class="footer">
+                <div class="footer__container">
+                    <div class="footer__top">
+                        <div class="footer__brand">
+                            <h3 class="footer__logo">GWL Works Lab</h3>
+                            <p class="footer__slogan">探索学习的无限可能</p>
+                        </div>
+                        <div class="footer__links">
+                            <div class="footer__links-group">
+                                <h4>快速链接</h4>
+                                <a href="./../index.html">首页</a>
+                                <a href="./../document.html">文档</a>
+                            </div>
+                            <div class="footer__links-group">
+                                <h4>关于</h4>
+                                <a href="#">关于我们</a>
+                                <a href="#">隐私政策</a>
+                                <a href="#">服务条款</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="footer__bottom">
+                        <p>&copy; 2026 GFYGO. All rights reserved.</p>
+                        <div class="footer__social">
+                            <a href="#" aria-label="GitHub">GitHub</a>
+                            <a href="#" aria-label="Bilibili">Bilibili</a>
+                        </div>
+                    </div>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
+
+    <!-- 用户编辑弹窗 -->
+    <div class="modal-overlay" id="userEditModal" style="display: none;">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 class="modal-title" id="userEditModalTitle">编辑用户信息</h3>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editUserId">
+                <div class="form-group">
+                    <label for="editUsername">用户名</label>
+                    <input type="text" id="editUsername" class="modal-input" placeholder="用户名">
+                </div>
+                <div class="form-group">
+                    <label for="editEmail">邮箱</label>
+                    <input type="email" id="editEmail" class="modal-input" placeholder="邮箱">
+                </div>
+                <div class="form-group">
+                    <label for="editPermission">权限等级（占位）</label>
+                    <select id="editPermission" class="modal-input">
+                        <option value="1">1 - 普通用户</option>
+                        <option value="2">2 - 一级管理员</option>
+                        <option value="3">3 - 二级管理员</option>
+                        <option value="4">4 - 三级管理员</option>
+                        <option value="5">5 - 超级管理员</option>
+                    </select>
+                    <p class="form-hint">权限修改功能为占位，暂不支持实际修改</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-cancel" id="userEditCancelBtn">取消</button>
+                <button class="modal-btn modal-btn-confirm" id="userEditSaveBtn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 文档编辑弹窗 -->
+    <div class="modal-overlay" id="docEditModal" style="display: none;">
+        <div class="modal-container modal-container--wide">
+            <div class="modal-header">
+                <h3 class="modal-title" id="docEditModalTitle">编辑文档</h3>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editDocId">
+                <div class="form-group">
+                    <label for="editDocTitle">标题</label>
+                    <input type="text" id="editDocTitle" class="modal-input" placeholder="文档标题">
+                </div>
+                <div class="form-group">
+                    <label for="editDocVisibility">可见性</label>
+                    <select id="editDocVisibility" class="modal-input">
+                        <option value="public">公共</option>
+                        <option value="group">组</option>
+                        <option value="private">私有</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editDocContent">内容</label>
+                    <textarea id="editDocContent" class="modal-textarea" rows="10" placeholder="Markdown 格式内容"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-cancel" id="docEditCancelBtn">取消</button>
+                <button class="modal-btn modal-btn-confirm" id="docEditSaveBtn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="./../config.js"></script>
+    <script src="./../theme.js"></script>
+    <script src="./../toast.js"></script>
+    <script src="./../modal.js"></script>
+    <script src="./../index.js"></script>
+    <script src="./base-template.js"></script>
+    <script src="./super-admin.js"></script>
+</body>
+</html>

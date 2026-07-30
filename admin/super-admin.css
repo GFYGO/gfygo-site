@@ -1,0 +1,408 @@
+/*
+ * Super Admin 页面样式
+ * 继承 dashboard.css 并扩展管理后台特定样式
+ */
+
+/* =========================================
+   1. 管理后台头部和工具栏
+   ========================================= */
+
+.admin-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.admin-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.admin-search {
+    padding: 10px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-white);
+    color: var(--color-text-main);
+    font-size: 0.9rem;
+    min-width: 220px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.admin-search:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.admin-search::placeholder {
+    color: var(--color-text-muted);
+    opacity: 0.7;
+}
+
+/* =========================================
+   2. 按钮样式
+   ========================================= */
+
+.admin-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.admin-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.admin-btn--primary {
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.admin-btn--primary:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+    transform: translateY(-1px);
+}
+
+.admin-btn--secondary {
+    background: var(--color-bg-white);
+    color: var(--color-text-main);
+    border-color: var(--color-border);
+}
+
+.admin-btn--secondary:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.admin-btn--danger {
+    background: transparent;
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
+.admin-btn--danger:hover:not(:disabled) {
+    background: #dc3545;
+    color: #fff;
+}
+
+.admin-btn--sm {
+    padding: 6px 12px;
+    font-size: 0.82rem;
+}
+
+/* =========================================
+   3. 表格样式
+   ========================================= */
+
+.admin-table-wrap {
+    background: var(--color-bg-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.admin-table th,
+.admin-table td {
+    padding: 14px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.admin-table th {
+    background: var(--color-bg-section-alt);
+    font-weight: 700;
+    color: var(--color-text-main);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.admin-table tbody tr {
+    transition: background 0.15s ease;
+}
+
+.admin-table tbody tr:hover {
+    background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+
+.admin-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.loading-cell {
+    text-align: center;
+    color: var(--color-text-muted);
+    padding: 32px 16px;
+}
+
+.admin-table__actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* 权限等级徽章 */
+.perm-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: var(--color-bg-section-alt);
+    color: var(--color-text-main);
+}
+
+.perm-badge--1 { background: #e0f2fe; color: #0369a1; }
+.perm-badge--2 { background: #f3e8ff; color: #7c3aed; }
+.perm-badge--3 { background: #fef3c7; color: #b45309; }
+.perm-badge--4 { background: #fee2e2; color: #b91c1c; }
+.perm-badge--5 { background: var(--color-primary); color: #fff; }
+
+/* 可见性徽章 */
+.visibility-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.visibility-badge--public { background: #dbeafe; color: #1d4ed8; }
+.visibility-badge--group { background: #f3e8ff; color: #7c3aed; }
+.visibility-badge--private { background: #fef3c7; color: #b45309; }
+
+/* =========================================
+   4. 分页组件
+   ========================================= */
+
+.admin-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 20px;
+    padding: 16px 0;
+}
+
+.admin-pagination__btn {
+    padding: 8px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-white);
+    color: var(--color-text-main);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.admin-pagination__btn:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.admin-pagination__btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.admin-pagination__btn.is-active {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+}
+
+.admin-pagination__info {
+    padding: 8px 16px;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+}
+
+/* =========================================
+   5. 占位模块样式
+   ========================================= */
+
+.admin-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    text-align: center;
+    padding: 48px 24px;
+    background: var(--color-bg-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.admin-placeholder__icon {
+    font-size: 4rem;
+    margin-bottom: 20px;
+    opacity: 0.6;
+}
+
+.admin-placeholder__title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-text-main);
+    margin: 0 0 12px;
+}
+
+.admin-placeholder__desc {
+    font-size: 0.95rem;
+    color: var(--color-text-muted);
+    margin: 0;
+    max-width: 400px;
+}
+
+/* placeholder-card 样式（renderPlaceholder 函数使用） */
+.placeholder-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    text-align: center;
+    padding: 48px 24px;
+    background: var(--color-bg-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.placeholder-icon {
+    font-size: 4rem;
+    margin-bottom: 20px;
+    opacity: 0.6;
+}
+
+.placeholder-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-text-main);
+    margin: 0 0 12px;
+}
+
+.placeholder-description {
+    font-size: 0.95rem;
+    color: var(--color-text-muted);
+    margin: 0;
+    max-width: 400px;
+}
+
+/* =========================================
+   6. 表单样式补充
+   ========================================= */
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--color-text-main);
+}
+
+.form-hint {
+    margin-top: 6px;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    opacity: 0.8;
+}
+
+.modal-textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-white);
+    color: var(--color-text-main);
+    font-size: 0.9rem;
+    font-family: ui-monospace, Consolas, Menlo, monospace;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+}
+
+.modal-textarea:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+/* 弹窗加宽版本 */
+.modal-container--wide {
+    max-width: 640px;
+}
+
+/* =========================================
+   7. 移动端适配
+   ========================================= */
+
+@media (max-width: 768px) {
+    .admin-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .admin-toolbar {
+        width: 100%;
+    }
+
+    .admin-search {
+        min-width: 100%;
+    }
+
+    .admin-table-wrap {
+        overflow-x: auto;
+    }
+
+    .admin-table {
+        font-size: 0.82rem;
+    }
+
+    .admin-table th,
+    .admin-table td {
+        padding: 10px 12px;
+    }
+
+    .admin-table__actions {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .admin-pagination {
+        flex-wrap: wrap;
+    }
+}

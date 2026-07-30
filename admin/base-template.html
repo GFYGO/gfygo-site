@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员后台 | GWL</title>
+    <link rel="stylesheet" href="./../styles.css">
+    <link rel="stylesheet" href="./base-template.css">
+    <link rel="icon" href="./../favicon.png" type="image/png">
+</head>
+<body>
+    <div class="admin-layout">
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <!-- 侧边栏导航 -->
+        <aside class="admin-sidebar" id="adminSidebar">
+            <div class="sidebar__header">
+                <button class="sidebar-close" id="sidebarClose" aria-label="关闭侧边栏">&times;</button>
+                <div class="sidebar__logo">GWL Admin</div>
+            </div>
+
+            <nav class="sidebar__nav" id="adminNav">
+                <!-- 静态管理员菜单项（根据权限动态显示） -->
+                <!-- 超级管理员专属 -->
+                <a href="#" class="sidebar__nav-item admin-only--super" data-tab="system" style="display: none;">
+                    <span class="sidebar__nav-icon">⚙️</span>
+                    <span class="sidebar__nav-text">系统设置</span>
+                </a>
+                <a href="#" class="sidebar__nav-item admin-only--super" data-tab="users" style="display: none;">
+                    <span class="sidebar__nav-icon">👥</span>
+                    <span class="sidebar__nav-text">用户管理</span>
+                </a>
+
+                <!-- 三级管理员及以上 -->
+                <a href="#" class="sidebar__nav-item admin-only--level3" data-tab="permissions" style="display: none;">
+                    <span class="sidebar__nav-icon">🔒</span>
+                    <span class="sidebar__nav-text">权限管理</span>
+                </a>
+
+                <!-- 二级管理员及以上 -->
+                <a href="#" class="sidebar__nav-item admin-only--level2" data-tab="content" style="display: none;">
+                    <span class="sidebar__nav-icon">📄</span>
+                    <span class="sidebar__nav-text">内容管理</span>
+                </a>
+                <a href="#" class="sidebar__nav-item admin-only--level2" data-tab="documents" style="display: none;">
+                    <span class="sidebar__nav-icon">📁</span>
+                    <span class="sidebar__nav-text">文档管理</span>
+                </a>
+                <a href="#" class="sidebar__nav-item admin-only--level2" data-tab="announcements" style="display: none;">
+                    <span class="sidebar__nav-icon">📢</span>
+                    <span class="sidebar__nav-text">公告管理</span>
+                </a>
+
+                <!-- 一级管理员及以上 -->
+                <a href="#" class="sidebar__nav-item admin-only--level1" data-tab="reports" style="display: none;">
+                    <span class="sidebar__nav-icon">📊</span>
+                    <span class="sidebar__nav-text">举报处理</span>
+                </a>
+                <a href="#" class="sidebar__nav-item admin-only--level1" data-tab="logs" style="display: none;">
+                    <span class="sidebar__nav-icon">📝</span>
+                    <span class="sidebar__nav-text">操作日志</span>
+                </a>
+
+                <!-- 通用菜单 -->
+                <div class="sidebar__nav-divider"></div>
+                <a href="#" class="sidebar__nav-item" data-tab="overview">
+                    <span class="sidebar__nav-icon">🏠</span>
+                    <span class="sidebar__nav-text">管理概览</span>
+                </a>
+                <a href="#" class="sidebar__nav-item" data-tab="profile">
+                    <span class="sidebar__nav-icon">👤</span>
+                    <span class="sidebar__nav-text">个人设置</span>
+                </a>
+
+                <!-- 动态菜单挂载点 -->
+                <div class="sidebar__nav-divider" id="dynamicMenuDivider" style="display:none;"></div>
+                <div id="dynamicMenuContainer"></div>
+            </nav>
+
+            <!-- 底部用户区域 -->
+            <div class="sidebar__footer">
+                <div class="sidebar__user" id="sidebarUserTrigger" data-tab="profile" title="个人设置">
+                    <div class="sidebar__avatar">
+                        <img id="sidebarAvatar" src="./../favicon.png" alt="Avatar">
+                    </div>
+                    <div class="sidebar__user-info">
+                        <span class="sidebar__username" id="sidebarUsername">加载中...</span>
+                        <span class="sidebar__user-role" id="sidebarUserRole">--</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="admin-main">
+            <header class="admin-header">
+                <button class="admin-header__menu-btn" id="menuToggle" aria-label="菜单">☰</button>
+                <nav class="admin-header__nav header__nav" id="adminHeaderNav">
+                    <a href="./../index.html">首页</a>
+                    <a href="./../document.html">文档</a>
+                    <a href="./../user/dashboard.html">用户主页</a>
+                </nav>
+                <div class="admin-header__right">
+                    <div id="global-notifications-container" class="notification-toast"></div>
+                    <div id="auth-container"></div>
+                    <div class="permission-buttons" id="permissionButtons"></div>
+                </div>
+            </header>
+
+            <div class="admin-content">
+                <!-- 管理概览 -->
+                <section class="tab-panel" id="panel-overview" style="display: none;">
+                    <h2 class="panel-title">管理概览</h2>
+                    <div class="admin-overview-stats">
+                        <div class="stat-card">
+                            <div class="stat-card__icon">👥</div>
+                            <div class="stat-card__content">
+                                <span class="stat-card__value" id="statUsers">--</span>
+                                <span class="stat-card__label">注册用户</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card__icon">📄</div>
+                            <div class="stat-card__content">
+                                <span class="stat-card__value" id="statDocs">--</span>
+                                <span class="stat-card__label">文档总数</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card__icon">📊</div>
+                            <div class="stat-card__content">
+                                <span class="stat-card__value" id="statReports">--</span>
+                                <span class="stat-card__label">待处理举报</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="admin-welcome">
+                        <div class="empty-state">
+                            <div class="empty-state__icon">👋</div>
+                            <p class="empty-state__text">欢迎回来，<span id="welcomeUsername">管理员</span></p>
+                            <p class="empty-state__subtext">请从左侧菜单选择操作项</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 系统设置（超级管理员） -->
+                <section class="tab-panel" id="panel-system" style="display: none;">
+                    <h2 class="panel-title">系统设置</h2>
+                    <div class="empty-state">
+                        <div class="empty-state__icon">⚙️</div>
+                        <p class="empty-state__text">系统设置功能开发中</p>
+                    </div>
+                </section>
+
+                <!-- 用户管理（超级管理员） -->
+                <section class="tab-panel" id="panel-users" style="display: none;">
+                    <h2 class="panel-title">用户管理</h2>
+                    <div class="empty-state">
+                        <div class="empty-state__icon">👥</div>
+                        <p class="empty-state__text">用户管理功能开发中</p>
+                    </div>
+                </section>
+
+                <!-- 权限管理（三级管理员及以上） -->
+                <section class="tab-panel" id="panel-permissions" style="display: none;">
+                    <h2 class="panel-title">权限管理</h2>
+                    <div class="empty-state">
+                        <div class="empty-state__icon">🔒</div>
+                        <p class="empty-state__text">权限管理功能开发中</p>
+                    </div>
+                </section>
+
+                <!-- 内容管理（二级管理员及以上） -->
+                <section class="tab-panel" id="panel-content" style="display: none;">
+                    <h2 class="panel-title">内容管理</h2>
+                    <div class="empty-state">
+                        <div class="empty-state__icon">📄</div>
+                        <p class="empty-state__text">内容管理功能开发中</p>
+                    </div>
+                </section>
+
+                <!-- 文档管理（二级管理员及以上） -->
+                <section class="tab-panel" id="panel-documents" style="display: none;">
+                    <h2 class="panel-title">文档管理</h2>
+                    <div class="empty-state">
+                        <div class="empty-state__icon">📁</div>
+                        <p class="empty-state__text">文档管理功能开发中</p>
+                    </div>
+                </section>
+
+                <!-- 公告管理（二级管理员及以上） -->
+                <section class="tab-panel" id="panel-announcements" style="display: none;">
+                    <h2 class="panel-title">公告管理</h2>
+                    <div class="empty-state">
+                        <div class="empty-state__icon">📢</div>
+                        <p class="empty-state__text">公告管理功能开发中</p>
+                    </div>
+                </section>
+
+                <!-- 举报处理（一级管理员及以上） -->
+                <section class="tab-panel" id="panel-reports" style="display: none;">
+                    <h2 class="panel-title">举报处理</h2>
+                    <div class="empty-state">
+                        <div class="empty-state__icon">📊</div>
+                        <p class="empty-state__text">举报处理功能开发中</p>
+                    </div>
+                </section>
+
+                <!-- 操作日志（一级管理员及以上） -->
+                <section class="tab-panel" id="panel-logs" style="display: none;">
+                    <h2 class="panel-title">操作日志</h2>
+                    <div class="empty-state">
+                        <div class="empty-state__icon">📝</div>
+                        <p class="empty-state__text">操作日志功能开发中</p>
+                    </div>
+                </section>
+
+                <!-- 个人设置 -->
+                <section class="tab-panel" id="panel-profile" style="display: none;">
+                    <h2 class="panel-title">个人设置</h2>
+                    <div class="settings-section">
+                        <h3>主题</h3>
+                        <div class="theme-options" id="themeOptions">
+                            <button class="theme-opt" data-theme="light">浅色</button>
+                            <button class="theme-opt" data-theme="green">护眼绿</button>
+                            <button class="theme-opt" data-theme="gray">灰色</button>
+                            <button class="theme-opt" data-theme="dark_green">暗绿</button>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>账号</h3>
+                        <button class="pdocs-btn pdocs-btn--danger" id="logoutBtn">退出登录</button>
+                    </div>
+                </section>
+
+                <!-- 动态菜单面板挂载点 -->
+            </div>
+
+            <!-- Footer -->
+            <footer class="footer">
+                <div class="footer__container">
+                    <div class="footer__top">
+                        <div class="footer__brand">
+                            <h3 class="footer__logo">GWL Works Lab</h3>
+                            <p class="footer__slogan">探索学习的无限可能</p>
+                        </div>
+                        <div class="footer__links">
+                            <div class="footer__links-group">
+                                <h4>快速链接</h4>
+                                <a href="./../index.html">首页</a>
+                                <a href="./../document.html">文档</a>
+                                <a href="./../user/dashboard.html">用户主页</a>
+                            </div>
+                            <div class="footer__links-group">
+                                <h4>关于</h4>
+                                <a href="#">关于我们</a>
+                                <a href="#">隐私政策</a>
+                                <a href="#">服务条款</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="footer__bottom">
+                        <p>&copy; 2026 GFYGO. All rights reserved.</p>
+                        <div class="footer__social">
+                            <a href="#" aria-label="GitHub">GitHub</a>
+                            <a href="#" aria-label="Bilibili">Bilibili</a>
+                        </div>
+                    </div>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
+
+    <script src="./../config.js"></script>
+    <script src="./../theme.js"></script>
+    <script src="./../toast.js"></script>
+    <script src="./../modal.js"></script>
+    <script src="./../index.js"></script>
+    <script src="./base-template.js"></script>
+</body>
+</html>
