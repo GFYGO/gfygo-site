@@ -6,7 +6,7 @@
 // 内部缓存：分类/文档/当前用户信息（供多视图复用）
 const __DOC = {
   categories: [],          // [{id, name, slug, sort_order}]
-  docs: [],                // [{id, title, slug, permission_bits, visibility, author_group, ...}]
+  docs: [],                // [{id, title, slug, permission_bits, visibility, owning, ...}]
   user: {
     isLoggedIn: false,
     permissionLevel: null, // null/undefined = 匿名
@@ -134,6 +134,16 @@ function canViewByBits(bits, visibility, userLevel) {
   }
   const idx = Math.min(4, Math.max(0, userLevel - 1));
   return bits && bits[idx] === '1';
+}
+
+/**
+ * 计算文档应展示的 tab（公有 / 组 / 私有）
+ * - private 文档 → 私有 tab（仍按 visibility）
+ * - 非 private 文档：owning='0' → 公有 tab；owning!='0' → 组 tab
+ */
+function owningToTab(doc) {
+  if (doc.visibility === 'private') return 'private';
+  return doc.owning === '0' ? 'public' : 'group';
 }
 
 /**
@@ -300,7 +310,8 @@ function renderDocSidebarTree(keyword = '') {
       // 私有 tab：仅显示当前用户自己创建的私有文档
       visibleDocs = visibleDocs.filter(d => d.visibility === 'private' && uid && d.author_id === uid);
     } else {
-      visibleDocs = visibleDocs.filter(d => d.visibility === __DOC.visFilter);
+      // 公共/组 tab：按 owning 分类（非 private 文档）
+      visibleDocs = visibleDocs.filter(d => d.visibility !== 'private' && owningToTab(d) === __DOC.visFilter);
     }
   }
 
@@ -376,7 +387,8 @@ function renderHomeCategoryGrids() {
       // 私有 tab：仅显示当前用户自己创建的私有文档
       visibleDocs = visibleDocs.filter(d => d.visibility === 'private' && uid && d.author_id === uid);
     } else {
-      visibleDocs = visibleDocs.filter(d => d.visibility === __DOC.visFilter);
+      // 公共/组 tab：按 owning 分类（非 private 文档）
+      visibleDocs = visibleDocs.filter(d => d.visibility !== 'private' && owningToTab(d) === __DOC.visFilter);
     }
   }
 
@@ -464,7 +476,7 @@ function updateVisEmptyPlaceholders() {
   if (__DOC.visFilter === 'private') {
     visibleDocs = visibleDocs.filter(d => d.visibility === 'private' && uid && d.author_id === uid);
   } else if (__DOC.visFilter) {
-    visibleDocs = visibleDocs.filter(d => d.visibility === __DOC.visFilter);
+    visibleDocs = visibleDocs.filter(d => d.visibility !== 'private' && owningToTab(d) === __DOC.visFilter);
   }
   const has = visibleDocs.length > 0;
   const privEmpty = document.getElementById('visPrivateEmpty');
@@ -949,9 +961,14 @@ function renderDocDetailView(doc) {
     </span>`);
   }
 
-  // 3. 作者 / 组
+  // 3. 作者 + 归属（owning：'0'=公有 / 纯数字=用户ID / 非数字=组名）
   const author = doc.author_username || (__DOC.user && doc.author_id === null ? '系统' : (doc.author_id ? 'ID ' + doc.author_id : '系统'));
-  pills.push(`<span class="meta-pill">👤 <strong>${escapeHtml(author)}</strong>${doc.author_group ? ` / ${escapeHtml(doc.author_group)} 组` : ''}</span>`);
+  const __ov = doc.owning;
+  let __ovText = '';
+  if (__ov && __ov !== '0') {
+    __ovText = /^\d+$/.test(__ov) ? ` · 归属用户 ID ${escapeHtml(__ov)}` : ` · 归属组 ${escapeHtml(__ov)}`;
+  }
+  pills.push(`<span class="meta-pill">👤 <strong>${escapeHtml(author)}</strong>${__ovText}</span>`);
   // 4. 创作时间
   pills.push(`<span class="meta-pill">📅 创建 <strong>${fmtTime(doc.created_at)}</strong></span>`);
   // 5. 最新修改时间（Document.updated_at 冗余展示）
@@ -1059,7 +1076,6 @@ async function fetchAndRenderRevisions(docId) {
         <span class="doc-rev__badge">${rev.revision_num}</span>
         <span class="doc-rev__time">⏱ ${fmtTime(rev.created_at)}</span>
         <span class="doc-rev__editor">👤 ${escapeHtml(rev.editor_username || '系统')}</span>
-        <span class="doc-rev__group">${escapeHtml(rev.editor_group || 'default')}</span>
       </div>
       ${rev.summary ? `<p class="doc-rev__summary">📝 ${escapeHtml(rev.summary)}</p>` : ''}
     </li>`).join('');
