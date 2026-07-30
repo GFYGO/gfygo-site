@@ -3,269 +3,25 @@
  * 文档系统前端逻辑：hash 路由、权限辅助、Markdown 渲染、目录树与修订历史
  */
 
-// =========================================
-// 状态管理模块
-// =========================================
-
-/**
- * 文档系统状态管理器
- * 统一管理所有状态，提供清晰的更新接口
- */
-class DocumentState {
-  constructor() {
-    // 核心数据
-    this.categories = [];
-    this.docs = [];
-    this.folders = [];
-    this.personalFolders = [];
-    this.revisions = [];
-    
-    // 用户信息
-    this.user = {
-      isLoggedIn: false,
-      id: null,
-      permissionLevel: null,
-      username: '',
-      group: 'default'
-    };
-    
-    // UI 状态
-    this.currentSlug = null;
-    this.currentFolderId = null;
-    this.visFilter = 'public';
-    this.isAdmin = false;
-    
-    // 工具状态
-    this.markedReady = false;
-    this.markedLoading = false;
-    
-    // 监听器列表
-    this.listeners = new Map();
-  }
-
-  /**
-   * 设置用户信息
-   * @param {object} userData - 用户数据
-   */
-  setUser(userData) {
-    this.user = { ...this.user, ...userData };
-    this.isAdmin = (userData.permissionLevel || 0) >= 5;
-    this.emit('userChanged', this.user);
-  }
-
-  /**
-   * 更新文档列表
-   * @param {Array} docs - 文档数组
-   */
-  setDocs(docs) {
-    this.docs = docs || [];
-    this.emit('docsChanged', this.docs);
-  }
-
-  /**
-   * 更新分类列表
-   * @param {Array} categories - 分类数组
-   */
-  setCategories(categories) {
-    this.categories = (categories || []).sort((a, b) => a.sort_order - b.sort_order);
-    this.emit('categoriesChanged', this.categories);
-  }
-
-  /**
-   * 更新文件夹列表
-   * @param {Array} folders - 文件夹数组
-   */
-  setFolders(folders) {
-    this.folders = folders || [];
-    this.emit('foldersChanged', this.folders);
-  }
-
-  /**
-   * 更新个人文件夹列表
-   * @param {Array} folders - 个人文件夹数组
-   */
-  setPersonalFolders(folders) {
-    this.personalFolders = folders || [];
-    this.emit('personalFoldersChanged', this.personalFolders);
-  }
-
-  /**
-   * 设置当前文档 slug
-   * @param {string|null} slug - 文档 slug
-   */
-  setCurrentSlug(slug) {
-    this.currentSlug = slug;
-    this.emit('currentSlugChanged', slug);
-  }
-
-  /**
-   * 设置当前文件夹 ID
-   * @param {number|null} folderId - 文件夹 ID
-   */
-  setCurrentFolderId(folderId) {
-    this.currentFolderId = folderId;
-    this.emit('currentFolderIdChanged', folderId);
-  }
-
-  /**
-   * 设置可见类型筛选
-   * @param {string} filter - 筛选类型
-   */
-  setVisFilter(filter) {
-    this.visFilter = filter;
-    this.emit('visFilterChanged', filter);
-  }
-
-  /**
-   * 设置修订历史
-   * @param {Array} revisions - 修订历史数组
-   */
-  setRevisions(revisions) {
-    this.revisions = revisions || [];
-    this.emit('revisionsChanged', this.revisions);
-  }
-
-  /**
-   * 注册状态变更监听器
-   * @param {string} event - 事件名
-   * @param {Function} callback - 回调函数
-   */
-  on(event, callback) {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, []);
-    }
-    this.listeners.get(event).push(callback);
-  }
-
-  /**
-   * 触发事件
-   * @param {string} event - 事件名
-   * @param {*} data - 数据
-   */
-  emit(event, data) {
-    const callbacks = this.listeners.get(event);
-    if (callbacks) {
-      callbacks.forEach(callback => callback(data));
-    }
-  }
-
-  /**
-   * 获取当前用户等级
-   * @returns {number|null} 用户等级
-   */
-  getUserLevel() {
-    return this.user.permissionLevel;
-  }
-
-  /**
-   * 获取当前用户 ID
-   * @returns {number|null} 用户 ID
-   */
-  getUserId() {
-    return this.user.id;
-  }
-
-  /**
-   * 判断用户是否已登录
-   * @returns {boolean} 是否已登录
-   */
-  isUserLoggedIn() {
-    return this.user.isLoggedIn;
-  }
-
-  /**
-   * 判断是否为管理员
-   * @returns {boolean} 是否为管理员
-   */
-  isAdminUser() {
-    return this.isAdmin;
-  }
-
-  /**
-   * 重置所有状态（用于登出）
-   */
-  reset() {
-    this.categories = [];
-    this.docs = [];
-    this.folders = [];
-    this.personalFolders = [];
-    this.revisions = [];
-    this.user = {
-      isLoggedIn: false,
-      id: null,
-      permissionLevel: null,
-      username: '',
-      group: 'default'
-    };
-    this.currentSlug = null;
-    this.currentFolderId = null;
-    this.visFilter = 'public';
-    this.isAdmin = false;
-    this.emit('stateReset');
-  }
-}
-
-// 创建全局状态实例
-const __DOC = new DocumentState();
-
-// 为了兼容旧代码，保留原始对象结构
-const DOC_STATE = {
-  categories: [],
-  docs: [],
+// 内部缓存：分类/文档/当前用户信息（供多视图复用）
+const __DOC = {
+  categories: [],          // [{id, name, slug, sort_order}]
+  docs: [],                // [{id, title, slug, permission_bits, visibility, author_group, ...}]
   user: {
     isLoggedIn: false,
-    permissionLevel: null,
+    permissionLevel: null, // null/undefined = 匿名
     username: '',
     group: 'default'
   },
-  currentSlug: null,
-  revisions: [],
-  markedReady: false,
-  markedLoading: false,
-  visFilter: 'public',
-  folders: [],
-  currentFolderId: null,
-  isAdmin: false,
-  personalFolders: []
+  currentSlug: null,       // 当前详情页 slug（用于 active 高亮）
+  revisions: [],           // 当前文档修订缓存
+  markedReady: false,      // marked.js 是否已加载
+  markedLoading: false,    // marked.js 是否正在加载中（防止并发脚本注入）
+  visFilter: 'public',     // 侧栏可见类型筛选：public / group / private
+  folders: [],              // 公共文件夹列表
+  currentFolderId: null,    // null=不过滤；0=未归类；正整数=该文件夹
+  isAdmin: false            // 等级≥5 才为 true
 };
-
-// 同步状态到旧对象（兼容层）
-__DOC.on('userChanged', (user) => {
-  DOC_STATE.user = { ...user };
-  DOC_STATE.isAdmin = user.permissionLevel >= 5;
-});
-
-__DOC.on('docsChanged', (docs) => {
-  DOC_STATE.docs = docs;
-});
-
-__DOC.on('categoriesChanged', (categories) => {
-  DOC_STATE.categories = categories;
-});
-
-__DOC.on('foldersChanged', (folders) => {
-  DOC_STATE.folders = folders;
-});
-
-__DOC.on('personalFoldersChanged', (folders) => {
-  DOC_STATE.personalFolders = folders;
-});
-
-__DOC.on('currentSlugChanged', (slug) => {
-  DOC_STATE.currentSlug = slug;
-});
-
-__DOC.on('currentFolderIdChanged', (folderId) => {
-  DOC_STATE.currentFolderId = folderId;
-});
-
-__DOC.on('visFilterChanged', (filter) => {
-  DOC_STATE.visFilter = filter;
-});
-
-__DOC.on('revisionsChanged', (revisions) => {
-  DOC_STATE.revisions = revisions;
-});
 
 const DOC_LEVEL_ROLES = {
   1: '普通注册用户',
@@ -292,7 +48,6 @@ document.addEventListener('DOMContentLoaded', () => {
     .then(() => {
       // 先渲染文件夹 chips（用于 active 状态显示），再渲染依赖 docs 的目录树与首页卡片
       renderDocFolders();
-      renderDocBreadcrumb();
       renderDocSidebarTree();
       renderHomeCategoryGrids();
       bindDocSearch();
@@ -416,7 +171,7 @@ async function fetchDocCategories() {
     const r = await fetch(`${API_BASE_URL}/api/v1/document/categories`);
     const d = await r.json();
     if (r.ok && d.code === 200) {
-      __DOC.setCategories(d.data || []);
+      __DOC.categories = (d.data || []).sort((a, b) => a.sort_order - b.sort_order);
     } else {
       console.warn('[categories] 获取失败:', d.msg);
     }
@@ -431,14 +186,13 @@ async function fetchDocList() {
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     // folder_id 过滤：null=不过滤；0=未归类；正整数=该文件夹
     let url = `${API_BASE_URL}/api/v1/document/list`;
-    const currentFolderId = __DOC.currentFolderId;
-    if (currentFolderId !== null && currentFolderId !== undefined) {
-      url += `?folder_id=${encodeURIComponent(currentFolderId)}`;
+    if (__DOC.currentFolderId !== null && __DOC.currentFolderId !== undefined) {
+      url += `?folder_id=${encodeURIComponent(__DOC.currentFolderId)}`;
     }
     const r = await fetch(url, { headers });
     const d = await r.json();
     if (r.ok && d.code === 200) {
-      __DOC.setDocs(d.data || []);
+      __DOC.docs = d.data || [];
     } else {
       console.warn('[list] 获取失败:', d.msg);
     }
@@ -454,14 +208,8 @@ async function fetchDocList() {
 async function fetchDocAuthState() {
   const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
   if (!token) {
-    __DOC.setUser({
-      isLoggedIn: false,
-      id: null,
-      permissionLevel: null,
-      username: '',
-      group: 'default'
-    });
-    updatePersonalTabVisibility();
+    __DOC.user = { isLoggedIn: false, permissionLevel: null, username: '', group: 'default' };
+    __DOC.isAdmin = false;
     return;
   }
   try {
@@ -471,62 +219,23 @@ async function fetchDocAuthState() {
     const d = await r.json();
     if (r.ok && d.code === 200 && d.data && d.data.user) {
       const u = d.data.user;
-      __DOC.setUser({
+      __DOC.user = {
         isLoggedIn: true,
         id: u.id,
         permissionLevel: u.permission_level || 1,
         username: u.username || '',
         group: (u.profile && u.profile.group) ? u.profile.group : 'default'
-      });
+      };
+      // 等级≥5 才能管理公共文件夹
+      __DOC.isAdmin = (u.permission_level || 0) >= 5;
     } else {
-      __DOC.setUser({
-        isLoggedIn: false,
-        id: null,
-        permissionLevel: null,
-        username: '',
-        group: 'default'
-      });
+      __DOC.user = { isLoggedIn: false, permissionLevel: null, username: '', group: 'default' };
+      __DOC.isAdmin = false;
     }
   } catch (e) {
     console.error('[auth] 网络错误，按匿名处理:', e);
-    __DOC.setUser({
-      isLoggedIn: false,
-      id: null,
-      permissionLevel: null,
-      username: '',
-      group: 'default'
-    });
-  }
-  // 更新私人选项卡可见性
-  updatePersonalTabVisibility();
-}
-
-/**
- * 更新"私人"选项卡的可见性（仅登录用户可见）
- */
-function updatePersonalTabVisibility() {
-  const personalTab = document.querySelector('.doc-tab--personal');
-  if (personalTab) {
-    personalTab.style.display = __DOC.user.isLoggedIn ? '' : 'none';
-    // 如果切换到不可见状态且当前选中的是私人，重置为公共
-    if (!__DOC.user.isLoggedIn && __DOC.visFilter === 'personal') {
-      __DOC.visFilter = 'public';
-      // 激活公共选项卡
-      const publicTab = document.querySelector('.doc-tab--public');
-      if (publicTab) {
-        document.querySelectorAll('.doc-tab').forEach(t => {
-          t.classList.remove('is-active');
-          t.setAttribute('aria-selected', 'false');
-        });
-        publicTab.classList.add('is-active');
-        publicTab.setAttribute('aria-selected', 'true');
-      }
-      // 重新加载公共文档
-      fetchDocList().then(() => {
-        renderDocSidebarTree();
-        renderHomeCategoryGrids();
-      });
-    }
+    __DOC.user = { isLoggedIn: false, permissionLevel: null, username: '', group: 'default' };
+    __DOC.isAdmin = false;
   }
 }
 
@@ -540,7 +249,7 @@ async function fetchDocFolders() {
     const r = await fetch(`${API_BASE_URL}/api/v1/document/folders/public`, { headers });
     const d = await r.json();
     if (r.ok && d.code === 200) {
-      __DOC.setFolders(d.data || []);
+      __DOC.folders = d.data || [];
     } else {
       console.warn('[folders] 获取失败:', d.msg);
     }
@@ -557,49 +266,6 @@ async function fetchDocFolders() {
 function renderDocSidebarTree(keyword = '') {
   const root = document.getElementById('docSidebarTree');
   if (!root) return;
-
-  // 私人选项卡：已经通过 API 获取了个人文档，直接渲染即可
-  if (__DOC.visFilter === 'personal') {
-    const kw = keyword.trim().toLowerCase();
-    const list = !kw ? __DOC.docs : __DOC.docs.filter(d =>
-      (d.title || '').toLowerCase().includes(kw) || (d.summary || '').toLowerCase().includes(kw)
-    );
-
-    if (list.length === 0) {
-      const reason = kw ? `没有匹配「${kw}」的文档` : '暂无个人文档';
-      root.innerHTML = `<p class="doc-loading-text">${reason}</p>`;
-      return;
-    }
-
-    // 按文件夹分组显示
-    const byFolder = {};
-    const noFolder = [];
-    for (const doc of list) {
-      if (doc.folder_id && doc.folder_name) {
-        (byFolder[doc.folder_name] = byFolder[doc.folder_name] || []).push(doc);
-      } else {
-        noFolder.push(doc);
-      }
-    }
-
-    let html = '';
-    // 渲染文件夹分组
-    for (const [folderName, docs] of Object.entries(byFolder)) {
-      html += `<div class="doc-cat">
-        <div class="doc-cat__title">📁 ${escapeHtml(folderName)}</div>
-        ${docs.map(d => docItemHTML(d)).join('')}
-      </div>`;
-    }
-    // 未归类文档
-    if (noFolder.length) {
-      html += `<div class="doc-cat">
-        <div class="doc-cat__title">未归类</div>
-        ${noFolder.map(d => docItemHTML(d)).join('')}
-      </div>`;
-    }
-    root.innerHTML = html;
-    return;
-  }
 
   // 先做权限过滤（前端预过滤）
   const lvl = __DOC.user.permissionLevel;
@@ -626,7 +292,7 @@ function renderDocSidebarTree(keyword = '') {
 
   if (list.length === 0) {
     const reason = __DOC.docs.length === 0 ? '暂无可访问的文档'
-      : (kw ? `没有匹配「${kw}」的文档` : `当前「${({public:'公共',group:'组',private:'私有',personal:'私人'})[__DOC.visFilter] || '全部'}」分类下暂无文档`);
+      : (kw ? `没有匹配「${kw}」的文档` : `当前「${({public:'公共',group:'组',private:'私有'})[__DOC.visFilter] || '全部'}」分类下暂无文档`);
     root.innerHTML = `<p class="doc-loading-text">${reason}</p>`;
     return;
   }
@@ -681,16 +347,6 @@ function docItemHTML(d) {
 function renderHomeCategoryGrids() {
   const lvl = __DOC.user.permissionLevel;
   const uid = __DOC.user.id;
-
-  // 私人选项卡：不显示分类卡片，显示个人文档列表
-  if (__DOC.visFilter === 'personal') {
-    const mountPoints = document.querySelectorAll('[data-category-slug]');
-    mountPoints.forEach(grid => { grid.innerHTML = ''; });
-    const tip = document.getElementById('emptyCatTip');
-    if (tip) tip.style.display = 'none';
-    return;
-  }
-
   let visibleDocs = __DOC.docs.filter(doc =>
     (uid && doc.author_id === uid) || canViewByBits(doc.permission_bits, doc.visibility, lvl)
   );
@@ -746,193 +402,30 @@ function bindDocSearch() {
 }
 
 // =========================================
-// 6.1 可见类型 tab（公共 / 组 / 私有 / 私人）
+// 6.1 可见类型 tab（公共 / 组 / 私有）
 // =========================================
 function bindVisTabs() {
   const wrap = document.getElementById('docVisTabs');
   if (!wrap) return;
   const tabs = wrap.querySelectorAll('.doc-tab');
   tabs.forEach(tab => {
-    tab.addEventListener('click', async () => {
+    tab.addEventListener('click', () => {
       const vis = tab.getAttribute('data-vis');
-      
-      // 私人选项卡特殊处理：需要调用不同的 API
-      if (vis === 'personal') {
-        if (!__DOC.user.isLoggedIn) {
-          if (typeof Toast !== 'undefined') Toast.show('请先登录后查看私人文档', 'warning');
-          return;
-        }
-        // 再次点击已激活的私人 tab 视为取消筛选
-        if (__DOC.visFilter === 'personal') {
-          __DOC.visFilter = '';
-          tabs.forEach(t => { t.classList.remove('is-active'); t.setAttribute('aria-selected', 'false'); });
-          // 恢复公共文档视图
-          await fetchDocList();
-        } else {
-          __DOC.visFilter = 'personal';
-          tabs.forEach(t => {
-            const on = t === tab;
-            t.classList.toggle('is-active', on);
-            t.setAttribute('aria-selected', String(on));
-          });
-          // 加载个人文档
-          await loadPersonalDocuments();
-        }
+      // 再次点击已激活的 tab 视为取消筛选（回到全部）
+      if (__DOC.visFilter === vis) {
+        __DOC.visFilter = '';
+        tabs.forEach(t => { t.classList.remove('is-active'); t.setAttribute('aria-selected', 'false'); });
       } else {
-        // 其他选项卡（公共 / 组 / 私有）
-        // 再次点击已激活的 tab 视为取消筛选（回到全部）
-        if (__DOC.visFilter === vis) {
-          __DOC.visFilter = '';
-          tabs.forEach(t => { t.classList.remove('is-active'); t.setAttribute('aria-selected', 'false'); });
-        } else {
-          __DOC.visFilter = vis;
-          tabs.forEach(t => {
-            const on = t === tab;
-            t.classList.toggle('is-active', on);
-            t.setAttribute('aria-selected', String(on));
-          });
-        }
-        // 如果从私人切换到其他，需要重新加载文档列表
-        if (__DOC.visFilter !== 'personal') {
-          await fetchDocList();
-        }
+        __DOC.visFilter = vis;
+        tabs.forEach(t => {
+          const on = t === tab;
+          t.classList.toggle('is-active', on);
+          t.setAttribute('aria-selected', String(on));
+        });
       }
-      
       // 保留搜索关键字一起重渲染
       const input = document.getElementById('docSearchInput');
       renderDocSidebarTree(input ? input.value : '');
-      renderHomeCategoryGrids();
-    });
-  });
-}
-
-/**
- * 加载个人文档（私人选项卡）
- * 调用 GET /api/v1/document/mine?scope=personal
- */
-async function loadPersonalDocuments() {
-  const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
-  if (!token) {
-    if (typeof Toast !== 'undefined') Toast.show('请先登录', 'warning');
-    return;
-  }
-
-  // 显示加载动画
-  const root = document.getElementById('docSidebarTree');
-  if (root) root.innerHTML = '<p class="doc-loading-text">正在加载个人文档...</p>';
-
-  try {
-    const r = await fetch(`${API_BASE_URL}/api/v1/document/mine?scope=personal`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const d = await r.json();
-    
-    if (r.ok && d.code === 200) {
-      __DOC.docs = d.data || [];
-      // 提取个人文件夹信息（如果有）
-      extractPersonalFolders();
-      // 渲染文件夹区段
-      renderPersonalFolders();
-    } else {
-      console.warn('[personal] 获取失败:', d.msg);
-      if (typeof Toast !== 'undefined') Toast.show(d.msg || '加载个人文档失败', 'error');
-      if (root) root.innerHTML = '<p class="doc-loading-text">加载失败，请重试</p>';
-    }
-  } catch (e) {
-    console.error('[personal] 网络错误:', e);
-    if (typeof Toast !== 'undefined') Toast.show('网络错误', 'error');
-    if (root) root.innerHTML = '<p class="doc-loading-text">网络错误，请重试</p>';
-  }
-}
-
-/**
- * 从个人文档中提取文件夹信息
- */
-function extractPersonalFolders() {
-  const folderMap = new Map();
-  __DOC.docs.forEach(doc => {
-    if (doc.folder_id && doc.folder_name) {
-      if (!folderMap.has(doc.folder_id)) {
-        folderMap.set(doc.folder_id, {
-          id: doc.folder_id,
-          name: doc.folder_name,
-          scope: 'personal'
-        });
-      }
-    }
-  });
-  __DOC.personalFolders = Array.from(folderMap.values());
-}
-
-/**
- * 渲染个人文件夹区段（私人选项卡专用）
- */
-function renderPersonalFolders() {
-  const section = document.getElementById('docFoldersSection');
-  const list = document.getElementById('docFoldersList');
-  if (!section || !list) return;
-
-  // 私人选项卡下显示个人文件夹
-  if (__DOC.visFilter !== 'personal') {
-    // 非私人选项卡，恢复公共文件夹渲染
-    renderDocFolders();
-    return;
-  }
-
-  // 私人选项卡：隐藏新建按钮（个人文件夹暂不支持前端创建）
-  const addBtn = document.getElementById('docFolderAddBtn');
-  if (addBtn) addBtn.style.display = 'none';
-
-  if (__DOC.personalFolders.length === 0) {
-    section.style.display = '';
-    list.innerHTML = `<p class="doc-loading-text" style="padding:6px 8px;">暂无个人文件夹</p>`;
-    return;
-  }
-
-  section.style.display = '';
-  const items = [];
-  // 第一项：全部
-  const allActive = __DOC.currentFolderId === null ? ' is-active' : '';
-  items.push(`<div class="doc-folder-item${allActive}" data-folder-id="" data-folder-name="" data-folder-scope="personal">
-    <span class="doc-folder-item__label">
-      <span class="doc-folder-item__icon">📋</span>
-      <span>全部</span>
-    </span>
-  </div>`);
-
-  // 每个个人文件夹
-  for (const f of __DOC.personalFolders) {
-    const active = __DOC.currentFolderId === f.id ? ' is-active' : '';
-    items.push(`<div class="doc-folder-item${active}" data-folder-id="${f.id}" data-folder-name="${escapeAttr(f.name)}" data-folder-scope="personal">
-      <span class="doc-folder-item__label">
-        <span class="doc-folder-item__icon">📁</span>
-        <span>${escapeHtml(f.name)}</span>
-      </span>
-    </div>`);
-  }
-
-  list.innerHTML = items.join('');
-  bindPersonalFolderActions();
-}
-
-/**
- * 绑定个人文件夹点击事件
- */
-function bindPersonalFolderActions() {
-  document.querySelectorAll('.doc-folder-item[data-folder-scope="personal"]').forEach(item => {
-    const fresh = item.cloneNode(true);
-    item.parentNode.replaceChild(fresh, item);
-
-    fresh.addEventListener('click', async (e) => {
-      if (e.target.closest('.doc-folder-item__btn')) return;
-      const idRaw = fresh.getAttribute('data-folder-id');
-      const newId = idRaw === '' ? null : Number(idRaw);
-      if (newId === __DOC.currentFolderId) return;
-      __DOC.currentFolderId = newId;
-      
-      // 重新加载个人文档并过滤
-      await loadPersonalDocuments();
-      renderDocSidebarTree();
       renderHomeCategoryGrids();
     });
   });
@@ -951,31 +444,6 @@ async function applyDocFolderFilter() {
   renderDocSidebarTree();
   renderHomeCategoryGrids();
   renderDocFolders();
-  renderDocBreadcrumb();
-}
-
-/**
- * 渲染文档页面包屑导航（私人选项卡）
- */
-function renderDocBreadcrumb() {
-  const container = document.getElementById('docBreadcrumb');
-  if (!container) return;
-
-  let pathText = '';
-  if (__DOC.currentFolderId === null) {
-    pathText = '📋 全部文档';
-  } else if (__DOC.currentFolderId === 0) {
-    pathText = '📋 全部 > 📁 未归类';
-  } else {
-    const folder = __DOC.folders.find(f => f.id === __DOC.currentFolderId);
-    if (folder) {
-      pathText = `📋 全部 > 📁 ${escapeHtml(folder.name)}`;
-    } else {
-      pathText = '📋 全部文档';
-    }
-  }
-
-  container.innerHTML = `<div class="doc-breadcrumb">${pathText}</div>`;
 }
 
 /**
@@ -1294,12 +762,6 @@ function renderDocDetailView(doc) {
   const $content = document.getElementById('docContent');
   if ($title) $title.textContent = doc.title || '（无标题）';
 
-  // 缓存当前文档对象（用于编辑功能）
-  __DOC_EDIT_CURRENT = doc;
-
-  // 更新编辑栏可见性
-  updateEditBarVisibility(doc);
-
   // --- 元信息条 ---
   const lvl = __DOC.user.permissionLevel;
   const isAdminView = lvl && lvl >= 5;
@@ -1520,238 +982,3 @@ function fmtTime(iso) {
     return `${y}-${m}-${day} ${hh}:${mm}`;
   } catch { return String(iso); }
 }
-
-// =========================================
-// 12. 编辑模式（仅对有权限用户显示）
-// =========================================
-
-let __DOC_EDIT_CURRENT = null; // 当前正在编辑的文档对象（缓存）
-
-/**
- * 判断当前用户是否可编辑该文档
- * 规则：
- *   - 超级管理员（等级 5）可编辑所有文档
- *   - 文档作者可编辑自己的文档
- *   - 等级 >= 2 的用户可编辑 visibility=group 且同组的文档
- */
-function canEditDoc(doc) {
-  if (!__DOC.user.isLoggedIn) return false;
-  if (__DOC.user.permissionLevel >= 5) return true; // 超管
-  if (doc.author_id && __DOC.user.id && doc.author_id === __DOC.user.id) return true; // 作者本人
-  // TODO: 等级>=2 且同组可编辑 group 文档（需要后端返回 author_group 以便前端比对）
-  return false;
-}
-
-/**
- * 在详情页渲染后，根据权限决定是否显示编辑按钮
- */
-function updateEditBarVisibility(doc) {
-  const bar = document.getElementById('docEditBar');
-  if (!bar) return;
-  if (canEditDoc(doc)) {
-    bar.style.display = '';
-  } else {
-    bar.style.display = 'none';
-  }
-}
-
-/**
- * 绑定编辑相关按钮事件（仅初始化一次）
- */
-function initEditControls() {
-  const editBtn = document.getElementById('docEditBtn');
-  const cancelBtn = document.getElementById('docEditCancelBtn');
-  const saveBtn = document.getElementById('docEditSaveBtn');
-  const previewToggleBtn = document.getElementById('docEditPreviewToggleBtn');
-  const textarea = document.getElementById('docEditTextarea');
-
-  if (editBtn) {
-    editBtn.addEventListener('click', () => {
-      if (__DOC_EDIT_CURRENT) enterEditMode(__DOC_EDIT_CURRENT);
-    });
-  }
-
-  if (cancelBtn) {
-    cancelBtn.addEventListener('click', exitEditMode);
-  }
-
-  if (saveBtn) {
-    saveBtn.addEventListener('click', saveDocEdit);
-  }
-
-  if (previewToggleBtn) {
-    previewToggleBtn.addEventListener('click', toggleEditPreview);
-  }
-
-  // 编辑器实时预览
-  if (textarea) {
-    textarea.addEventListener('input', () => {
-      const preview = document.getElementById('docEditPreview');
-      if (preview && preview.style.display !== 'none') {
-        renderEditPreview();
-      }
-    });
-  }
-}
-
-/**
- * 进入编辑模式
- */
-function enterEditMode(doc) {
-  __DOC_EDIT_CURRENT = doc;
-  const container = document.getElementById('docEditContainer');
-  const titleInput = document.getElementById('docEditTitle');
-  const textarea = document.getElementById('docEditTextarea');
-  const preview = document.getElementById('docEditPreview');
-  const contentEl = document.getElementById('docContent');
-  const metaEl = document.getElementById('docMeta');
-  const revisionsEl = document.getElementById('docRevisions');
-
-  if (!container || !titleInput || !textarea) return;
-
-  // 填充现有数据
-  titleInput.value = doc.title || '';
-  textarea.value = doc.content || '';
-  preview.style.display = 'none';
-  preview.querySelector('.doc-edit-preview-content').innerHTML = '';
-
-  // 隐藏正文、元信息、修订历史
-  if (contentEl) contentEl.style.display = 'none';
-  if (metaEl) metaEl.style.display = 'none';
-  if (revisionsEl) revisionsEl.style.display = 'none';
-
-  // 显示编辑容器
-  container.style.display = '';
-  textarea.focus();
-}
-
-/**
- * 退出编辑模式
- */
-function exitEditMode() {
-  const container = document.getElementById('docEditContainer');
-  const contentEl = document.getElementById('docContent');
-  const metaEl = document.getElementById('docMeta');
-  const revisionsEl = document.getElementById('docRevisions');
-
-  if (container) container.style.display = 'none';
-  if (contentEl) contentEl.style.display = '';
-  if (metaEl) metaEl.style.display = '';
-  if (revisionsEl && __DOC.revisions.length > 0) revisionsEl.style.display = '';
-
-  __DOC_EDIT_CURRENT = null;
-}
-
-/**
- * 切换预览显示
- */
-function toggleEditPreview() {
-  const preview = document.getElementById('docEditPreview');
-  const btn = document.getElementById('docEditPreviewToggleBtn');
-  if (!preview) return;
-
-  const isHidden = preview.style.display === 'none';
-  if (isHidden) {
-    preview.style.display = '';
-    if (btn) btn.textContent = '📝 编辑';
-    renderEditPreview();
-  } else {
-    preview.style.display = 'none';
-    if (btn) btn.textContent = '👁 预览';
-  }
-}
-
-/**
- * 渲染编辑预览
- */
-async function renderEditPreview() {
-  const textarea = document.getElementById('docEditTextarea');
-  const previewContent = document.getElementById('docEditPreviewContent');
-  if (!textarea || !previewContent) return;
-
-  const raw = textarea.value || '';
-  await ensureMarkedLoaded();
-  try {
-    if (__DOC.markedReady && window.marked) {
-      previewContent.innerHTML = window.marked.parse(raw || '*空内容*');
-    } else {
-      previewContent.innerHTML = `<pre>${escapeHtml(raw)}</pre>`;
-    }
-  } catch (e) {
-    previewContent.innerHTML = `<pre>${escapeHtml(raw)}</pre>`;
-  }
-}
-
-/**
- * 保存编辑（调用 PUT /api/v1/document/:id）
- * 成功后刷新详情页并拉取最新修订历史
- */
-async function saveDocEdit() {
-  if (!__DOC_EDIT_CURRENT) return;
-
-  const titleInput = document.getElementById('docEditTitle');
-  const textarea = document.getElementById('docEditTextarea');
-  const saveBtn = document.getElementById('docEditSaveBtn');
-  if (!titleInput || !textarea) return;
-
-  const newTitle = titleInput.value.trim();
-  const newContent = textarea.value;
-
-  if (!newTitle) {
-    if (typeof Toast !== 'undefined') Toast.show('请输入文档标题', 'warning');
-    return;
-  }
-
-  const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
-  if (!token) {
-    if (typeof Toast !== 'undefined') Toast.show('请先登录', 'warning');
-    return;
-  }
-
-  // 禁用按钮，显示保存中
-  const originalText = saveBtn.textContent;
-  saveBtn.textContent = '保存中...';
-  saveBtn.disabled = true;
-
-  try {
-    const summary = newContent.replace(/^#+\s.*$/gm, '').replace(/[*`>~_\-\[\]\(\)]/g, '').trim().slice(0, 100);
-    const body = JSON.stringify({
-      title: newTitle,
-      content: newContent,
-      summary: summary || '（无摘要）'
-    });
-
-    const r = await fetch(`${API_BASE_URL}/api/v1/document/${__DOC_EDIT_CURRENT.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body
-    });
-
-    const d = await r.json();
-    if (!r.ok || d.code !== 200) {
-      throw new Error(d.msg || '保存失败');
-    }
-
-    if (typeof Toast !== 'undefined') Toast.show('保存成功', 'success');
-
-    // 退出编辑模式
-    exitEditMode();
-
-    // 重新加载详情页（使用 slug 路由）
-    showDocDetail(__DOC_EDIT_CURRENT.slug);
-  } catch (err) {
-    console.error('[edit] 保存失败:', err);
-    if (typeof Toast !== 'undefined') Toast.show(err.message || '保存失败', 'error');
-  } finally {
-    saveBtn.textContent = originalText;
-    saveBtn.disabled = false;
-  }
-}
-
-// 页面加载后初始化编辑控件
-document.addEventListener('DOMContentLoaded', () => {
-  initEditControls();
-});

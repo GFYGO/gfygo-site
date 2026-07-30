@@ -46,14 +46,10 @@
         <button class="doc-tab doc-tab--private"              data-vis="private" role="tab" aria-selected="false">
           <span class="doc-tab__icon">🔒</span><span class="doc-tab__label">私有</span>
         </button>
-        <button class="doc-tab doc-tab--personal"             data-vis="personal" role="tab" aria-selected="false" style="display:none;">
-          <span class="doc-tab__icon">👤</span><span class="doc-tab__label">私人</span>
-        </button>
       </div>
       <div class="doc-sidebar__search">
         <input type="text" id="docSearchInput" class="doc-search-input" placeholder="🔍 搜索文档标题..." aria-label="搜索文档">
       </div>
-      <div id="docBreadcrumb"></div>
       <div class="doc-folders" id="docFoldersSection">
         <div class="doc-folders__head">
           <span class="doc-folders__title">📁 文件夹</span>
@@ -126,40 +122,9 @@
             <h1 class="doc-title" id="docTitle">加载中...</h1>
           </header>
 
-          <!-- 编辑控制栏（仅对有编辑权限的用户显示） -->
-          <div class="doc-edit-bar" id="docEditBar" style="display:none;">
-            <div class="doc-edit-bar__actions">
-              <button class="doc-edit-bar__btn" id="docEditBtn" title="编辑文档">
-                <span class="doc-edit-bar__icon">✏️</span>
-                <span>编辑</span>
-              </button>
-            </div>
-          </div>
-
           <!-- 元信息条：权限、作者、时间等 -->
           <div class="doc-meta" id="docMeta">
             <span class="doc-loading-text">加载元信息中...</span>
-          </div>
-
-          <!-- 编辑模式容器 -->
-          <div class="doc-edit-container" id="docEditContainer" style="display:none;">
-            <div class="doc-edit-header">
-              <input type="text" id="docEditTitle" class="doc-edit-title-input" placeholder="文档标题">
-              <div class="doc-edit-actions">
-                <button class="btn-secondary" id="docEditCancelBtn">取消</button>
-                <button class="btn-primary" id="docEditSaveBtn">💾 保存</button>
-              </div>
-            </div>
-            <div class="doc-edit-body">
-              <textarea id="docEditTextarea" class="doc-edit-textarea" placeholder="支持 Markdown 语法..."></textarea>
-              <div class="doc-edit-preview" id="docEditPreview" style="display:none;">
-                <div class="doc-edit-preview-content" id="docEditPreviewContent"></div>
-              </div>
-            </div>
-            <div class="doc-edit-footer">
-              <button class="doc-edit-footer__btn" id="docEditPreviewToggleBtn" title="切换预览">👁 预览</button>
-              <span class="doc-edit-footer__hint">支持 Markdown 语法，保存后自动创建修订版本</span>
-            </div>
           </div>
 
           <!-- 正文 Markdown 渲染区 -->
@@ -236,6 +201,6 @@
   <script src="./toast.js"></script>
   <script src="./modal.js"></script>
   <script src="./index.js"></script>
-  <script src="./document.js?v=20260730b"></script>
+  <script src="./document.js?v=20260730a"></script>
 </body>
 </html>

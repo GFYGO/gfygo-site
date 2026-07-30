@@ -1,21 +1,7 @@
 /**
  * dashboard.js
  * 用户主页逻辑：鉴权校验 + 用户信息渲染 + 权限按钮 + 侧边栏交互
- * 
- * 重构要点：
- * 1. 模块化拆分：将大函数拆分为独立的功能模块
- * 2. 提取工具函数：统一DOM操作、API请求、时间格式化等
- * 3. 改善命名和注释：使用更清晰的函数名和完整的文档注释
  */
-
-// =========================================
-// 配置与常量
-// =========================================
-
-const CURRENT_USER = {
-    pageLevel: 1,  // dashboard 页面权限固定为 1（普通用户）
-    level: null    // 用户真实权限等级（从 API 获取）
-};
 
 const DEFAULT_BANNER = 'https://picsum.photos/1200/300';
 const DEFAULT_AVATAR = '../favicon.png';
@@ -29,181 +15,103 @@ const ROLE_NAMES = {
     5: '超级管理员'
 };
 
+// 动态菜单缓存：tab_key -> { meta, loaded: bool }
+const dynamicMenuCache = new Map();
+// 静态 tab（与后端动态项 tab_key 冲突时跳过）
 const STATIC_TABS = ['workspace', 'home', 'notify', 'settings', 'personal-docs'];
+// 静态 panel 首次加载标记
+const staticPanelLoaded = new Set();
 
-// =========================================
-// 工具函数模块
-// =========================================
+// URL 中携带的邮箱验证码（用于邮件链接跳转后自动填入）
+let pendingEmailCode = null;
 
-/**
- * HTML 转义，防止 XSS
- * @param {string} str - 原始字符串
- * @returns {string} 转义后的字符串
- */
-function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str == null ? '' : String(str);
-    return div.innerHTML;
-}
+document.addEventListener('DOMContentLoaded', async () => {
+    initSidebarToggle();
+    initSettingsButton();
+    initTabSwitching();
 
-/**
- * 兼容旧浏览器的复制方案
- * @param {string} text - 要复制的文本
- * @returns {boolean} 是否复制成功
- */
-function fallbackCopy(text) {
+    // 读取 URL 参数中的验证码
     try {
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.select();
-        const ok = document.execCommand('copy');
-        document.body.removeChild(textarea);
-        return ok;
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        if (code && /^\d{6}$/.test(code)) {
+            pendingEmailCode = code;
+            // 清除 URL 参数（避免刷新重复触发）
+            const cleanUrl = window.location.origin + window.location.pathname + window.location.hash;
+            window.history.replaceState({}, document.title, cleanUrl);
+        }
     } catch (e) {
-        return false;
+        console.warn('解析 URL 参数失败', e);
     }
-}
 
-/**
- * 格式化时间为友好显示
- * @param {string} iso - ISO 格式的时间字符串
- * @returns {string} 格式化后的时间
- */
-function formatFriendlyTime(iso) {
-    if (!iso) return '';
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return '';
-    const now = new Date();
-    const diff = (now - d) / 1000;
-    
-    if (diff < 60) return '刚刚';
-    if (diff < 3600) return Math.floor(diff / 60) + ' 分钟前';
-    if (diff < 86400) return Math.floor(diff / 3600) + ' 小时前';
-    if (diff < 604800) return Math.floor(diff / 86400) + ' 天前';
-    
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-/**
- * DOM 操作工具：安全设置元素内容
- * @param {string} elementId - 元素 ID
- * @param {string|function} contentOrSetter - 内容或设置函数
- */
-function safeSetElementContent(elementId, contentOrSetter) {
-    const element = document.getElementById(elementId);
-    if (!element) return;
-    
-    if (typeof contentOrSetter === 'function') {
-        contentOrSetter(element);
-    } else {
-        element.textContent = contentOrSetter;
+    // 访客视角模式：直接跳转首页
+    if (localStorage.getItem('guest_view_mode') === 'true') {
+        window.location.href = `${BASE_PATH}/index.html`;
+        return;
     }
-}
 
-/**
- * DOM 操作工具：安全设置元素属性
- * @param {string} elementId - 元素 ID
- * @param {string} attribute - 属性名
- * @param {string} value - 属性值
- */
-function safeSetElementAttribute(elementId, attribute, value) {
-    const element = document.getElementById(elementId);
-    if (element) {
-        element[attribute] = value;
-    }
-}
-
-// =========================================
-// API 请求模块
-// =========================================
-
-/**
- * 统一 API 请求封装
- * @param {string} path - API 路径
- * @param {object} options - fetch 选项
- * @returns {Promise<object|null>} 响应数据或 null
- */
-async function apiRequest(path, options = {}) {
     const token = AuthGuard.getToken();
     if (!token) {
         AuthGuard.handleAuthError();
-        return null;
+        return;
     }
 
     try {
-        const res = await fetch(`${API_BASE_URL}${path}`, {
-            ...options,
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-                'X-Page-Type': 'dashboard',
-                ...(options.headers || {})
-            }
+        const response = await fetch(`${API_BASE_URL}/api/v1/auth/status`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
         });
 
-        if (res.status === 401) {
+        if (response.status === 401) {
             AuthGuard.handleAuthError();
-            return null;
+            return;
         }
 
-        return await res.json();
-    } catch (e) {
-        console.error('[API] 请求失败:', e);
-        if (typeof Toast !== 'undefined') {
-            Toast.show('网络请求失败', 'error');
+        const data = await response.json();
+        if (response.ok && data.code === 200) {
+            const user = data.data.user;
+            pdocsCurrentUserId = user.id;
+            renderUserProfile(user);
+            renderPermissionButtons(user.permission_level);
+            renderTopNavAuth(user);
+
+            // 检查邮箱验证状态
+            checkEmailVerificationStatus(token, user.email);
+
+            // 加载动态菜单（依赖已登录）
+            loadDynamicMenu(token);
+            // 绑定设置面板主题切换
+            initThemeOptions(token);
+            // 初始化日历打卡
+            initCheckinCalendar(user.id);
         }
-        return null;
+    } catch (error) {
+        console.error('获取用户信息失败:', error);
     }
-}
+});
 
-// =========================================
-// 侧边栏交互模块
-// =========================================
-
-/**
- * 初始化侧边栏开关
- */
 function initSidebarToggle() {
-    const elements = {
-        menuBtn: document.getElementById('menuToggle'),
-        sidebar: document.getElementById('dashboardSidebar'),
-        closeBtn: document.getElementById('sidebarClose'),
-        overlay: document.getElementById('sidebarOverlay')
-    };
+    const menuBtn = document.getElementById('menuToggle');
+    const sidebar = document.getElementById('dashboardSidebar');
+    const closeBtn = document.getElementById('sidebarClose');
+    const overlay = document.getElementById('sidebarOverlay');
+    const dashboardNav = document.getElementById('dashboardNav');
 
-    const openSidebar = () => {
-        elements.sidebar?.classList.add('dashboard-sidebar--open');
-        elements.overlay?.classList.add('sidebar-overlay--visible');
-    };
+    function openSidebar() {
+        sidebar.classList.add('dashboard-sidebar--open');
+        overlay.classList.add('sidebar-overlay--visible');
+    }
 
-    const closeSidebar = () => {
-        elements.sidebar?.classList.remove('dashboard-sidebar--open');
-        elements.overlay?.classList.remove('sidebar-overlay--visible');
-    };
+    function closeSidebar() {
+        sidebar.classList.remove('dashboard-sidebar--open');
+        overlay.classList.remove('sidebar-overlay--visible');
+    }
 
-    elements.menuBtn?.addEventListener('click', openSidebar);
-    elements.closeBtn?.addEventListener('click', closeSidebar);
-    elements.overlay?.addEventListener('click', closeSidebar);
+    if (menuBtn) menuBtn.addEventListener('click', openSidebar);
+    if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+    if (overlay) overlay.addEventListener('click', closeSidebar);
 }
 
-/**
- * 关闭移动端侧边栏
- */
-function closeMobileSidebar() {
-    safeSetElementContent('dashboardSidebar', el => {
-        el.classList.remove('dashboard-sidebar--open');
-    });
-    safeSetElementContent('sidebarOverlay', el => {
-        el.classList.remove('sidebar-overlay--visible');
-    });
-}
-
-/**
- * 初始化设置按钮
- */
 function initSettingsButton() {
     const settingsBtn = document.getElementById('settingsBtn');
     if (settingsBtn) {
@@ -214,27 +122,17 @@ function initSettingsButton() {
     }
 }
 
-// =========================================
-// 标签切换模块
-// =========================================
-
-const dynamicMenuCache = new Map();
-const staticPanelLoaded = new Set();
-
-/**
- * 初始化标签切换
- */
 function initTabSwitching() {
     // 恢复上次保存的 tab，默认主页
     const savedTab = localStorage.getItem('dashboard_active_tab') || 'home';
     const hasPanel = document.getElementById(`panel-${savedTab}`);
-    
     if (hasPanel) {
         switchTab(savedTab, true);
     } else {
         switchTab('home', true);
     }
 
+    // 绑定静态项点击
     bindTabClicks();
 
     // 左下角头像点击切换到主页
@@ -248,10 +146,8 @@ function initTabSwitching() {
     }
 }
 
-/**
- * 绑定所有侧边栏导航项点击
- */
 function bindTabClicks() {
+    // 绑定所有侧边栏导航项点击（含动态项渲染后新增的），避免重复绑定
     document.querySelectorAll('.sidebar__nav-item[data-tab]').forEach(item => {
         if (item.dataset.bound === '1') return;
         item.dataset.bound = '1';
@@ -263,11 +159,13 @@ function bindTabClicks() {
     });
 }
 
-/**
- * 切换标签页
- * @param {string} tab - 标签 ID
- * @param {boolean} skipSave - 是否跳过保存
- */
+function closeMobileSidebar() {
+    const sidebar = document.getElementById('dashboardSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (sidebar) sidebar.classList.remove('dashboard-sidebar--open');
+    if (overlay) overlay.classList.remove('sidebar-overlay--visible');
+}
+
 async function switchTab(tab, skipSave = false) {
     if (!skipSave) {
         localStorage.setItem('dashboard_active_tab', tab);
@@ -277,54 +175,25 @@ async function switchTab(tab, skipSave = false) {
     if (dynamicMenuCache.has(tab) && !dynamicMenuCache.get(tab).loaded) {
         await loadPanelContent(tab);
     }
-
-    // 静态 panel 首次加载逻辑
-    handleStaticPanelLoad(tab);
-
-    // 切换内容面板
-    updateActivePanel(tab);
-
-    // 更新侧边栏导航项激活状态
-    updateActiveNavigation(tab);
-}
-
-/**
- * 处理静态面板首次加载
- * @param {string} tab - 标签 ID
- */
-function handleStaticPanelLoad(tab) {
+    // 静态 panel 首次加载逻辑（通知中心）
     if (tab === 'notify' && !staticPanelLoaded.has('notify')) {
         staticPanelLoaded.add('notify');
         loadNotifyList();
     }
-
+    // 个人文档首次加载
     if (tab === 'personal-docs' && !staticPanelLoaded.has('personal-docs')) {
         staticPanelLoaded.add('personal-docs');
         initPersonalDocs();
     }
-}
 
-/**
- * 更新活动面板显示
- * @param {string} tab - 标签 ID
- */
-function updateActivePanel(tab) {
+    // 切换内容面板
     document.querySelectorAll('.tab-panel').forEach(panel => {
         panel.style.display = 'none';
     });
-    
     const targetPanel = document.getElementById(`panel-${tab}`);
-    if (targetPanel) {
-        targetPanel.style.display = '';
-    }
-}
+    if (targetPanel) targetPanel.style.display = '';
 
-/**
- * 更新导航项激活状态
- * @param {string} tab - 标签 ID
- */
-function updateActiveNavigation(tab) {
-    // 更新侧边栏导航项
+    // 更新侧边栏导航项激活状态
     document.querySelectorAll('.sidebar__nav-item').forEach(item => {
         item.classList.toggle('active', item.dataset.tab === tab);
     });
@@ -343,27 +212,18 @@ function updateActiveNavigation(tab) {
 }
 
 // =========================================
-// 动态菜单模块
+// 动态菜单相关函数
 // =========================================
 
-/**
- * 加载动态菜单
- * @param {string} token - JWT token
- */
 async function loadDynamicMenu(token) {
     const container = document.getElementById('dynamicMenuContainer');
     const divider = document.getElementById('dynamicMenuDivider');
     if (!container) return;
-
     try {
         const res = await fetch(`${API_BASE_URL}/api/v1/user/menu`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'X-Page-Type': 'dashboard'
-            }
+            headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
-        
         if (data.code !== 200 || !Array.isArray(data.data)) return;
 
         const items = data.data;
@@ -371,122 +231,80 @@ async function loadDynamicMenu(token) {
             divider.style.display = 'none';
             return;
         }
-        
         divider.style.display = '';
-        const contentHost = document.querySelector('.dashboard-content');
 
+        const contentHost = document.querySelector('.dashboard-content');
         items.forEach(item => {
+            // tab_key 与静态项冲突时跳过
             if (STATIC_TABS.includes(item.tab_key)) {
                 console.warn(`[menu] 动态项 tab_key 冲突，跳过: ${item.tab_key}`);
                 return;
             }
-
+            // 缓存元数据
             dynamicMenuCache.set(item.tab_key, { meta: item, loaded: false });
-            
             // 渲染 nav-item
-            const navItem = createNavItemElement(item);
-            container.appendChild(navItem);
-            
-            // 创建空 panel
-            const panel = createPanelElement(item.tab_key);
+            const a = document.createElement('a');
+            a.href = '#';
+            a.className = 'sidebar__nav-item';
+            a.dataset.tab = item.tab_key;
+            a.innerHTML = `<span class="sidebar__nav-icon">${item.icon || '📄'}</span>
+                           <span class="sidebar__nav-text">${item.label}</span>`;
+            container.appendChild(a);
+            // 创建空 panel（懒加载时填充内容）
+            const panel = document.createElement('section');
+            panel.className = 'tab-panel';
+            panel.id = `panel-${item.tab_key}`;
+            panel.style.display = 'none';
+            panel.innerHTML = '<p class="loading-text">加载中...</p>';
             contentHost.appendChild(panel);
         });
-
+        // 重新绑定 tab 切换（包含新动态项）
         bindTabClicks();
-        restoreDynamicTabState();
+
+        // 若上次保存的 tab 是动态项，恢复切换
+        const savedTab = localStorage.getItem('dashboard_active_tab');
+        if (savedTab && dynamicMenuCache.has(savedTab)) {
+            const currentActive = document.querySelector('.sidebar__nav-item.active')?.dataset.tab;
+            if (currentActive !== savedTab) {
+                switchTab(savedTab, true);
+            }
+        }
     } catch (e) {
         console.error('[menu] 加载动态菜单失败', e);
     }
 }
 
-/**
- * 创建导航项元素
- * @param {object} item - 菜单项数据
- * @returns {HTMLElement} 导航项元素
- */
-function createNavItemElement(item) {
-    const a = document.createElement('a');
-    a.href = '#';
-    a.className = 'sidebar__nav-item';
-    a.dataset.tab = item.tab_key;
-    a.innerHTML = `<span class="sidebar__nav-icon">${item.icon || '📄'}</span>
-                   <span class="sidebar__nav-text">${item.label}</span>`;
-    return a;
-}
-
-/**
- * 创建面板元素
- * @param {string} tabKey - 标签键
- * @returns {HTMLElement} 面板元素
- */
-function createPanelElement(tabKey) {
-    const panel = document.createElement('section');
-    panel.className = 'tab-panel';
-    panel.id = `panel-${tabKey}`;
-    panel.style.display = 'none';
-    panel.innerHTML = '<p class="loading-text">加载中...</p>';
-    return panel;
-}
-
-/**
- * 恢复动态标签状态
- */
-function restoreDynamicTabState() {
-    const savedTab = localStorage.getItem('dashboard_active_tab');
-    if (savedTab && dynamicMenuCache.has(savedTab)) {
-        const currentActive = document.querySelector('.sidebar__nav-item.active')?.dataset.tab;
-        if (currentActive !== savedTab) {
-            switchTab(savedTab, true);
-        }
-    }
-}
-
-/**
- * 加载面板内容
- * @param {string} tab - 标签 ID
- */
 async function loadPanelContent(tab) {
     const cache = dynamicMenuCache.get(tab);
     if (!cache || cache.loaded) return;
-
     const token = AuthGuard.getToken();
     if (!token) return;
-
     const panel = document.getElementById(`panel-${tab}`);
     if (!panel) return;
-
     try {
         const res = await fetch(`${API_BASE_URL}/api/v1/user/menu/${cache.meta.id}/content`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'X-Page-Type': 'dashboard'
-            }
+            headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
-
         if (data.code !== 200) {
             panel.innerHTML = '<p class="loading-text">内容加载失败</p>';
             return;
         }
-
         const d = data.data;
         panel.innerHTML = d.html_content || '';
-
-        // 注入 CSS
+        // CSS：独立 <style> 节点追加，便于隔离与清理
         if (d.css_content) {
             const style = document.createElement('style');
             style.dataset.tabStyle = tab;
             style.textContent = d.css_content;
             panel.appendChild(style);
         }
-
-        // 注入 JS
+        // JS：innerHTML 的 <script> 不会执行，需重建节点
         if (d.js_content) {
             const script = document.createElement('script');
             script.textContent = d.js_content;
             panel.appendChild(script);
         }
-
         cache.loaded = true;
     } catch (e) {
         console.error('[menu] 加载 panel 内容失败', e);
@@ -495,29 +313,22 @@ async function loadPanelContent(tab) {
 }
 
 // =========================================
-// 通知中心模块
+// 通知中心 / 设置 面板逻辑
 // =========================================
 
-/**
- * 加载通知列表
- */
 async function loadNotifyList() {
     const list = document.getElementById('notifyList');
     if (!list) return;
-
     const token = AuthGuard.getToken();
     try {
-        const headers = { 'X-Page-Type': 'dashboard' };
+        const headers = {};
         if (token) headers['Authorization'] = `Bearer ${token}`;
-        
         const res = await fetch(`${API_BASE_URL}/api/v1/notify/global`, { headers });
         const data = await res.json();
-
         if (data.code !== 200 || !Array.isArray(data.data) || data.data.length === 0) {
             list.innerHTML = '<p class="loading-text">暂无通知</p>';
             return;
         }
-
         list.innerHTML = data.data.map(n => `
             <div class="notify-card">
                 <h4 class="notify-card__title">${escapeHtml(n.title)}</h4>
@@ -530,43 +341,63 @@ async function loadNotifyList() {
     }
 }
 
-// =========================================
-// 用户信息渲染模块
-// =========================================
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+}
 
-/**
- * 渲染用户资料
- * @param {object} user - 用户对象
- */
+function initThemeOptions(token) {
+    const options = document.getElementById('themeOptions');
+    if (!options) return;
+    options.addEventListener('click', (e) => {
+        const btn = e.target.closest('.theme-opt');
+        if (!btn) return;
+        const theme = btn.dataset.theme;
+        // 复用 theme.js 的 ThemeEngine
+        if (typeof ThemeEngine !== 'undefined') {
+            ThemeEngine.applyTheme(theme);
+            if (token) ThemeEngine.syncThemeToServer(theme, token);
+            if (typeof Toast !== 'undefined') Toast.show('主题已切换', 'success');
+        }
+    });
+}
+
 function renderUserProfile(user) {
     const profile = user.profile || {};
     const avatar = profile.avatar || DEFAULT_AVATAR;
     const banner = profile.banner || DEFAULT_BANNER;
     const roleName = ROLE_NAMES[user.permission_level] || '未知';
 
-    // 设置头像（两处）
-    safeSetElementAttribute('sidebarAvatar', 'src', avatar);
-    safeSetElementAttribute('profileAvatar', 'src', avatar);
-
-    // 头像加载失败时使用默认头像
     const sidebarAvatar = document.getElementById('sidebarAvatar');
     if (sidebarAvatar) {
+        sidebarAvatar.src = avatar;
         sidebarAvatar.onerror = function() { this.src = DEFAULT_AVATAR; };
     }
 
+    const sidebarUsername = document.getElementById('sidebarUsername');
+    if (sidebarUsername) sidebarUsername.textContent = user.username;
+
+    const sidebarUserRole = document.getElementById('sidebarUserRole');
+    if (sidebarUserRole) sidebarUserRole.textContent = roleName;
+
     const profileAvatar = document.getElementById('profileAvatar');
     if (profileAvatar) {
+        profileAvatar.src = avatar;
         profileAvatar.onerror = function() { this.src = DEFAULT_AVATAR; };
     }
 
-    // 设置文本内容
-    safeSetElementContent('sidebarUsername', user.username);
-    safeSetElementContent('sidebarUserRole', roleName);
-    safeSetElementContent('profileUsername', user.username);
-    safeSetElementContent('profileBadge', `Lv.${user.permission_level} ${roleName}`);
-    safeSetElementContent('profileIntro', profile.introduction || '这个人很懒，什么都没留下');
+    const profileUsername = document.getElementById('profileUsername');
+    if (profileUsername) profileUsername.textContent = user.username;
 
-    // 设置 banner
+    const profileBadge = document.getElementById('profileBadge');
+    if (profileBadge) profileBadge.textContent = `Lv.${user.permission_level} ${roleName}`;
+
+    const profileIntro = document.getElementById('profileIntro');
+    if (profileIntro) {
+        profileIntro.textContent = profile.introduction || '这个人很懒，什么都没留下';
+    }
+
     const bannerImg = document.getElementById('bannerImg');
     if (bannerImg) {
         bannerImg.src = banner;
@@ -576,10 +407,6 @@ function renderUserProfile(user) {
     }
 }
 
-/**
- * 渲染顶部导航认证信息
- * @param {object} user - 用户对象
- */
 function renderTopNavAuth(user) {
     const authContainer = document.getElementById('auth-container');
     if (!authContainer) return;
@@ -592,26 +419,6 @@ function renderTopNavAuth(user) {
     const avatar = (user.profile && user.profile.avatar) ? user.profile.avatar : '';
     const defaultAvatar = `${BASE_PATH}/favicon.png`;
 
-    // 创建用户信息元素
-    const userEl = createUserElement(user, avatar, defaultAvatar);
-    authContainer.appendChild(userEl);
-
-    // 隐藏登录/注册链接
-    navLoginLinks.forEach(link => link.style.display = 'none');
-    navRegisterLinks.forEach(link => link.style.display = 'none');
-
-    // 绑定退出按钮
-    bindLogoutButton();
-}
-
-/**
- * 创建用户元素
- * @param {object} user - 用户对象
- * @param {string} avatar - 头像 URL
- * @param {string} defaultAvatar - 默认头像 URL
- * @returns {HTMLElement} 用户元素
- */
-function createUserElement(user, avatar, defaultAvatar) {
     const userEl = document.createElement('div');
     userEl.className = 'user-info';
 
@@ -635,13 +442,11 @@ function createUserElement(user, avatar, defaultAvatar) {
     logoutLink.textContent = '退出';
     userEl.appendChild(logoutLink);
 
-    return userEl;
-}
+    authContainer.appendChild(userEl);
 
-/**
- * 绑定退出按钮事件
- */
-function bindLogoutButton() {
+    navLoginLinks.forEach(link => link.style.display = 'none');
+    navRegisterLinks.forEach(link => link.style.display = 'none');
+
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', (e) => {
@@ -653,153 +458,99 @@ function bindLogoutButton() {
     }
 }
 
-// =========================================
-// 权限按钮模块
-// =========================================
-
-/**
- * 渲染权限按钮
- * @param {number} permissionLevel - 权限等级
- */
 function renderPermissionButtons(permissionLevel) {
     const container = document.getElementById('permissionButtons');
     if (!container) return;
 
     container.innerHTML = '';
 
-    // Dashboard 页面：pageLevel 固定为 1，不显示管理员专属按钮
-    if (CURRENT_USER.pageLevel <= 1) return;
     if (permissionLevel <= 1) return;
 
-    const viewOverride = getViewOverride();
+    // 读取视角覆盖等级
+    const viewOverrideRaw = localStorage.getItem('view_as_level');
+    const viewOverride = viewOverrideRaw ? parseInt(viewOverrideRaw, 10) : null;
     const effectiveLevel = Number.isInteger(viewOverride) ? viewOverride : 1;
 
-    // 创建权限等级按钮
-    const levels = createPermissionLevels(permissionLevel);
-    levels.forEach(level => {
-        const btn = createPermissionButton(level, effectiveLevel);
-        container.appendChild(btn);
-    });
-
-    // 更新视角覆盖提示
-    updateViewOverrideBanner(effectiveLevel);
-}
-
-/**
- * 获取视角覆盖等级
- * @returns {number|null} 视角等级
- */
-function getViewOverride() {
-    const viewOverrideRaw = localStorage.getItem('view_as_level');
-    return viewOverrideRaw ? parseInt(viewOverrideRaw, 10) : null;
-}
-
-/**
- * 创建权限等级数组
- * @param {number} permissionLevel - 用户权限等级
- * @returns {number[]} 权限等级数组
- */
-function createPermissionLevels(permissionLevel) {
+    // 管理员用户：显示等级 1 + 从 2 到当前等级的按钮
+    // 超级管理员（5）：额外显示等级 0
     const levels = [];
     if (permissionLevel >= 5) levels.push(0);
     levels.push(1);
     for (let level = 2; level <= permissionLevel; level++) {
         levels.push(level);
     }
-    return levels;
-}
 
-/**
- * 创建权限按钮
- * @param {number} level - 权限等级
- * @param {number} effectiveLevel - 当前有效等级
- * @returns {HTMLElement} 按钮元素
- */
-function createPermissionButton(level, effectiveLevel) {
-    const btn = document.createElement('button');
-    btn.className = 'perm-btn';
-    
-    if (level === effectiveLevel) {
-        btn.classList.add('perm-btn--current');
-    }
-    
-    btn.textContent = level;
-    btn.title = `切换到 ${ROLE_NAMES[level] || `等级${level}`} 视角预览（仅前端渲染，不改变实际权限）`;
-    btn.addEventListener('click', () => handlePermissionClick(level));
-    
-    return btn;
-}
-
-/**
- * 更新视角覆盖提示
- * @param {number} effectiveLevel - 当前有效等级
- */
-function updateViewOverrideBanner(effectiveLevel) {
-    const bannerEl = document.getElementById('viewOverrideBanner');
-    if (!bannerEl) return;
-
-    if (effectiveLevel !== 1) {
-        bannerEl.style.display = 'block';
-        bannerEl.innerHTML = `当前以 <strong>${ROLE_NAMES[effectiveLevel] || `等级${effectiveLevel}`}</strong> 视角预览（实际权限未改变） · <a href="#" id="clearViewOverrideBtn">返回真实视角</a>`;
-        
-        const clearBtn = document.getElementById('clearViewOverrideBtn');
-        if (clearBtn) {
-            clearBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                localStorage.removeItem('view_as_level');
-                window.location.reload();
-            });
+    levels.forEach(level => {
+        const btn = document.createElement('button');
+        btn.className = 'perm-btn';
+        // 当前视角等级高亮（若有覆盖则按覆盖，否则默认等级 1 高亮）
+        if (level === effectiveLevel) {
+            btn.classList.add('perm-btn--current');
         }
-    } else {
-        bannerEl.style.display = 'none';
+        btn.textContent = level;
+        btn.title = `切换到 ${ROLE_NAMES[level] || `等级${level}`} 视角预览（仅前端渲染，不改变实际权限）`;
+        btn.addEventListener('click', () => handlePermissionClick(level));
+        container.appendChild(btn);
+    });
+
+    // 如果视角覆盖等级生效，显示一个 banner 提示用户
+    const bannerEl = document.getElementById('viewOverrideBanner');
+    if (bannerEl) {
+        if (effectiveLevel !== 1) {
+            bannerEl.style.display = 'block';
+            bannerEl.innerHTML = `当前以 <strong>${ROLE_NAMES[effectiveLevel] || `等级${effectiveLevel}`}</strong> 视角预览（实际权限未改变） · <a href="#" id="clearViewOverrideBtn">返回真实视角</a>`;
+            const clearBtn = document.getElementById('clearViewOverrideBtn');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    localStorage.removeItem('view_as_level');
+                    window.location.reload();
+                });
+            }
+        } else {
+            bannerEl.style.display = 'none';
+        }
     }
 }
 
-/**
- * 处理权限点击
- * @param {number} level - 权限等级
- */
 function handlePermissionClick(level) {
     if (level === 0) {
-        // 访客视角预览
+        // 访客视角预览：不清除 token，设置访客模式标记后跳转首页
         localStorage.setItem('guest_view_mode', 'true');
         localStorage.removeItem('view_as_level');
         window.location.href = `${BASE_PATH}/index.html`;
         return;
     }
 
+    // 切换到其他权限等级：清除访客模式，设置视角模拟（仅影响前端 UI 渲染，不改变 API 实际权限）
     localStorage.removeItem('guest_view_mode');
 
     if (level === 1) {
+        // 等级1 = 当前用户真实视角，清除覆盖
         localStorage.removeItem('view_as_level');
     } else {
+        // 保存视角等级：影响权限按钮高亮和文档列表过滤
         localStorage.setItem('view_as_level', String(level));
     }
 
+    // 重新加载当前页以应用视角切换
     window.location.reload();
 }
 
 // =========================================
-// 邮箱验证模块
+// 邮箱验证相关函数
 // =========================================
 
-let pendingEmailCode = null;
-
-/**
- * 检查邮箱验证状态
- * @param {string} token - JWT token
- * @param {string} email - 邮箱地址
- */
 async function checkEmailVerificationStatus(token, email) {
-    if (!email) return;
+    if (!email) {
+        // 无邮箱用户不显示验证区域
+        return;
+    }
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/v1/auth/email-status`, {
             method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'X-Page-Type': 'dashboard'
-            }
+            headers: { 'Authorization': `Bearer ${token}` }
         });
 
         const data = await response.json();
@@ -813,22 +564,20 @@ async function checkEmailVerificationStatus(token, email) {
     }
 }
 
-/**
- * 显示邮箱验证区域
- * @param {string} email - 邮箱地址
- */
 function showEmailVerificationSection(email) {
     const section = document.getElementById('emailVerificationSection');
     const descEl = document.getElementById('verificationDesc');
 
     if (!section) return;
 
+    // 显示邮箱信息
     if (descEl) {
         descEl.textContent = `验证邮箱: ${email}`;
     }
 
     section.style.display = 'block';
 
+    // 绑定验证按钮
     const verifyBtn = document.getElementById('verifyEmailBtn');
     const codeInput = document.getElementById('verificationCodeInput');
     const resendBtn = document.getElementById('resendCodeBtn');
@@ -841,52 +590,58 @@ function showEmailVerificationSection(email) {
         resendBtn.addEventListener('click', handleResendCode);
     }
 
-    // 处理 URL 中携带的验证码
-    handlePendingEmailCode(codeInput);
-}
+    // 若 URL 中携带了验证码：自动填入 + 复制到剪贴板
+    if (pendingEmailCode && codeInput) {
+        codeInput.value = pendingEmailCode;
 
-/**
- * 处理待处理的邮箱验证码
- * @param {HTMLElement} codeInput - 验证码输入框
- */
-function handlePendingEmailCode(codeInput) {
-    if (!pendingEmailCode || !codeInput) return;
-
-    codeInput.value = pendingEmailCode;
-
-    // 尝试复制到剪贴板
-    let copied = false;
-    try {
-        if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(pendingEmailCode).then(() => {
-                copied = true;
-            }).catch(() => {
-                copied = fallbackCopy(pendingEmailCode);
-            });
-        } else {
-            copied = fallbackCopy(pendingEmailCode);
-        }
-    } catch (e) {
-        console.warn('复制验证码失败', e);
-    }
-
-    if (typeof Toast !== 'undefined') {
-        setTimeout(() => {
-            if (copied) {
-                Toast.show('验证码已自动填入并复制到剪贴板 ✓', 'success');
+        // 尝试复制到剪贴板
+        let copied = false;
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(pendingEmailCode).then(() => {
+                    copied = true;
+                }).catch(() => {
+                    copied = fallbackCopy(pendingEmailCode);
+                });
             } else {
-                Toast.show('验证码已自动填入，请手动复制', 'info');
+                copied = fallbackCopy(pendingEmailCode);
             }
-        }, 300);
-    }
+        } catch (e) {
+            console.warn('复制验证码失败', e);
+        }
 
-    pendingEmailCode = null;
+        if (typeof Toast !== 'undefined') {
+            setTimeout(() => {
+                if (copied) {
+                    Toast.show('验证码已自动填入并复制到剪贴板 ✓', 'success');
+                } else {
+                    Toast.show('验证码已自动填入，请手动复制', 'info');
+                }
+            }, 300);
+        }
+
+        // 一次性消费
+        pendingEmailCode = null;
+    }
 }
 
-/**
- * 处理邮箱验证
- * @param {string} code - 验证码
- */
+// 兼容旧浏览器的复制方案
+function fallbackCopy(text) {
+    try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return ok;
+    } catch (e) {
+        return false;
+    }
+}
+
 async function handleVerifyEmail(code) {
     if (!code || code.length !== 6) {
         Toast.show('请输入6位验证码');
@@ -910,8 +665,7 @@ async function handleVerifyEmail(code) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-                'X-Page-Type': 'dashboard'
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({ code })
         });
@@ -919,6 +673,7 @@ async function handleVerifyEmail(code) {
         const data = await response.json();
         if (response.ok && data.code === 200) {
             Toast.show('邮箱验证成功！', 'success');
+            // 隐藏验证区域
             const section = document.getElementById('emailVerificationSection');
             if (section) section.style.display = 'none';
         } else {
@@ -934,9 +689,6 @@ async function handleVerifyEmail(code) {
     }
 }
 
-/**
- * 处理重发验证码
- */
 async function handleResendCode() {
     const token = AuthGuard.getToken();
     if (!token) {
@@ -953,8 +705,7 @@ async function handleResendCode() {
         const response = await fetch(`${API_BASE_URL}/api/v1/auth/resend-verification`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${token}`,
-                'X-Page-Type': 'dashboard'
+                'Authorization': `Bearer ${token}`
             }
         });
 
@@ -973,27 +724,15 @@ async function handleResendCode() {
     }
 }
 
-// =========================================
-// 日历打卡模块
-// =========================================
+/* ========== 日历打卡系统 ========== */
 
 const CHECKIN_KEY_PREFIX = 'checkin_record_';
 let calendarState = null;
 
-/**
- * 获取打卡记录存储键
- * @param {number} userId - 用户 ID
- * @returns {string} 存储键
- */
 function getCheckinStorageKey(userId) {
     return `${CHECKIN_KEY_PREFIX}${userId}`;
 }
 
-/**
- * 加载打卡记录
- * @param {number} userId - 用户 ID
- * @returns {object} 打卡记录对象
- */
 function loadCheckinRecords(userId) {
     try {
         const raw = localStorage.getItem(getCheckinStorageKey(userId));
@@ -1003,11 +742,6 @@ function loadCheckinRecords(userId) {
     }
 }
 
-/**
- * 保存打卡记录
- * @param {number} userId - 用户 ID
- * @param {object} records - 打卡记录对象
- */
 function saveCheckinRecords(userId, records) {
     try {
         localStorage.setItem(getCheckinStorageKey(userId), JSON.stringify(records));
@@ -1016,45 +750,23 @@ function saveCheckinRecords(userId, records) {
     }
 }
 
-/**
- * 生成日期键
- * @param {number} y - 年
- * @param {number} m - 月
- * @param {number} d - 日
- * @returns {string} 日期键
- */
 function dateKey(y, m, d) {
     return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
-/**
- * 判断是否同一天
- * @param {Date} a - 日期 a
- * @param {Date} b - 日期 b
- * @returns {boolean} 是否同一天
- */
 function isSameDay(a, b) {
     return a.getFullYear() === b.getFullYear()
         && a.getMonth() === b.getMonth()
         && a.getDate() === b.getDate();
 }
 
-/**
- * 初始化日历打卡
- * @param {number} userId - 用户 ID
- */
 function initCheckinCalendar(userId) {
-    const elements = {
-        calEl: document.getElementById('calDays'),
-        titleEl: document.getElementById('calTitle'),
-        prevBtn: document.getElementById('calPrev'),
-        nextBtn: document.getElementById('calNext'),
-        checkinBtn: document.getElementById('checkinBtn')
-    };
-
-    if (!elements.calEl || !elements.titleEl || !elements.prevBtn || !elements.nextBtn || !elements.checkinBtn) {
-        return;
-    }
+    const calEl = document.getElementById('calDays');
+    const titleEl = document.getElementById('calTitle');
+    const prevBtn = document.getElementById('calPrev');
+    const nextBtn = document.getElementById('calNext');
+    const checkinBtn = document.getElementById('checkinBtn');
+    if (!calEl || !titleEl || !prevBtn || !nextBtn || !checkinBtn) return;
 
     const today = new Date();
     calendarState = {
@@ -1065,7 +777,7 @@ function initCheckinCalendar(userId) {
         records: loadCheckinRecords(userId)
     };
 
-    elements.prevBtn.addEventListener('click', () => {
+    prevBtn.addEventListener('click', () => {
         calendarState.viewMonth--;
         if (calendarState.viewMonth < 0) {
             calendarState.viewMonth = 11;
@@ -1073,8 +785,7 @@ function initCheckinCalendar(userId) {
         }
         renderCalendar();
     });
-
-    elements.nextBtn.addEventListener('click', () => {
+    nextBtn.addEventListener('click', () => {
         calendarState.viewMonth++;
         if (calendarState.viewMonth > 11) {
             calendarState.viewMonth = 0;
@@ -1082,20 +793,15 @@ function initCheckinCalendar(userId) {
         }
         renderCalendar();
     });
-
-    elements.checkinBtn.addEventListener('click', handleCheckin);
+    checkinBtn.addEventListener('click', () => handleCheckin());
 
     renderCalendar();
 }
 
-/**
- * 渲染日历
- */
 function renderCalendar() {
     const calEl = document.getElementById('calDays');
     const titleEl = document.getElementById('calTitle');
     const checkinBtn = document.getElementById('checkinBtn');
-    
     if (!calEl || !titleEl || !checkinBtn || !calendarState) return;
 
     const { viewYear, viewMonth, today, records } = calendarState;
@@ -1104,55 +810,26 @@ function renderCalendar() {
 
     const firstDay = new Date(viewYear, viewMonth, 1);
     const lastDay = new Date(viewYear, viewMonth + 1, 0);
-    const startWeekday = firstDay.getDay();
+    const startWeekday = firstDay.getDay(); // 0=Sun
     const daysInMonth = lastDay.getDate();
+
     const prevMonthLastDay = new Date(viewYear, viewMonth, 0).getDate();
 
     calEl.innerHTML = '';
 
-    // 渲染上个月的补充日期
-    renderPrevMonthDays(calEl, startWeekday, prevMonthLastDay);
-
-    // 渲染本月日期
-    const alreadyCheckedToday = renderCurrentMonthDays(calEl, viewYear, viewMonth, daysInMonth, today, records);
-
-    // 渲染下个月的补充日期
-    renderNextMonthDays(calEl, startWeekday, daysInMonth);
-
-    // 更新打卡按钮状态
-    updateCheckinButtonState(checkinBtn, alreadyCheckedToday);
-}
-
-/**
- * 渲染上个月的补充日期
- * @param {HTMLElement} container - 容器元素
- * @param {number} startWeekday - 开始的星期
- * @param {number} prevMonthLastDay - 上个月最后一天
- */
-function renderPrevMonthDays(container, startWeekday, prevMonthLastDay) {
+    // 上个月的补充日期
     for (let i = startWeekday - 1; i >= 0; i--) {
         const dayNum = prevMonthLastDay - i;
         const span = document.createElement('span');
         span.className = 'calendar-day calendar-day--outside';
         span.textContent = dayNum;
-        container.appendChild(span);
+        calEl.appendChild(span);
     }
-}
 
-/**
- * 渲染本月日期
- * @param {HTMLElement} container - 容器元素
- * @param {number} viewYear - 年
- * @param {number} viewMonth - 月
- * @param {number} daysInMonth - 本月天数
- * @param {Date} today - 今天日期
- * @param {object} records - 打卡记录
- * @returns {boolean} 今天是否已打卡
- */
-function renderCurrentMonthDays(container, viewYear, viewMonth, daysInMonth, today, records) {
     const todayKey = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
     let alreadyCheckedToday = false;
 
+    // 本月日期
     for (let d = 1; d <= daysInMonth; d++) {
         const span = document.createElement('span');
         span.className = 'calendar-day';
@@ -1164,57 +841,36 @@ function renderCurrentMonthDays(container, viewYear, viewMonth, daysInMonth, tod
         if (isSameDay(thisDate, today)) {
             span.classList.add('calendar-day--today');
         }
-        
         if (records[key]) {
             span.classList.add('calendar-day--checked');
             if (key === todayKey) alreadyCheckedToday = true;
         }
 
-        container.appendChild(span);
+        calEl.appendChild(span);
     }
 
-    return alreadyCheckedToday;
-}
-
-/**
- * 渲染下个月的补充日期
- * @param {HTMLElement} container - 容器元素
- * @param {number} startWeekday - 开始的星期
- * @param {number} daysInMonth - 本月天数
- */
-function renderNextMonthDays(container, startWeekday, daysInMonth) {
+    // 下个月的补充日期，填满 7 列
     const totalCells = startWeekday + daysInMonth;
     const trailing = (7 - (totalCells % 7)) % 7;
-    
     for (let i = 1; i <= trailing; i++) {
         const span = document.createElement('span');
         span.className = 'calendar-day calendar-day--outside';
         span.textContent = i;
-        container.appendChild(span);
+        calEl.appendChild(span);
     }
-}
 
-/**
- * 更新打卡按钮状态
- * @param {HTMLElement} button - 按钮元素
- * @param {boolean} alreadyCheckedToday - 今天是否已打卡
- */
-function updateCheckinButtonState(button, alreadyCheckedToday) {
+    // 更新打卡按钮状态
     if (alreadyCheckedToday) {
-        button.disabled = true;
-        button.textContent = '✓ 今日已打卡';
+        checkinBtn.disabled = true;
+        checkinBtn.textContent = '✓ 今日已打卡';
     } else {
-        button.disabled = false;
-        button.textContent = '打卡签到';
+        checkinBtn.disabled = false;
+        checkinBtn.textContent = '打卡签到';
     }
 }
 
-/**
- * 处理打卡
- */
 function handleCheckin() {
     if (!calendarState) return;
-    
     const { userId, today, records } = calendarState;
     const key = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
 
@@ -1234,143 +890,44 @@ function handleCheckin() {
     }
 }
 
-// =========================================
-// 主题切换模块
-// =========================================
-
-/**
- * 初始化主题选项
- * @param {string} token - JWT token
- */
-function initThemeOptions(token) {
-    const options = document.getElementById('themeOptions');
-    if (!options) return;
-
-    options.addEventListener('click', (e) => {
-        const btn = e.target.closest('.theme-opt');
-        if (!btn) return;
-
-        const theme = btn.dataset.theme;
-        
-        if (typeof ThemeEngine !== 'undefined') {
-            ThemeEngine.applyTheme(theme);
-            if (token) ThemeEngine.syncThemeToServer(theme, token);
-            if (typeof Toast !== 'undefined') {
-                Toast.show('主题已切换', 'success');
-            }
-        }
-    });
-}
 
 // =========================================
-// 主初始化函数
+// 个人文档相关函数
 // =========================================
 
-document.addEventListener('DOMContentLoaded', async () => {
-    initSidebarToggle();
-    initSettingsButton();
-    initTabSwitching();
+let pdocsEditingId = null;      // 当前编辑的文档 id（null=新建）
+let pdocsMarkedReady = false;   // marked.js 是否已加载
+let pdocsMarkedLoading = null;  // 加载中的 Promise（防重复）
+let pdocsFolders = [];          // 当前用户的个人文件夹列表
+let pdocsCurrentFolderId = null; // null=全部；0=未归类；正整数=该文件夹
+let pdocsCurrentUserId = null;   // 从 auth/status 拿到，用于过滤个人文件夹
 
-    // 读取 URL 参数中的验证码
-    pendingEmailCode = extractEmailCodeFromURL();
-
-    // 访客视角模式：直接跳转首页
-    if (localStorage.getItem('guest_view_mode') === 'true') {
-        window.location.href = `${BASE_PATH}/index.html`;
-        return;
-    }
-
+/** 统一请求封装（统一走 /api/v1/document 接口） */
+async function pdocsRequest(path, options = {}) {
     const token = AuthGuard.getToken();
-    if (!token) {
-        AuthGuard.handleAuthError();
-        return;
-    }
-
+    if (!token) { AuthGuard.handleAuthError(); return null; }
     try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/auth/status`, {
-            method: 'GET',
+        const res = await fetch(`${API_BASE_URL}/api/v1/document${path}`, {
+            ...options,
             headers: {
+                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
-                'X-Page-Type': 'dashboard'
+                ...(options.headers || {})
             }
         });
-
-        if (response.status === 401) {
-            AuthGuard.handleAuthError();
-            return;
-        }
-
-        const data = await response.json();
-        if (response.ok && data.code === 200) {
-            const user = data.data.user;
-            CURRENT_USER.level = user.permission_level;
-            pdocsCurrentUserId = user.id;
-
-            renderUserProfile(user);
-            renderPermissionButtons(user.permission_level);
-            renderTopNavAuth(user);
-
-            checkEmailVerificationStatus(token, user.email);
-
-            loadDynamicMenu(token);
-            initThemeOptions(token);
-            initCheckinCalendar(user.id);
-        }
-    } catch (error) {
-        console.error('获取用户信息失败:', error);
-    }
-});
-
-/**
- * 从 URL 提取邮箱验证码
- * @returns {string|null} 验证码或 null
- */
-function extractEmailCodeFromURL() {
-    try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        
-        if (code && /^\d{6}$/.test(code)) {
-            // 清除 URL 参数
-            const cleanUrl = window.location.origin + window.location.pathname + window.location.hash;
-            window.history.replaceState({}, document.title, cleanUrl);
-            return code;
-        }
+        if (res.status === 401) { AuthGuard.handleAuthError(); return null; }
+        return await res.json();
     } catch (e) {
-        console.warn('解析 URL 参数失败', e);
+        console.error('[pdocs] 请求失败:', e);
+        if (typeof Toast !== 'undefined') Toast.show('网络请求失败', 'error');
+        return null;
     }
-    return null;
 }
 
-// =========================================
-// 个人文档模块（保持原逻辑，使用新的工具函数）
-// =========================================
-
-let pdocsEditingId = null;
-let pdocsMarkedReady = false;
-let pdocsMarkedLoading = null;
-let pdocsFolders = [];
-let pdocsCurrentFolderId = null;
-let pdocsCurrentUserId = null;
-
-/**
- * 个人文档统一请求封装
- * @param {string} path - API 路径
- * @param {object} options - fetch 选项
- * @returns {Promise<object|null>} 响应数据或 null
- */
-async function pdocsRequest(path, options = {}) {
-    return await apiRequest(`/api/v1/document${path}`, options);
-}
-
-/**
- * 动态加载 marked.js
- * @returns {Promise<void>}
- */
+/** 动态加载 marked.js（用于 Markdown 预览） */
 function ensureMarkedLoaded() {
     if (pdocsMarkedReady) return Promise.resolve();
     if (pdocsMarkedLoading) return pdocsMarkedLoading;
-
     pdocsMarkedLoading = new Promise((resolve) => {
         const s = document.createElement('script');
         s.src = 'https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js';
@@ -1378,35 +935,31 @@ function ensureMarkedLoaded() {
         s.onerror = () => { console.warn('[pdocs] marked.js 加载失败'); resolve(); };
         document.head.appendChild(s);
     });
-
     return pdocsMarkedLoading;
 }
 
-/**
- * HTML 转义（个人文档专用）
- * @param {string} str - 原始字符串
- * @returns {string} 转义后的字符串
- */
+/** HTML 转义 */
 function pdocsEscape(str) {
     return String(str || '').replace(/[&<>"']/g, c => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[c]));
 }
 
-/**
- * 格式化时间（个人文档专用）
- * @param {string} iso - ISO 格式时间
- * @returns {string} 格式化后的时间
- */
+/** 格式化时间 */
 function pdocsFmtTime(iso) {
-    return formatFriendlyTime(iso);
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const now = new Date();
+    const diff = (now - d) / 1000;
+    if (diff < 60) return '刚刚';
+    if (diff < 3600) return Math.floor(diff / 60) + ' 分钟前';
+    if (diff < 86400) return Math.floor(diff / 3600) + ' 小时前';
+    if (diff < 604800) return Math.floor(diff / 86400) + ' 天前';
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/**
- * 从 Markdown 提取摘要
- * @param {string} content - Markdown 内容
- * @returns {string} 摘要
- */
+/** 从 Markdown 提取摘要（取第一段非空文本，截断 100 字） */
 function pdocsExtractSummary(content) {
     if (!content) return '';
     const text = content.replace(/^#+\s.*$/gm, '').replace(/[*`>~_\-\[\]\(\)]/g, '').trim();
@@ -1414,10 +967,9 @@ function pdocsExtractSummary(content) {
     return firstLine.slice(0, 100);
 }
 
-/**
- * 初始化个人文档
- */
+/** 初始化个人文档：绑定事件 + 加载列表 */
 function initPersonalDocs() {
+    // 绑定按钮事件（防重复）
     const bind = (id, handler) => {
         const el = document.getElementById(id);
         if (el && !el.dataset.pdocsBound) {
@@ -1425,7 +977,6 @@ function initPersonalDocs() {
             el.addEventListener('click', handler);
         }
     };
-
     bind('pdocsNewBtn', () => openPdocsEditor(null));
     bind('pdocsTrashBtn', () => showPdocsView('trash'));
     bind('pdocsTrashBackBtn', () => showPdocsView('list'));
@@ -1433,6 +984,7 @@ function initPersonalDocs() {
     bind('pdocsSaveBtn', savePersonalDoc);
     bind('pdocsPreviewToggleBtn', togglePdocsPreview);
 
+    // 编辑器实时预览
     const contentInput = document.getElementById('pdocsContentInput');
     if (contentInput && !contentInput.dataset.pdocsBound) {
         contentInput.dataset.pdocsBound = '1';
@@ -1444,53 +996,42 @@ function initPersonalDocs() {
 
     loadPersonalDocs();
     loadPersonalFolders();
-    renderFolderBreadcrumb();
 }
 
-/**
- * 切换个人文档视图
- * @param {string} viewName - 视图名称
- */
+/** 切换子视图 */
 function showPdocsView(viewName) {
     ['list', 'editor', 'trash'].forEach(v => {
         const el = document.getElementById(`pdocs-view-${v}`);
         if (el) el.style.display = (v === viewName) ? '' : 'none';
     });
-    
     if (viewName === 'list') loadPersonalDocs();
     if (viewName === 'trash') loadPersonalTrash();
 }
 
-/**
- * 加载个人文档列表
- */
+/** 加载文档列表（当前用户创建的正常文档） */
 async function loadPersonalDocs() {
     const container = document.getElementById('pdocsListContainer');
     if (!container) return;
-    
     container.innerHTML = '<p class="loading-text">加载中...</p>';
 
+    // 根据 pdocsCurrentFolderId 拼接 folder_id query
+    // null=不拼（全部）；0=未归类；正整数=该文件夹下
     let query = '';
     if (pdocsCurrentFolderId === 0 || (typeof pdocsCurrentFolderId === 'number' && pdocsCurrentFolderId > 0)) {
         query = `folder_id=${pdocsCurrentFolderId}`;
     }
-
     const data = await pdocsRequest('/mine' + (query ? '?' + query : ''));
     if (!data || data.code !== 200) {
         container.innerHTML = '<p class="loading-text">加载失败</p>';
         return;
     }
-
     renderPdocsList(data.data || []);
 }
 
-/**
- * 加载个人回收站列表
- */
+/** 加载回收站列表 */
 async function loadPersonalTrash() {
     const container = document.getElementById('pdocsTrashContainer');
     if (!container) return;
-    
     container.innerHTML = '<p class="loading-text">加载中...</p>';
 
     const data = await pdocsRequest('/trash');
@@ -1498,14 +1039,10 @@ async function loadPersonalTrash() {
         container.innerHTML = '<p class="loading-text">加载失败</p>';
         return;
     }
-
     renderPdocsTrash(data.data || []);
 }
 
-/**
- * 渲染个人文档列表
- * @param {Array} docs - 文档数组
- */
+/** 渲染文档列表 */
 function renderPdocsList(docs) {
     const container = document.getElementById('pdocsListContainer');
     if (!container) return;
@@ -1541,26 +1078,19 @@ function renderPdocsList(docs) {
         </div>
     `).join('');
 
-    // 绑定事件
-    bindPdocsListActions(container);
-}
-
-/**
- * 绑定个人文档列表操作事件
- * @param {HTMLElement} container - 容器元素
- */
-function bindPdocsListActions(container) {
+    // 绑定卡片操作
     container.querySelectorAll('[data-action]').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const action = btn.dataset.action;
             const id = parseInt(btn.dataset.id, 10);
-            
             if (action === 'edit') openPdocsEditor(id);
             else if (action === 'delete') softDeletePersonalDoc(id);
+            // action === 'move' 由 select 的 change 事件处理
         });
     });
 
+    // 绑定"移动到文件夹"下拉框
     container.querySelectorAll('.pdocs-move-select').forEach(sel => {
         sel.addEventListener('change', () => {
             const docId = parseInt(sel.dataset.id, 10);
@@ -1569,6 +1099,7 @@ function bindPdocsListActions(container) {
         });
     });
 
+    // 点击卡片也可编辑
     container.querySelectorAll('.pdocs-doc-card').forEach(card => {
         card.addEventListener('click', () => {
             const id = parseInt(card.dataset.docId, 10);
@@ -1577,10 +1108,7 @@ function bindPdocsListActions(container) {
     });
 }
 
-/**
- * 渲染个人回收站列表
- * @param {Array} docs - 文档数组
- */
+/** 渲染回收站列表 */
 function renderPdocsTrash(docs) {
     const container = document.getElementById('pdocsTrashContainer');
     if (!container) return;
@@ -1614,17 +1142,13 @@ function renderPdocsTrash(docs) {
         btn.addEventListener('click', () => {
             const action = btn.dataset.action;
             const id = parseInt(btn.dataset.id, 10);
-            
             if (action === 'restore') restorePersonalDoc(id);
             else if (action === 'permanent') permanentDeletePersonalDoc(id);
         });
     });
 }
 
-/**
- * 打开个人文档编辑器
- * @param {number|null} docId - 文档 ID（null 为新建）
- */
+/** 打开编辑器 */
 async function openPdocsEditor(docId) {
     pdocsEditingId = docId || null;
     showPdocsView('editor');
@@ -1634,6 +1158,7 @@ async function openPdocsEditor(docId) {
     const preview = document.getElementById('pdocsPreview');
 
     if (!docId) {
+        // 新建
         titleInput.value = '';
         contentInput.value = '';
         preview.style.display = 'none';
@@ -1642,27 +1167,23 @@ async function openPdocsEditor(docId) {
         return;
     }
 
+    // 编辑已有：拉取详情
     titleInput.value = '加载中...';
     contentInput.value = '';
-    
     const data = await pdocsRequest(`/${docId}`);
     if (!data || data.code !== 200) {
         if (typeof Toast !== 'undefined') Toast.show('加载文档失败', 'error');
         showPdocsView('list');
         return;
     }
-
     titleInput.value = data.data.title || '';
     contentInput.value = data.data.content || '';
     preview.style.display = 'none';
     preview.innerHTML = '';
-    
     if (preview.style.display !== 'none') renderPdocsPreview();
 }
 
-/**
- * 保存个人文档
- */
+/** 保存文档（新建或更新） */
 async function savePersonalDoc() {
     const title = document.getElementById('pdocsTitleInput').value.trim();
     const content = document.getElementById('pdocsContentInput').value;
@@ -1681,14 +1202,14 @@ async function savePersonalDoc() {
         title,
         content,
         summary: pdocsExtractSummary(content),
+        // 个人文档语义：私有 + 仅作者本人（等级1位）可见
         visibility: 'private',
         permission_bits: '100000'
     };
-
+    // 新建文档时，若当前处于某个个人文件夹视图下，自动归属该文件夹
     if (!pdocsEditingId && typeof pdocsCurrentFolderId === 'number' && pdocsCurrentFolderId > 0) {
         bodyObj.folder_id = pdocsCurrentFolderId;
     }
-
     const body = JSON.stringify(bodyObj);
 
     let data;
@@ -1707,70 +1228,50 @@ async function savePersonalDoc() {
     }
 
     if (typeof Toast !== 'undefined') Toast.show('保存成功', 'success');
-    pdocsEditingId = data.data.id;
-
+    pdocsEditingId = data.data.id;  // 新建后记住 id，后续保存变成更新
+    // 更新预览
     const preview = document.getElementById('pdocsPreview');
     if (preview.style.display !== 'none') renderPdocsPreview();
-
-    setTimeout(() => {
-        showPdocsView('list');
-    }, 800);
 }
 
-/**
- * 软删除个人文档
- * @param {number} docId - 文档 ID
- */
+/** 软删除（移入回收站） */
 async function softDeletePersonalDoc(docId) {
     const confirmed = await Modal.confirm('确认将此文档移入回收站？', { title: '删除文档' });
     if (!confirmed) return;
-
     const data = await pdocsRequest(`/${docId}`, { method: 'DELETE' });
     if (!data || data.code !== 200) {
         if (typeof Toast !== 'undefined') Toast.show(data?.msg || '删除失败', 'error');
         return;
     }
-
     if (typeof Toast !== 'undefined') Toast.show('已移入回收站', 'success');
     loadPersonalDocs();
 }
 
-/**
- * 恢复个人文档
- * @param {number} docId - 文档 ID
- */
+/** 恢复文档 */
 async function restorePersonalDoc(docId) {
     const data = await pdocsRequest(`/${docId}/restore`, { method: 'POST' });
     if (!data || data.code !== 200) {
         if (typeof Toast !== 'undefined') Toast.show(data?.msg || '恢复失败', 'error');
         return;
     }
-
     if (typeof Toast !== 'undefined') Toast.show('恢复成功', 'success');
     loadPersonalTrash();
 }
 
-/**
- * 彻底删除个人文档
- * @param {number} docId - 文档 ID
- */
+/** 彻底删除 */
 async function permanentDeletePersonalDoc(docId) {
     const confirmed = await Modal.confirm('彻底删除后无法恢复，确认删除？', { title: '彻底删除' });
     if (!confirmed) return;
-
     const data = await pdocsRequest(`/${docId}/permanent`, { method: 'DELETE' });
     if (!data || data.code !== 200) {
         if (typeof Toast !== 'undefined') Toast.show(data?.msg || '删除失败', 'error');
         return;
     }
-
     if (typeof Toast !== 'undefined') Toast.show('已彻底删除', 'success');
     loadPersonalTrash();
 }
 
-/**
- * 切换预览显示
- */
+/** 切换预览显示 */
 function togglePdocsPreview() {
     const preview = document.getElementById('pdocsPreview');
     const contentInput = document.getElementById('pdocsContentInput');
@@ -1786,15 +1287,11 @@ function togglePdocsPreview() {
     }
 }
 
-/**
- * 渲染 Markdown 预览
- */
+/** 渲染 Markdown 预览 */
 async function renderPdocsPreview() {
     const content = document.getElementById('pdocsContentInput').value;
     const preview = document.getElementById('pdocsPreview');
-
     await ensureMarkedLoaded();
-
     try {
         if (pdocsMarkedReady && window.marked) {
             preview.innerHTML = window.marked.parse(content || '*空内容*');
@@ -1806,41 +1303,35 @@ async function renderPdocsPreview() {
     }
 }
 
+
 // =========================================
-// 个人文件夹模块
+// 个人文件夹相关函数
 // =========================================
 
-/**
- * 加载个人文件夹列表
- */
+/** 加载个人文件夹列表（过滤出 user_id === pdocsCurrentUserId 的项作为个人文件夹） */
 async function loadPersonalFolders() {
     const data = await pdocsRequest('/folders');
     if (!data || data.code !== 200) {
         console.error('[pdocs] 加载文件夹失败:', data);
         return;
     }
-
     const all = Array.isArray(data.data) ? data.data : [];
     pdocsFolders = all.filter(f => f.user_id === pdocsCurrentUserId);
     renderPdocsFolders();
 }
 
-/**
- * 渲染个人文件夹列表
- */
+/** 渲染文件夹 chip 列表 */
 function renderPdocsFolders() {
     const container = document.getElementById('pdocsFoldersList');
     if (!container) return;
 
     const items = [];
-    
-    // 第一项：全部
+    // 第一个 chip：全部
     items.push(`
         <div class="pdocs-folder-chip ${pdocsCurrentFolderId === null ? 'is-active' : ''}" data-folder-id="">
             <span class="pdocs-folder-chip__name">📋 全部</span>
         </div>
     `);
-
     // 每个个人文件夹
     pdocsFolders.forEach(folder => {
         items.push(`
@@ -1853,38 +1344,30 @@ function renderPdocsFolders() {
             </div>
         `);
     });
-
     container.innerHTML = items.join('');
 
-    // 绑定事件
-    bindPdocsFolderActions(container);
-}
-
-/**
- * 绑定个人文件夹操作事件
- * @param {HTMLElement} container - 容器元素
- */
-function bindPdocsFolderActions(container) {
+    // 绑定 chip 主体点击
     container.querySelectorAll('.pdocs-folder-chip').forEach(chip => {
         chip.addEventListener('click', (e) => {
+            // 点击的是 chip__btn 时不触发主体
             if (e.target.closest('.pdocs-folder-chip__btn')) return;
-
             const fid = chip.dataset.folderId;
-            pdocsCurrentFolderId = fid === '' ? null : parseInt(fid, 10);
-            
+            if (fid === '') {
+                pdocsCurrentFolderId = null;
+            } else {
+                pdocsCurrentFolderId = parseInt(fid, 10);
+            }
             renderPdocsFolders();
-            renderFolderBreadcrumb();
             loadPersonalDocs();
         });
     });
 
+    // 绑定 rename / delete 按钮
     container.querySelectorAll('.pdocs-folder-chip__btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            
             const action = btn.dataset.action;
             const id = parseInt(btn.dataset.id, 10);
-            
             if (action === 'rename') {
                 const folder = pdocsFolders.find(f => f.id === id);
                 const newName = await Modal.prompt('重命名文件夹:', folder ? folder.name : '', { title: '重命名文件夹' });
@@ -1897,6 +1380,7 @@ function bindPdocsFolderActions(container) {
         });
     });
 
+    // 绑定新建按钮（防重复）
     const addBtn = document.getElementById('pdocsFolderAddBtn');
     if (addBtn && !addBtn.dataset.pdocsBound) {
         addBtn.dataset.pdocsBound = '1';
@@ -1904,107 +1388,61 @@ function bindPdocsFolderActions(container) {
     }
 }
 
-/**
- * 新建个人文件夹
- */
+/** 新建个人文件夹 */
 async function addPersonalFolder() {
     const name = await Modal.prompt('请输入文件夹名称:', '', { title: '新建文件夹' });
     if (name === null || !name.trim()) return;
-
     const data = await pdocsRequest('/folders', {
         method: 'POST',
         body: JSON.stringify({ name: name.trim(), scope: 'personal' })
     });
-
     if (!data || data.code !== 200) {
         if (typeof Toast !== 'undefined') Toast.show(data?.msg || '创建失败', 'error');
         return;
     }
-
     if (typeof Toast !== 'undefined') Toast.show('文件夹已创建', 'success');
     loadPersonalFolders();
 }
 
-/**
- * 重命名个人文件夹
- * @param {number} id - 文件夹 ID
- * @param {string} newName - 新名称
- */
+/** 重命名个人文件夹 */
 async function renamePersonalFolder(id, newName) {
     const data = await pdocsRequest(`/folders/${id}`, {
         method: 'PUT',
         body: JSON.stringify({ name: newName })
     });
-
     if (!data || data.code !== 200) {
         if (typeof Toast !== 'undefined') Toast.show(data?.msg || '重命名失败', 'error');
         return;
     }
-
     if (typeof Toast !== 'undefined') Toast.show('已重命名', 'success');
     loadPersonalFolders();
 }
 
-/**
- * 删除个人文件夹
- * @param {number} id - 文件夹 ID
- */
+/** 删除个人文件夹 */
 async function deletePersonalFolder(id) {
     const confirmed = await Modal.confirm('删除文件夹后，文件夹内的文档将变为未归类，确认删除？', { title: '删除文件夹' });
     if (!confirmed) return;
-
     const data = await pdocsRequest(`/folders/${id}`, { method: 'DELETE' });
     if (!data || data.code !== 200) {
         if (typeof Toast !== 'undefined') Toast.show(data?.msg || '删除失败', 'error');
         return;
     }
-
     if (typeof Toast !== 'undefined') Toast.show('已删除文件夹', 'success');
-    
+    // 如果当前选中的就是被删除的文件夹，重置为"全部"
     if (pdocsCurrentFolderId === id) pdocsCurrentFolderId = null;
-    
     loadPersonalFolders();
     loadPersonalDocs();
 }
 
-/**
- * 移动文档到指定文件夹
- * @param {number} docId - 文档 ID
- * @param {number} folderId - 文件夹 ID
- */
+/** 移动文档到指定文件夹（folderId: 0=清空归属，正整数=该文件夹） */
 async function movePersonalDoc(docId, folderId) {
+    // 后端要求 body 中含 'folder_id' 键才更新；null 表示清空
     const body = JSON.stringify({ folder_id: folderId === 0 ? null : folderId });
     const data = await pdocsRequest(`/${docId}`, { method: 'PUT', body });
-
     if (!data || data.code !== 200) {
         if (typeof Toast !== 'undefined') Toast.show(data?.msg || '移动失败', 'error');
         return;
     }
-
     if (typeof Toast !== 'undefined') Toast.show('已移动', 'success');
     loadPersonalDocs();
-}
-
-/**
- * 渲染个人文档面包屑导航
- */
-function renderFolderBreadcrumb() {
-    const container = document.getElementById('pdocsBreadcrumb');
-    if (!container) return;
-
-    let pathText = '';
-    if (pdocsCurrentFolderId === null) {
-        pathText = '📋 全部文档';
-    } else if (pdocsCurrentFolderId === 0) {
-        pathText = '📋 全部 > 📁 未归类';
-    } else {
-        const folder = pdocsFolders.find(f => f.id === pdocsCurrentFolderId);
-        if (folder) {
-            pathText = `📋 全部 > 📁 ${pdocsEscape(folder.name)}`;
-        } else {
-            pathText = '📋 全部文档';
-        }
-    }
-
-    container.innerHTML = `<div class="pdocs-breadcrumb">${pathText}</div>`;
 }
