@@ -6,7 +6,8 @@
 const DEFAULT_BANNER = 'https://picsum.photos/1200/300';
 const DEFAULT_AVATAR = '../favicon.png';
 
-const ROLE_NAMES = {
+// 角色名映射：全局守卫式定义，避免与 index.js（也加载在 dashboard.html）冲突
+window.ROLE_NAMES = window.ROLE_NAMES || {
     0: '未登录',
     1: '普通用户',
     2: '一级管理员',
@@ -14,6 +15,7 @@ const ROLE_NAMES = {
     4: '三级管理员',
     5: '超级管理员'
 };
+const ROLE_NAMES = window.ROLE_NAMES;
 
 // 动态菜单缓存：tab_key -> { meta, loaded: bool }
 const dynamicMenuCache = new Map();
@@ -458,7 +460,7 @@ function renderTopNavAuth(user) {
     }
 }
 
-function renderPermissionButtons(permissionLevel) {
+window.renderPermissionButtons = window.renderPermissionButtons || function renderPermissionButtons(permissionLevel) {
     const container = document.getElementById('permissionButtons');
     if (!container) return;
 
@@ -511,9 +513,9 @@ function renderPermissionButtons(permissionLevel) {
             bannerEl.style.display = 'none';
         }
     }
-}
+};
 
-function handlePermissionClick(level) {
+window.handlePermissionClick = window.handlePermissionClick || function handlePermissionClick(level) {
     // 判断当前页面是否是 dashboard 类页面（需要跳转）
     const isDashboardPage = /\/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname);
 
@@ -558,8 +560,8 @@ function handlePermissionClick(level) {
     localStorage.removeItem('guest_view_mode');
 
     const userPerm = (typeof window.__currentUserPermissionLevel === 'number') ? window.__currentUserPermissionLevel : level;
-    renderPermissionButtons(userPerm);
-}
+    (window.renderPermissionButtons || renderPermissionButtons)(userPerm);
+};
 
 // =========================================
 // 邮箱验证相关函数
