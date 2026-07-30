@@ -1612,7 +1612,7 @@ async function renamePersonalFolder(id, newName) {
 
 /** 删除个人文件夹 */
 async function deletePersonalFolder(id) {
-    const confirmed = await Modal.confirm('删除文件夹后，文件夹内的文档将变为未归类，确认删除？', { title: '删除文件夹' });
+    const confirmed = await Modal.confirm('删除文件夹后，文件夹内的文档将移至根目录，确认删除？', { title: '删除文件夹' });
     if (!confirmed) return;
     const data = await pdocsRequest(`/folders/${id}`, { method: 'DELETE' });
     if (!data || data.code !== 200) {

@@ -18,18 +18,18 @@ const __DOC = {
   markedReady: false,      // marked.js 是否已加载
   markedLoading: false,    // marked.js 是否正在加载中（防止并发脚本注入）
   visFilter: 'public',     // 侧栏可见类型筛选：public / group / private
-  folders: [],              // 公共文件夹列表
-  currentFolderId: null,    // null=不过滤；0=未归类；正整数=该文件夹
+  folders: [],              // 文件夹列表：匿名时仅公共文件夹；登录时=个人(personal)+公共(public)合并
+  currentFolderId: null,    // null=不过滤；0=根目录；正整数=该文件夹
   isAdmin: false            // 等级≥5 才为 true
 };
 
 const DOC_LEVEL_ROLES = {
+  0: '未登录访客',
   1: '普通注册用户',
-  2: '进阶用户',
-  3: '成员',
-  4: '核心成员',
-  5: '管理员',
-  6: '超级管理员'
+  2: '一级管理员',
+  3: '二级管理员',
+  4: '三级管理员',
+  5: '超级管理员'
 };
 
 // =========================================
@@ -186,7 +186,7 @@ async function fetchDocList() {
   try {
     const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-    // folder_id 过滤：null=不过滤；0=未归类；正整数=该文件夹
+    // folder_id 过滤：null=不过滤；0=根目录；正整数=该文件夹
     let url = `${API_BASE_URL}/api/v1/document/list`;
     if (__DOC.currentFolderId !== null && __DOC.currentFolderId !== undefined) {
       url += `?folder_id=${encodeURIComponent(__DOC.currentFolderId)}`;
@@ -242,16 +242,33 @@ async function fetchDocAuthState() {
 }
 
 /**
- * 拉取公共文件夹列表（JWT optional）
+ * 拉取文件夹列表
+ *  - 已登录：调用 /folders（默认返回当前用户 personal 文件夹 + 公共文件夹）
+ *  - 匿名（无 token）：调用 /folders/public（仅返回公共文件夹）
  */
 async function fetchDocFolders() {
   try {
     const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-    const r = await fetch(`${API_BASE_URL}/api/v1/document/folders/public`, { headers });
+    // 已登录时走 /folders（支持 personal + public；匿名需 401 兜底）
+    const url = token
+      ? `${API_BASE_URL}/api/v1/document/folders`
+      : `${API_BASE_URL}/api/v1/document/folders/public`;
+    const r = await fetch(url, { headers });
     const d = await r.json();
     if (r.ok && d.code === 200) {
       __DOC.folders = d.data || [];
+    } else if (r.status === 401) {
+      // 401：token 无效，尝试匿名 fallback
+      try {
+        const r2 = await fetch(`${API_BASE_URL}/api/v1/document/folders/public`);
+        const d2 = await r2.json();
+        if (r2.ok && d2.code === 200) {
+          __DOC.folders = d2.data || [];
+        } else {
+          console.warn('[folders] 匿名 fallback 失败:', d2.msg);
+        }
+      } catch (e2) { console.warn('[folders] 匿名 fallback 网络错误:', e2); }
     } else {
       console.warn('[folders] 获取失败:', d.msg);
     }
@@ -617,14 +634,13 @@ function renderDocFolders() {
       <div class="doc-folder-node__row ${__DOC.currentFolderId === 0 ? 'is-active' : ''}" data-folder-id="__uncategorized__" style="padding-left:10px">
         <span class="doc-folder-node__arrow"></span>
         <span class="doc-folder-node__icon">🗂</span>
-        <span class="doc-folder-node__name">未归类</span>
+        <span class="doc-folder-node__name">根目录</span>
         <span class="doc-folder-node__actions"></span>
       </div>
     </div>
   `;
 
   if (__DOC.folders.length === 0 && __DOC.isAdmin) {
-    html += `<p class="doc-loading-text" style="padding:6px 8px;">暂无公共文件夹，点击 + 新建</p>`;
     list.innerHTML = html;
     bindDocFolderActions();
     return;
@@ -785,14 +801,14 @@ async function renameDocFolder(id, oldName) {
 
 /**
  * 删除公共文件夹（仅管理员）
- * 删除后文件夹内文档将变为未归类。
+ * 删除后文件夹内的文档将变为根目录（未归类）。
  */
 async function deleteDocFolder(id) {
   if (!__DOC.isAdmin) {
     alert('仅等级≥5 的管理员可删除公共文件夹');
     return;
   }
-  const ok = await Modal.confirm('删除文件夹后，文件夹内的文档将变为未归类，确认删除？', { title: '删除文件夹' });
+  const ok = await Modal.confirm('删除文件夹后，文件夹内的文档将移至根目录，确认删除？', { title: '删除文件夹' });
   if (!ok) return;
   const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
   if (!token) {
@@ -933,7 +949,7 @@ function renderDocDetailView(doc) {
 
   // 2. 权限展示：分档
   if (isAdminView) {
-    // 管理员版 - 6 行矩阵
+    // 管理员版 - 6 行矩阵（等级 1~5 + 保留位）
     const rows = parsePermBits(doc.permission_bits).map(row => {
       const markClass = row.allow ? 'is-yes' : 'is-no';
       const markTxt = row.allow ? '✅ 可见' : '❌ 不可见';
@@ -949,11 +965,38 @@ function renderDocDetailView(doc) {
       ${rows}
     </div>`);
   } else {
-    // 普通用户版 - 仅显示当前用户是否可查看（不暴露完整权限矩阵）
-    const userLevelText = lvl ? `等级 ${lvl}` : '访客';
-    pills.push(`<span class="meta-pill doc-perm-summary">
-      ✅ ${userLevelText}可查看
-    </span>`);
+    // 普通用户版：
+    //   - 公开文档：显示 0..当前等级 的权限行（≤自己权限可查看情况，不泄露更高等级设置）
+    //   - 私密文档：仅显示一句话（不暴露权限矩阵）
+    const __userMax = lvl || 0; // null/undefined=访客 => 0
+    if (isPublic) {
+      // 生成 0..__userMax 的可见性行
+      const showRows = [];
+      for (let lv = 0; lv <= __userMax; lv++) {
+        let allow = false;
+        if (lv === 0) {
+          // 访客：公开且 bit[0] == '1'
+          allow = __bits[0] === '1';
+        } else {
+          const idx = Math.min(4, Math.max(0, lv - 1));
+          allow = __bits[idx] === '1';
+        }
+        const mc = allow ? 'is-yes' : 'is-no';
+        const mt = allow ? '✅ 可见' : '❌ 不可见';
+        const label = lv === 0 ? '访客' : `等级 ${lv}`;
+        showRows.push(`<div class="doc-perm-grid__row">
+          <div class="doc-perm-grid__label">${label}</div>
+          <div class="doc-perm-grid__role">${DOC_LEVEL_ROLES[lv] || ''}</div>
+          <div class="doc-perm-grid__mark ${mc}">${mt}</div>
+        </div>`);
+      }
+      pills.push(`<div class="doc-perm-grid">${showRows.join('')}</div>`);
+    } else {
+      // 私密文档：仅本人可见（当前用户即作者或超管，但超管已走 admin 分支）
+      pills.push(`<span class="meta-pill doc-perm-summary">
+        🔒 私密文档 · 仅作者本人可见
+      </span>`);
+    }
   }
 
   // 3. 作者 / 组
