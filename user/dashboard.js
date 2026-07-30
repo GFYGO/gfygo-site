@@ -865,12 +865,12 @@ let pdocsEditingId = null;      // 当前编辑的文档 id（null=新建）
 let pdocsMarkedReady = false;   // marked.js 是否已加载
 let pdocsMarkedLoading = null;  // 加载中的 Promise（防重复）
 
-/** 统一请求封装 */
+/** 统一请求封装（统一走 /api/v1/document 接口） */
 async function pdocsRequest(path, options = {}) {
     const token = AuthGuard.getToken();
     if (!token) { AuthGuard.handleAuthError(); return null; }
     try {
-        const res = await fetch(`${API_BASE_URL}/api/v1/personal-doc${path}`, {
+        const res = await fetch(`${API_BASE_URL}/api/v1/document${path}`, {
             ...options,
             headers: {
                 'Content-Type': 'application/json',
@@ -970,13 +970,13 @@ function showPdocsView(viewName) {
     if (viewName === 'trash') loadPersonalTrash();
 }
 
-/** 加载文档列表 */
+/** 加载文档列表（当前用户创建的正常文档） */
 async function loadPersonalDocs() {
     const container = document.getElementById('pdocsListContainer');
     if (!container) return;
     container.innerHTML = '<p class="loading-text">加载中...</p>';
 
-    const data = await pdocsRequest('/list');
+    const data = await pdocsRequest('/mine');
     if (!data || data.code !== 200) {
         container.innerHTML = '<p class="loading-text">加载失败</p>';
         return;
@@ -1142,7 +1142,10 @@ async function savePersonalDoc() {
     const body = JSON.stringify({
         title,
         content,
-        summary: pdocsExtractSummary(content)
+        summary: pdocsExtractSummary(content),
+        // 个人文档语义：私有 + 仅作者本人（等级1位）可见
+        visibility: 'private',
+        permission_bits: '100000'
     });
 
     let data;
