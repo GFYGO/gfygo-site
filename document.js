@@ -18,7 +18,7 @@ const __DOC = {
   markedReady: false,      // marked.js 是否已加载
   markedLoading: false,    // marked.js 是否正在加载中（防止并发脚本注入）
   dompurifyReady: false,   // DOMPurify 是否已加载
-  visFilter: 'public',     // 侧栏可见类型筛选：public / group / private
+  currentScope: 'public',  // 根入口 scope：public / group / private
   folders: [],              // 文件夹列表：匿名时仅公共文件夹；登录时=个人(personal)+公共(public)合并
   currentFolderId: null,    // null=不过滤；0=根目录；正整数=该文件夹
   isAdmin: false            // 等级≥5 才为 true
@@ -50,9 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
       // 先渲染文件夹（用于 active 状态显示），再渲染依赖 docs 的目录树与首页卡片
       renderDocFolders();
       renderDocSidebarTree();
-      renderHomeCategoryGrids();
+      renderRootDocsGrid();
       bindDocSearch();
-      bindVisTabs();
+      bindRootScopeTabs();
       bindRevisionsToggle();
       updateVisEmptyPlaceholders();
       renderDocBreadcrumb();
@@ -114,22 +114,19 @@ function initDocSidebarControls() {
  * 约定：level 5（超级管理员）永远 force=true allow=true（与后端兜底对齐）
  */
 function parsePermBits(bits) {
-  if (typeof bits !== 'string' || !/^[01]{6}$/.test(bits)) {
+  if (bits === undefined || bits === null || bits === '') {
+    bits = '000000';
+  } else if (typeof bits !== 'string' || !/^[01]{6}$/.test(bits)) {
     console.warn('[parsePermBits] 脏 permission_bits，降级成全0:', bits);
     bits = '000000';
   }
   const out = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 6; i++) {
     const level = i + 1;
-    const isSuper = level === 5;
-    out.push({
-      level,
-      allow: isSuper ? true : bits[i] === '1',
-      force: isSuper
-    });
+    const allow = i === 5 ? true : bits[i] === '1';
+    const force = i === 5 ? true : false;
+    out.push({ level, allow, force });
   }
-  // 第 6 位为保留位
-  out.push({ level: 6, allow: bits[5] === '1', force: false });
   return out;
 }
 
@@ -214,9 +211,14 @@ async function fetchDocList() {
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     // folder_id 过滤：null=不过滤；0=根目录；正整数=该文件夹
     let url = `${API_BASE_URL}/api/v1/document/list`;
+    const params = [];
     if (__DOC.currentFolderId !== null && __DOC.currentFolderId !== undefined) {
-      url += `?folder_id=${encodeURIComponent(__DOC.currentFolderId)}`;
+      params.push(`folder_id=${encodeURIComponent(__DOC.currentFolderId)}`);
     }
+    if (__DOC.currentScope) {
+      params.push(`scope=${encodeURIComponent(__DOC.currentScope)}`);
+    }
+    if (params.length) url += `?${params.join('&')}`;
     const r = await fetch(url, { headers });
     const d = await r.json();
     if (r.ok && d.code === 200) {
@@ -276,10 +278,11 @@ async function fetchDocFolders() {
   try {
     const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    const scopeParam = __DOC.currentScope ? `?scope=${encodeURIComponent(__DOC.currentScope)}` : '';
     // 已登录时走 /folders（支持 personal + public；匿名需 401 兜底）
     const url = token
-      ? `${API_BASE_URL}/api/v1/document/folders`
-      : `${API_BASE_URL}/api/v1/document/folders/public`;
+      ? `${API_BASE_URL}/api/v1/document/folders${scopeParam}`
+      : `${API_BASE_URL}/api/v1/document/folders/public${scopeParam}`;
     const r = await fetch(url, { headers });
     const d = await r.json();
     if (r.ok && d.code === 200) {
@@ -287,7 +290,7 @@ async function fetchDocFolders() {
     } else if (r.status === 401) {
       // 401：token 无效，尝试匿名 fallback
       try {
-        const r2 = await fetch(`${API_BASE_URL}/api/v1/document/folders/public`);
+        const r2 = await fetch(`${API_BASE_URL}/api/v1/document/folders/public${scopeParam}`);
         const d2 = await r2.json();
         if (r2.ok && d2.code === 200) {
           __DOC.folders = d2.data || [];
@@ -312,6 +315,18 @@ function renderDocSidebarTree(keyword = '') {
   const root = document.getElementById('docSidebarTree');
   if (!root) return;
 
+  // B5: scope=group 且用户组为 default/空 → 友好空态
+  if (__DOC.currentScope === 'group') {
+    const g = __DOC.user.group;
+    if (!g || g === 'default' || g === undefined || g === null) {
+      root.innerHTML = `<div class="doc-empty-tip" style="padding:16px; text-align:center;">
+        🚫 您当前未加入任何组。<br>
+        <small>组文档功能为未来能力，如需加入请联系超级管理员。</small>
+      </div>`;
+      return;
+    }
+  }
+
   // 先做权限过滤（前端预过滤）
   const lvl = __DOC.user.permissionLevel;
   const uid = __DOC.user.id;
@@ -319,15 +334,14 @@ function renderDocSidebarTree(keyword = '') {
     (uid && doc.author_id === uid) || canViewByBits(doc.permission_bits, doc.visibility, lvl)
   );
 
-  // 可见类型 tab 过滤（public / group / private）
-  if (__DOC.visFilter) {
-    if (__DOC.visFilter === 'private') {
-      // 私有 tab：仅显示当前用户自己创建的私有文档
-      visibleDocs = visibleDocs.filter(d => d.visibility === 'private' && uid && d.author_id === uid);
-    } else {
-      // 公共/组 tab：按 owning 分类（非 private 文档）
-      visibleDocs = visibleDocs.filter(d => d.visibility !== 'private' && owningToTab(d) === __DOC.visFilter);
-    }
+  // scope 过滤（public / group / private）— 后端已过滤，这里兜底二次过滤
+  if (__DOC.currentScope === 'private') {
+    // 私人 scope：仅显示当前用户自己创建的私有文档
+    visibleDocs = visibleDocs.filter(d => d.visibility === 'private' && uid && d.author_id === uid);
+  } else if (__DOC.currentScope === 'public') {
+    visibleDocs = visibleDocs.filter(d => d.visibility !== 'private' && (d.owning === '0' || !d.owning));
+  } else if (__DOC.currentScope === 'group') {
+    visibleDocs = visibleDocs.filter(d => d.visibility !== 'private' && d.owning && d.owning !== '0');
   }
 
   // 搜索过滤（标题 or 摘要）
@@ -338,42 +352,14 @@ function renderDocSidebarTree(keyword = '') {
 
   if (list.length === 0) {
     const reason = __DOC.docs.length === 0 ? '暂无可访问的文档'
-      : (kw ? `没有匹配「${kw}」的文档` : `当前「${({public:'公共',group:'组',private:'私有'})[__DOC.visFilter] || '全部'}」分类下暂无文档`);
+      : (kw ? `没有匹配「${kw}」的文档` : `当前「${({public:'公有文档',group:'组文档',private:'私人文档'})[__DOC.currentScope] || '全部'}」下暂无文档`);
     root.innerHTML = `<p class="doc-loading-text">${reason}</p>`;
     return;
   }
 
-  // 按分类分组
-  const byCat = {};
-  const orphans = [];
-  for (const doc of list) {
-    const slug = doc.category_name ? __findCatSlugByName(doc.category_name) : null;
-    if (slug) {
-      (byCat[slug] = byCat[slug] || []).push(doc);
-    } else {
-      orphans.push(doc);
-    }
-  }
-
+  // 不再按 category 分组，直接按 folder 结构平铺（与后端 list 顺序一致）
   let html = '';
-  // 按分类顺序渲染
-  for (const cat of __DOC.categories) {
-    if (!byCat[cat.slug] || byCat[cat.slug].length === 0) continue;
-    html += `<div class="doc-cat">
-      <div class="doc-cat__title">${escapeHtml(cat.name)}</div>
-      ${byCat[cat.slug].map(d => docItemHTML(d)).join('')}
-    </div>`;
-  }
-  if (orphans.length) {
-    // orphans = 无 category 的文档。标题统一为「未分类文档」,
-    // 避免与文件夹区的「全部文档 / 根目录」重名导致用户混淆。
-    // (当前所在文件夹的名称已由顶部面包屑展示,此处不再重复)
-    const orphanTitle = '未分类文档';
-    html += `<div class="doc-cat">
-      <div class="doc-cat__title">${escapeHtml(orphanTitle)}</div>
-      ${orphans.map(d => docItemHTML(d)).join('')}
-    </div>`;
-  }
+  html += list.map(d => docItemHTML(d)).join('');
   root.innerHTML = html;
 }
 function __findCatSlugByName(name) {
@@ -390,53 +376,77 @@ function docItemHTML(d) {
 }
 
 // =========================================
-// 5. 渲染：主页按分类 feature-grid 填充卡片
+// 5. 渲染：主页根目录文档网格
 // =========================================
-// 注：folder_id 过滤由后端完成（fetchDocList 内部按 __DOC.currentFolderId 拼 ?folder_id=），
-// 此函数只基于已过滤的 __DOC.docs 渲染。
-function renderHomeCategoryGrids() {
+function renderRootDocsGrid() {
+  const titleEl = document.getElementById('rootDocsTitle');
+  const grid = document.getElementById('rootDocsGrid');
+  const tip = document.getElementById('emptyRootDocsTip');
+  if (!grid) return;
+
+  // B5: scope=group 且用户组为 default/空 → 友好空态
+  if (__DOC.currentScope === 'group') {
+    const g = __DOC.user.group;
+    if (!g || g === 'default' || g === undefined || g === null) {
+      if (titleEl) {
+        titleEl.innerHTML = '👥 组文档 · 根目录文档';
+      }
+      grid.innerHTML = `<div class="doc-empty-tip" style="padding:16px; text-align:center;">
+        🚫 您当前未加入任何组。<br>
+        <small>组文档功能为未来能力，如需加入请联系超级管理员。</small>
+      </div>`;
+      if (tip) tip.style.display = 'none';
+      return;
+    }
+  }
+
+  // B4: 根据 scope 动态更新标题
+  if (titleEl) {
+    const scopeTitle = {
+      public: '🌐 公有文档 · 根目录文档',
+      group: '👥 组文档 · 根目录文档',
+      private: '🔒 私人文档 · 根目录文档'
+    }[__DOC.currentScope] || '📄 根目录文档';
+    titleEl.innerHTML = scopeTitle;
+  }
+
   const lvl = __DOC.user.permissionLevel;
   const uid = __DOC.user.id;
   let visibleDocs = __DOC.docs.filter(doc =>
     (uid && doc.author_id === uid) || canViewByBits(doc.permission_bits, doc.visibility, lvl)
   );
-  // 可见类型 tab 过滤（与侧边栏保持一致）
-  if (__DOC.visFilter) {
-    if (__DOC.visFilter === 'private') {
-      // 私有 tab：仅显示当前用户自己创建的私有文档
-      visibleDocs = visibleDocs.filter(d => d.visibility === 'private' && uid && d.author_id === uid);
-    } else {
-      // 公共/组 tab：按 owning 分类（非 private 文档）
-      visibleDocs = visibleDocs.filter(d => d.visibility !== 'private' && owningToTab(d) === __DOC.visFilter);
-    }
+
+  // scope 过滤（后端已过滤，前端兜底）
+  if (__DOC.currentScope === 'private') {
+    visibleDocs = visibleDocs.filter(d => d.visibility === 'private' && uid && d.author_id === uid);
+  } else if (__DOC.currentScope === 'public') {
+    visibleDocs = visibleDocs.filter(d => d.visibility !== 'private' && (d.owning === '0' || !d.owning));
+  } else if (__DOC.currentScope === 'group') {
+    visibleDocs = visibleDocs.filter(d => d.visibility !== 'private' && d.owning && d.owning !== '0');
   }
 
-  const mountPoints = document.querySelectorAll('[data-category-slug]');
-  let anyEmpty = true;
-  mountPoints.forEach(grid => {
-    const slug = grid.getAttribute('data-category-slug');
-    const cat = __DOC.categories.find(c => c.slug === slug);
-    const docs = visibleDocs.filter(d =>
-      cat ? (d.category_name === cat.name) : false
-    );
-    if (docs.length === 0) {
-      grid.innerHTML = '';
-    } else {
-      anyEmpty = false;
-      grid.innerHTML = docs.map(d => {
-        const href = `#/doc/${encodeURIComponent(d.slug)}`;
-        return `<a class="feature-tile" href="${href}">
-          <div class="feature-tile__img">${d.icon || '📚'}</div>
-          <div class="feature-tile__content">
-            <div class="feature-tile__title">${escapeHtml(d.title)}</div>
-            <div class="feature-tile__desc">${escapeHtml(d.summary || '')}</div>
-          </div>
-        </a>`;
-      }).join('');
-    }
-  });
-  const tip = document.getElementById('emptyCatTip');
-  if (tip) tip.style.display = anyEmpty ? 'block' : 'none';
+  // B4: 仅筛选 folder_id 为 null/undefined 的根目录文档
+  const rootDocs = visibleDocs.filter(d =>
+    d.folder_id === null || d.folder_id === undefined || d.folder_id === 0 ||
+    d.folderId === null || d.folderId === undefined || d.folderId === 0
+  );
+
+  if (rootDocs.length === 0) {
+    grid.innerHTML = '';
+    if (tip) tip.style.display = 'block';
+  } else {
+    if (tip) tip.style.display = 'none';
+    grid.innerHTML = rootDocs.map(d => {
+      const href = `#/doc/${encodeURIComponent(d.slug)}`;
+      return `<a class="feature-tile" href="${href}">
+        <div class="feature-tile__img">${d.icon || '📚'}</div>
+        <div class="feature-tile__content">
+          <div class="feature-tile__title">${escapeHtml(d.title)}</div>
+          <div class="feature-tile__desc">${escapeHtml(d.summary || '')}</div>
+        </div>
+      </a>`;
+    }).join('');
+  }
 }
 
 // =========================================
@@ -453,39 +463,35 @@ function bindDocSearch() {
 }
 
 // =========================================
-// 6.1 可见类型 tab（公共 / 组 / 私有）
+// 6.1 根入口 tabs（公有 / 组 / 私人）
 // =========================================
-function bindVisTabs() {
-  const wrap = document.getElementById('docVisTabs');
+function bindRootScopeTabs() {
+  const wrap = document.getElementById('docRootTabs');
   if (!wrap) return;
-  const tabs = wrap.querySelectorAll('.doc-tab');
+  const tabs = wrap.querySelectorAll('.doc-root-tab');
   tabs.forEach(tab => {
     tab.addEventListener('click', async () => {
-      const vis = tab.getAttribute('data-vis');
-      // 统一筛选状态机:tab 与 folder 互斥,切 tab 时清空 folder 筛选与搜索框
+      const scope = tab.dataset.scope;
+      // 切换 tab 时清空 folder 筛选与搜索框
       __DOC.currentFolderId = null;
+      __DOC.currentScope = scope;
       const input = document.getElementById('docSearchInput');
       if (input) input.value = '';
-      // 再次点击已激活的 tab 视为取消筛选（回到全部）
-      if (__DOC.visFilter === vis) {
-        __DOC.visFilter = '';
-        tabs.forEach(t => { t.classList.remove('is-active'); t.setAttribute('aria-selected', 'false'); });
-      } else {
-        __DOC.visFilter = vis;
-        tabs.forEach(t => {
-          const on = t === tab;
-          t.classList.toggle('is-active', on);
-          t.setAttribute('aria-selected', String(on));
-        });
-      }
-      // folderId 变了,需重新拉数据 + 全量重渲染（applyDocFolderFilter 内部会调用 renderDocSidebarTree/renderHomeCategoryGrids/renderDocFolders 等）
+      // 切换 is-active 类
+      tabs.forEach(t => {
+        const on = t === tab;
+        t.classList.toggle('is-active', on);
+        t.setAttribute('aria-selected', String(on));
+      });
+      // 重新拉数据 + 全量重渲染
+      await fetchDocFolders();
       await applyDocFolderFilter();
     });
   });
 }
 
 /**
- * 切换 visFilter 后，主页的空态占位显隐（私有/组 空时才显示；公共/默认不显示占位因为有分类区块）
+ * 切换 currentScope 后，主页的空态占位显隐（私人/组 空时才显示；公共/默认不显示占位）
  */
 function updateVisEmptyPlaceholders() {
   const lvl = __DOC.user.permissionLevel;
@@ -493,16 +499,18 @@ function updateVisEmptyPlaceholders() {
   let visibleDocs = __DOC.docs.filter(doc =>
     (uid && doc.author_id === uid) || canViewByBits(doc.permission_bits, doc.visibility, lvl)
   );
-  if (__DOC.visFilter === 'private') {
+  if (__DOC.currentScope === 'private') {
     visibleDocs = visibleDocs.filter(d => d.visibility === 'private' && uid && d.author_id === uid);
-  } else if (__DOC.visFilter) {
-    visibleDocs = visibleDocs.filter(d => d.visibility !== 'private' && owningToTab(d) === __DOC.visFilter);
+  } else if (__DOC.currentScope === 'public') {
+    visibleDocs = visibleDocs.filter(d => d.visibility !== 'private' && (d.owning === '0' || !d.owning));
+  } else if (__DOC.currentScope === 'group') {
+    visibleDocs = visibleDocs.filter(d => d.visibility !== 'private' && d.owning && d.owning !== '0');
   }
   const has = visibleDocs.length > 0;
   const privEmpty = document.getElementById('visPrivateEmpty');
   const grpEmpty = document.getElementById('visGroupEmpty');
-  if (privEmpty) privEmpty.style.display = (__DOC.visFilter === 'private' && !has) ? '' : 'none';
-  if (grpEmpty)  grpEmpty.style.display  = (__DOC.visFilter === 'group'   && !has) ? '' : 'none';
+  if (privEmpty) privEmpty.style.display = (__DOC.currentScope === 'private' && !has) ? '' : 'none';
+  if (grpEmpty)  grpEmpty.style.display  = (__DOC.currentScope === 'group'   && !has) ? '' : 'none';
 }
 
 // =========================================
@@ -530,10 +538,13 @@ function buildDocFolderTree(flat) {
 
 /**
  * 渲染单个树节点 HTML（可展开/折叠）
+ * B6: scope=group 且条目是根级（parent_id=NULL/0/undefined）时不渲染编辑/删除按钮
  */
 function renderDocFolderTreeNode(node, depth = 0) {
   const hasChildren = Array.isArray(node.children) && node.children.length > 0;
   const isActive = __DOC.currentFolderId === node.id;
+  const isRootLevel = !node.parent_id || node.parent_id === null || node.parent_id === undefined || node.parent_id === 0;
+  const hideRootActions = __DOC.currentScope === 'group' && isRootLevel;
   return `
     <div class="doc-folder-node" data-folder-id="${node.id}" style="padding-left:${10 + depth * 16}px">
       <div class="doc-folder-node__row ${isActive ? 'is-active' : ''}">
@@ -541,7 +552,7 @@ function renderDocFolderTreeNode(node, depth = 0) {
         <span class="doc-folder-node__icon">📁</span>
         <span class="doc-folder-node__name">${escapeHtml(node.name)}</span>
         <span class="doc-folder-node__actions">
-          ${__DOC.isAdmin ? `
+          ${(__DOC.isAdmin && !hideRootActions) ? `
             <button class="doc-folder-item__btn" data-action="rename" data-id="${node.id}" data-name="${escapeAttr(node.name)}" title="重命名">✏️</button>
             <button class="doc-folder-item__btn" data-action="delete" data-id="${node.id}" title="删除">🗑</button>
           ` : ''}
@@ -642,7 +653,7 @@ async function applyDocFolderFilter() {
   const input = document.getElementById('docSearchInput');
   const kw = input ? input.value : '';
   renderDocSidebarTree(kw);
-  renderHomeCategoryGrids();
+  renderRootDocsGrid();
   renderDocFolders();
   updateVisEmptyPlaceholders();
   renderDocBreadcrumb();
@@ -656,15 +667,23 @@ function renderDocFolders() {
   const list = document.getElementById('docFoldersList');
   if (!section || !list) return;
 
-  // 按 visFilter 过滤文件夹：
-  //   - public / group tab：仅显示公共文件夹（user_id === null）
-  //   - private tab：仅显示个人文件夹（user_id === 当前用户）
-  //   - 无筛选（''）：显示全部（个人 + 公共）
+  // B5: scope=group 且用户组为 default/空 → 友好空态（隐藏文件夹区）
+  if (__DOC.currentScope === 'group') {
+    const g = __DOC.user.group;
+    if (!g || g === 'default' || g === undefined || g === null) {
+      section.style.display = 'none';
+      return;
+    }
+  }
+
+  // 按 currentScope 过滤文件夹：
+  //   - public / group：仅显示公共文件夹（user_id === null）
+  //   - private：仅显示个人文件夹（user_id === 当前用户）
   const uid = __DOC.user.id;
   let filteredFolders = __DOC.folders;
-  if (__DOC.visFilter === 'public' || __DOC.visFilter === 'group') {
+  if (__DOC.currentScope === 'public' || __DOC.currentScope === 'group') {
     filteredFolders = __DOC.folders.filter(f => f.user_id === null || f.user_id === undefined);
-  } else if (__DOC.visFilter === 'private') {
+  } else if (__DOC.currentScope === 'private') {
     filteredFolders = __DOC.folders.filter(f => uid && f.user_id === uid);
   }
 
@@ -704,32 +723,26 @@ function renderDocFolders() {
 }
 
 /**
- * 统一筛选状态机辅助:清空 visFilter + 搜索框,并把 tab UI 全部去激活。
- * 用于"切换到文件夹筛选维度"时,把 tab 维度重置干净。
+ * 统一筛选状态机辅助:清空搜索框,并保留 currentScope（folder 筛选不重置 scope）。
+ * 用于"切换到文件夹筛选维度"时,保留当前 scope tab。
  */
 function resetVisFilterAndSearchUI() {
-  __DOC.visFilter = '';
   const input = document.getElementById('docSearchInput');
   if (input) input.value = '';
-  const tabs = document.querySelectorAll('#docVisTabs .doc-tab');
-  tabs.forEach(t => {
-    t.classList.remove('is-active');
-    t.setAttribute('aria-selected', 'false');
-  });
 }
 
 /**
- * 统一筛选状态机辅助:重置到默认状态(visFilter=public, folderId=null, 搜索框空,「公共」tab 激活)。
+ * 统一筛选状态机辅助:重置到默认状态(currentScope=public, folderId=null, 搜索框空,「公有文档」tab 激活)。
  * 用于「文档中心首页」类入口(backToHomeBtn / 面包屑「文档中心」)。
  */
 function resetToDefaultFilter() {
   __DOC.currentFolderId = null;
-  __DOC.visFilter = 'public';
+  __DOC.currentScope = 'public';
   const input = document.getElementById('docSearchInput');
   if (input) input.value = '';
-  const tabs = document.querySelectorAll('#docVisTabs .doc-tab');
+  const tabs = document.querySelectorAll('#docRootTabs .doc-root-tab');
   tabs.forEach(t => {
-    const on = t.getAttribute('data-vis') === 'public';
+    const on = t.dataset.scope === 'public';
     t.classList.toggle('is-active', on);
     t.setAttribute('aria-selected', String(on));
   });
@@ -970,6 +983,10 @@ function renderDocDetailView(doc) {
   const $title = document.getElementById('docTitle');
   const $meta = document.getElementById('docMeta');
   const $content = document.getElementById('docContent');
+
+  // P2: group-readme 判断（slug=group-readme 或 owning=__system__ 为系统维护文档）
+  const isGroupReadme = doc && (doc.slug === 'group-readme' || doc.owning === '__system__');
+
   if ($title) $title.textContent = doc.title || '（无标题）';
 
   // --- 元信息条 ---
@@ -979,6 +996,7 @@ function renderDocDetailView(doc) {
   const pills = [];
   // 1. 可见性徽章（公开文档需进一步判断 bit[0] 决定访客是否真正可见）
   const isPublic = doc.visibility === 'public';
+  const hasPermBits = !(doc.permission_bits === undefined || doc.permission_bits === null || doc.permission_bits === '');
   const __bits = doc.permission_bits || '000000';
   const visitorCanView = isPublic && __bits[0] === '1';
   const visText = isPublic
@@ -988,40 +1006,56 @@ function renderDocDetailView(doc) {
     <span>${visText}</span>
   </span>`);
 
-  // 2. 权限展示：所有用户统一看过滤矩阵
-  //    等级映射（permission_bits 索引 0..5）：
-  //      0=未登录访客, 1=user, 2=admin1, 3=admin2, 4=admin3, 5=superadmin(强制允许)
-  //    用户 permissionLevel N → 仅可见 0..(N-1) 行（低于自己权限的查看情况）
-  //      - 匿名(null)/等级1 → maxRow=0（仅访客行）
-  //      - 等级2 → maxRow=1，... 等级6 → maxRow=5（全部，superadmin 行强制 ✅）
+  // 2. 权限展示（P1: 按 permission_bits 有无条件渲染）
   if (isPublic) {
-    const __userLevel = lvl || 0; // null/undefined=匿名 => 0
-    const __maxRow = Math.max(0, __userLevel - 1);
-    const showRows = [];
-    for (let row = 0; row <= __maxRow; row++) {
-      let allow = false;
-      let force = false;
-      if (row === 0) {
-        // 访客行：公开且 bit[0]=='1'
-        allow = __bits[0] === '1';
-      } else if (row === 5) {
-        // superadmin 行：强制允许
-        allow = true;
-        force = true;
-      } else {
-        allow = __bits[row] === '1';
-      }
-      const mc = allow ? 'is-yes' : 'is-no';
-      const mt = allow ? '✅ 可见' : '❌ 不可见';
-      const forceClass = force ? ' is-force' : '';
-      const label = row === 0 ? '访客' : `等级 ${row}`;
-      showRows.push(`<div class="doc-perm-grid__row${forceClass}">
-        <div class="doc-perm-grid__label">${label}</div>
-        <div class="doc-perm-grid__role">${DOC_LEVEL_ROLES[row] || ''}</div>
-        <div class="doc-perm-grid__mark ${mc}">${mt}</div>
+    if (!hasPermBits) {
+      // permission_bits 为空 → 只显示一句话摘要，不渲染矩阵
+      pills.push(`<div class="doc-permission-summary doc-permission-summary--compact">
+        <span class="doc-meta__icon">🔐</span>
+        <span>${permToSummaryText(null, doc.visibility)}</span>
       </div>`);
+    } else {
+      // permission_bits 有值 → 保留 6 行矩阵渲染
+      //    等级映射（permission_bits 索引 0..5）：
+      //      0=未登录访客, 1=user, 2=admin1, 3=admin2, 4=admin3, 5=superadmin(强制允许)
+      //    用户 permissionLevel N → 可见 0..(N-1) 行；超级管理员(等级5)可见全部 6 行(含 superadmin 行)
+      const __userLevel = lvl || 0;
+      let __maxRow;
+      if (__userLevel >= 5) {
+        __maxRow = 5;
+      } else {
+        __maxRow = Math.max(0, __userLevel - 1);
+      }
+      const showRows = [];
+      for (let row = 0; row <= __maxRow; row++) {
+        let allow = false;
+        let force = false;
+        let isSuperadminRow = false;
+        if (row === 0) {
+          allow = __bits[0] === '1';
+        } else if (row === 5) {
+          allow = true;
+          force = true;
+          isSuperadminRow = true;
+        } else {
+          allow = __bits[row] === '1';
+        }
+        const mc = allow ? 'is-yes' : 'is-no';
+        const mt = allow ? '✅ 可见' : '❌ 不可见';
+        const forceClass = force ? ' is-force' : '';
+        const superadminClass = isSuperadminRow ? ' is-force-allow' : '';
+        const label = row === 0 ? '访客' : `等级 ${row}`;
+        const forceBadge = isSuperadminRow
+          ? `<span style="margin-left:6px;padding:1px 6px;font-size:11px;border-radius:4px;background:#e6f4ea;color:#1e7e34;border:1px solid #a8d5b4;">强制允许（系统兜底）</span>`
+          : '';
+        showRows.push(`<div class="doc-perm-grid__row${forceClass}${superadminClass}">
+          <div class="doc-perm-grid__label">${label}</div>
+          <div class="doc-perm-grid__role">${DOC_LEVEL_ROLES[row] || ''}${forceBadge}</div>
+          <div class="doc-perm-grid__mark ${mc}">${mt}</div>
+        </div>`);
+      }
+      pills.push(`<div class="doc-perm-grid">${showRows.join('')}</div>`);
     }
-    pills.push(`<div class="doc-perm-grid">${showRows.join('')}</div>`);
   } else {
     // 私密文档：仅显示一句话（不暴露权限矩阵）
     pills.push(`<span class="meta-pill doc-perm-summary">
@@ -1044,7 +1078,45 @@ function renderDocDetailView(doc) {
   // 6. 浏览量
   pills.push(`<span class="meta-pill">👁 <strong>${doc.view_count ?? 0}</strong> 次阅读</span>`);
 
-  if ($meta) $meta.innerHTML = pills.join('');
+  // P3: 私人文档 pill（visibility=private 或 owning 为正数字用户ID）
+  const isPrivateDoc = doc.visibility === 'private' || (doc.owning && String(doc.owning) !== '0' && /^\d+$/.test(String(doc.owning)));
+  if (isPrivateDoc) {
+    pills.push(`<span class="doc-meta__pill doc-meta__pill--private" style="padding:2px 8px;border-radius:999px;background:#f0e7ff;color:#5533aa;border:1px solid #e5d4ff;">
+      <span>🔒</span><span>私人文档</span>
+    </span>`);
+  }
+
+  // --- P2: group-readme 警示 banner（放在 meta 区之后）---
+  let bannerHtml = '';
+  if (isGroupReadme) {
+    bannerHtml = `<div class="doc-banner doc-banner--warning doc-group-readonly-banner" style="margin:12px 0;padding:10px 14px;border:1px solid #f4c34a;background:#fff8e1;border-radius:6px;color:#7a5a00;">
+      ⚠️ <b>此为组文档说明页（系统维护文档）</b>，普通用户不可编辑 / 移动 / 删除。需要修改请联系超级管理员。
+    </div>`;
+  }
+
+  if ($meta) $meta.innerHTML = pills.join('') + bannerHtml;
+
+  // P2: group-readme 时隐藏/禁用编辑、删除、修订历史对比等按钮
+  if (isGroupReadme) {
+    // 查找并隐藏可能存在的编辑、删除、对比按钮（防止未来接入时出现）
+    const docDetailWrap = document.querySelector('.doc-detail-wrap');
+    if (docDetailWrap) {
+      docDetailWrap.querySelectorAll('button, a').forEach(el => {
+        const txt = (el.textContent || '').trim();
+        const title = (el.getAttribute('title') || '').trim();
+        const isEdit = /编辑|✏️|edit/i.test(txt) || /编辑|edit/i.test(title);
+        const isDelete = /删除|🗑|delete/i.test(txt) || /删除|delete/i.test(title);
+        const isDiff = /对比|diff|compare/i.test(txt) || /对比|diff|compare/i.test(title);
+        const isRevCompare = /修订.*对比|历史.*对比/i.test(txt);
+        if (isEdit || isDelete || isDiff || isRevCompare) {
+          el.style.display = 'none';
+        }
+      });
+    }
+    // 修订历史切换按钮：group-readme 不删除修订历史功能，但禁用"对比"语义按钮（如有）
+    const revToggle = document.getElementById('docRevisionsToggle');
+    // （保留修订历史折叠按钮不动，只针对"编辑/删除/对比"类按钮禁用）
+  }
 
   // --- Markdown 正文 ---
   if ($content) {
