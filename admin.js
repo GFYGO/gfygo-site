@@ -170,13 +170,16 @@ function switchAdminTab(tabName, skipSave = false) {
 
 function adminRequest(path, options = {}) {
     const token = AuthGuard.getToken();
+    const method = (options.method || 'GET').toUpperCase();
+    const hasBody = options.body !== undefined && options.body !== null;
+    // 只有带 body 的请求才设置 Content-Type，避免 GET 无 body 触发 WAF/nginx 400
     const headers = Object.assign({
-        'Content-Type': 'application/json',
         'X-Permission-Context': 'admin'
     }, options.headers || {});
+    if (hasBody) headers['Content-Type'] = 'application/json';
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    return fetch(`${API_BASE_URL}${path}`, Object.assign({}, options, { headers }));
+    return fetch(`${API_BASE_URL}${path}`, Object.assign({}, options, { method, headers }));
 }
 
 

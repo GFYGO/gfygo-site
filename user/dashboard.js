@@ -69,13 +69,17 @@ async function dashboardRequest(urlOrPath, options = {}) {
     if (!token) { AuthGuard.handleAuthError(); return null; }
     const isFullUrl = /^https?:\/\//i.test(urlOrPath);
     const url = isFullUrl ? urlOrPath : `${API_BASE_URL}${urlOrPath}`;
-    const headers = Object.assign({
-        'Content-Type': 'application/json',
+    const method = (options.method || 'GET').toUpperCase();
+    const hasBody = options.body !== undefined && options.body !== null;
+    // 只有带 body 的请求才设置 Content-Type，避免 GET 无 body 触发 WAF/nginx 400
+    const baseHeaders = {
         'Authorization': `Bearer ${token}`,
         'X-Permission-Context': __inferPermissionContext()
-    }, options.headers || {});
+    };
+    if (hasBody) baseHeaders['Content-Type'] = 'application/json';
+    const headers = Object.assign(baseHeaders, options.headers || {});
     try {
-        const res = await fetch(url, Object.assign({}, options, { headers }));
+        const res = await fetch(url, Object.assign({}, options, { method, headers }));
         if (res.status === 401) { AuthGuard.handleAuthError(); return null; }
         return res;
     } catch (e) {
@@ -1006,12 +1010,19 @@ async function pdocsRequest(path, options = {}) {
     // 根据路径判断权限上下文
     const pathCtx = window.location.pathname.match(/\/(admin1|admin2|admin3|superadmin)\//) ? 'admin' : 'dashboard';
     try {
+        const method = (options.method || 'GET').toUpperCase();
+        const hasBody = options.body !== undefined && options.body !== null;
+        // 只有带 body 的请求才设置 Content-Type，避免 GET/DELETE 无 body 触发 WAF/nginx 400
+        const baseHeaders = {
+            'Authorization': `Bearer ${token}`,
+            'X-Permission-Context': pathCtx,
+        };
+        if (hasBody) baseHeaders['Content-Type'] = 'application/json';
         const res = await fetch(`${API_BASE_URL}/api/v1/document${path}`, {
             ...options,
+            method,
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-                'X-Permission-Context': pathCtx,
+                ...baseHeaders,
                 ...(options.headers || {})
             }
         });
@@ -1029,16 +1040,16 @@ function ensureMarkedLoaded() {
     if (pdocsMarkedReady) return Promise.resolve();
     if (pdocsMarkedLoading) return pdocsMarkedLoading;
     pdocsMarkedLoading = (async () => {
-        // M8: SRI integrity hash（marked 12.0.0 / dompurify 3.1.6，值来自 jsdelivr）
+        // M8: SRI integrity hash（marked 12.0.0 / dompurify 3.1.6，值来自浏览器实际计算）
         const resources = [
             {
                 src: 'https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js',
-                integrity: 'sha384-jv4mQ2gG0p07k+w6QK5Rb4l5L2u5o6Vf3xq1rFh5cD9mN0qB7sT8yW5Xv2zK3eL4',
+                integrity: 'sha384-NNQgBjjuhtXzPmmy4gurS5X7P4uTt1DThyevz4Ua0IVK5+kazYQI1W27JHjbbxQz',
                 check: () => !!(window.marked && typeof window.marked.parse === 'function')
             },
             {
                 src: 'https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js',
-                integrity: 'sha384-42IP4YpLr5sUFD928mKzQkQnVvQbN29m8vF8R9z7QqBq2b0P4hR8s3yU6r5nN2L7',
+                integrity: 'sha384-+VfUPEb0PdtChMwmBcBmykRMDd+v6D/oFmB3rZM/puCMDYcIvF968OimRh4KQY9a',
                 check: () => !!(window.DOMPurify && typeof window.DOMPurify.sanitize === 'function')
             }
         ];

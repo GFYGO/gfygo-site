@@ -1017,16 +1017,16 @@ function ensureMarkedLoaded() {
     return Promise.resolve(true);
   }
 
-  // M8: SRI integrity hash（marked 12.0.0 / dompurify 3.1.6）
+  // M8: SRI integrity hash（marked 12.0.0 / dompurify 3.1.6，值来自浏览器实际计算）
   const tasks = [];
   if (!hasMarked) tasks.push(loadScriptWithSRI({
     src: 'https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js',
-    integrity: 'sha384-jv4mQ2gG0p07k+w6QK5Rb4l5L2u5o6Vf3xq1rFh5cD9mN0qB7sT8yW5Xv2zK3eL4',
+    integrity: 'sha384-NNQgBjjuhtXzPmmy4gurS5X7P4uTt1DThyevz4Ua0IVK5+kazYQI1W27JHjbbxQz',
     check: () => !!(window.marked && typeof window.marked.parse === 'function')
   }).then(ok => { if (ok) __DOC.markedReady = true; return ok; }));
   if (!hasPurify) tasks.push(loadScriptWithSRI({
     src: 'https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js',
-    integrity: 'sha384-42IP4YpLr5sUFD928mKzQkQnVvQbN29m8vF8R9z7QqBq2b0P4hR8s3yU6r5nN2L7',
+    integrity: 'sha384-+VfUPEb0PdtChMwmBcBmykRMDd+v6D/oFmB3rZM/puCMDYcIvF968OimRh4KQY9a',
     check: () => !!(window.DOMPurify && typeof window.DOMPurify.sanitize === 'function')
   }).then(ok => { if (ok) __DOC.dompurifyReady = true; return ok; }));
 
