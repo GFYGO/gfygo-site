@@ -3,6 +3,20 @@
  * 全局配置与路由守卫
  */
 
+// =========================================
+// URL 规范化：自动重定向去除末尾的点（修复 Turnstile/CORS 域名不匹配问题）
+// =========================================
+(function normalizeOrigin() {
+  const href = window.location.href;
+  // 检测 origin 末尾是否有额外的点（如 https://gwl.net.cn.）
+  if (/^https?:\/\/[^\/]+\.($|\/)/i.test(href)) {
+    // 移除 hostname 末尾的点，保留路径和参数
+    const normalized = href.replace(/^(https?:\/\/[^\/]+)\.(\/|$)/i, '$1$2');
+    console.warn('[URL Normalization] Redirecting to remove trailing dot:', href, '→', normalized);
+    window.location.replace(normalized);
+  }
+})();
+
 // ✅ 任务 FE-JS-01: 定义 API 基地址
 // 修正：使用完整的 HTTPS 地址，避免在 GitHub Pages 等环境下出现相对路径请求错误
 const API_BASE_URL = "https://back.gwl.net.cn";
