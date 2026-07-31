@@ -5,7 +5,7 @@
 
 // 内部缓存：分类/文档/当前用户信息（供多视图复用）
 const __DOC = {
-  categories: [],          // [{id, name, slug, sort_order}]
+  
   docs: [],                // [{id, title, slug, permission_bits, visibility, owning, ...}]
   user: {
     isLoggedIn: false,
@@ -41,7 +41,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 启动时并发：拿分类 / 拿列表 / 拿身份 / 拿公共文件夹
   Promise.all([
-    fetchDocCategories(),
     fetchDocList(),
     fetchDocAuthState(),
     fetchDocFolders()
@@ -50,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // 先渲染文件夹（用于 active 状态显示），再渲染依赖 docs 的目录树与首页卡片
       renderDocFolders();
       renderDocSidebarTree();
-      renderHomeCategoryGrids();
+      renderDocRootList();
       bindDocSearch();
       bindVisTabs();
       bindRevisionsToggle();
@@ -194,20 +193,6 @@ function permToSummaryText(bits, visibility) {
 // 3. 数据获取
 // =========================================
 
-async function fetchDocCategories() {
-  try {
-    const r = await fetch(`${API_BASE_URL}/api/v1/document/categories`);
-    const d = await r.json();
-    if (r.ok && d.code === 200) {
-      __DOC.categories = (d.data || []).sort((a, b) => a.sort_order - b.sort_order);
-    } else {
-      console.warn('[categories] 获取失败:', d.msg);
-    }
-  } catch (e) {
-    console.error('[categories] 网络错误:', e);
-  }
-}
-
 async function fetchDocList() {
   try {
     const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
@@ -322,10 +307,8 @@ function renderDocSidebarTree(keyword = '') {
   // 可见类型 tab 过滤（public / group / private）
   if (__DOC.visFilter) {
     if (__DOC.visFilter === 'private') {
-      // 私有 tab：仅显示当前用户自己创建的私有文档
       visibleDocs = visibleDocs.filter(d => d.visibility === 'private' && uid && d.author_id === uid);
     } else {
-      // 公共/组 tab：按 owning 分类（非 private 文档）
       visibleDocs = visibleDocs.filter(d => d.visibility !== 'private' && owningToTab(d) === __DOC.visFilter);
     }
   }
@@ -343,42 +326,9 @@ function renderDocSidebarTree(keyword = '') {
     return;
   }
 
-  // 按分类分组
-  const byCat = {};
-  const orphans = [];
-  for (const doc of list) {
-    const slug = doc.category_name ? __findCatSlugByName(doc.category_name) : null;
-    if (slug) {
-      (byCat[slug] = byCat[slug] || []).push(doc);
-    } else {
-      orphans.push(doc);
-    }
-  }
-
-  let html = '';
-  // 按分类顺序渲染
-  for (const cat of __DOC.categories) {
-    if (!byCat[cat.slug] || byCat[cat.slug].length === 0) continue;
-    html += `<div class="doc-cat">
-      <div class="doc-cat__title">${escapeHtml(cat.name)}</div>
-      ${byCat[cat.slug].map(d => docItemHTML(d)).join('')}
-    </div>`;
-  }
-  if (orphans.length) {
-    // orphans = 无 category 的文档。标题统一为「未分类文档」,
-    // 避免与文件夹区的「全部文档 / 根目录」重名导致用户混淆。
-    // (当前所在文件夹的名称已由顶部面包屑展示,此处不再重复)
-    const orphanTitle = '未分类文档';
-    html += `<div class="doc-cat">
-      <div class="doc-cat__title">${escapeHtml(orphanTitle)}</div>
-      ${orphans.map(d => docItemHTML(d)).join('')}
-    </div>`;
-  }
+  // 扁平列表（无分类分组）
+  let html = list.map(d => docItemHTML(d)).join('');
   root.innerHTML = html;
-}
-function __findCatSlugByName(name) {
-  const c = __DOC.categories.find(x => x.name === name);
-  return c ? c.slug : null;
 }
 function docItemHTML(d) {
   const active = __DOC.currentSlug === d.slug ? ' is-active' : '';
@@ -390,11 +340,9 @@ function docItemHTML(d) {
 }
 
 // =========================================
-// 5. 渲染：主页按分类 feature-grid 填充卡片
+// 5. 渲染：主页文档列表（扁平卡片网格）
 // =========================================
-// 注：folder_id 过滤由后端完成（fetchDocList 内部按 __DOC.currentFolderId 拼 ?folder_id=），
-// 此函数只基于已过滤的 __DOC.docs 渲染。
-function renderHomeCategoryGrids() {
+function renderDocRootList() {
   const lvl = __DOC.user.permissionLevel;
   const uid = __DOC.user.id;
   let visibleDocs = __DOC.docs.filter(doc =>
@@ -403,40 +351,30 @@ function renderHomeCategoryGrids() {
   // 可见类型 tab 过滤（与侧边栏保持一致）
   if (__DOC.visFilter) {
     if (__DOC.visFilter === 'private') {
-      // 私有 tab：仅显示当前用户自己创建的私有文档
       visibleDocs = visibleDocs.filter(d => d.visibility === 'private' && uid && d.author_id === uid);
     } else {
-      // 公共/组 tab：按 owning 分类（非 private 文档）
       visibleDocs = visibleDocs.filter(d => d.visibility !== 'private' && owningToTab(d) === __DOC.visFilter);
     }
   }
 
-  const mountPoints = document.querySelectorAll('[data-category-slug]');
-  let anyEmpty = true;
-  mountPoints.forEach(grid => {
-    const slug = grid.getAttribute('data-category-slug');
-    const cat = __DOC.categories.find(c => c.slug === slug);
-    const docs = visibleDocs.filter(d =>
-      cat ? (d.category_name === cat.name) : false
-    );
-    if (docs.length === 0) {
-      grid.innerHTML = '';
-    } else {
-      anyEmpty = false;
-      grid.innerHTML = docs.map(d => {
-        const href = `#/doc/${encodeURIComponent(d.slug)}`;
-        return `<a class="feature-tile" href="${href}">
-          <div class="feature-tile__img">${d.icon || '📚'}</div>
-          <div class="feature-tile__content">
-            <div class="feature-tile__title">${escapeHtml(d.title)}</div>
-            <div class="feature-tile__desc">${escapeHtml(d.summary || '')}</div>
-          </div>
-        </a>`;
-      }).join('');
-    }
-  });
-  const tip = document.getElementById('emptyCatTip');
-  if (tip) tip.style.display = anyEmpty ? 'block' : 'none';
+  const grid = document.getElementById('docRootGrid');
+  if (!grid) return;
+
+  if (visibleDocs.length === 0) {
+    grid.innerHTML = '';
+    return;
+  }
+
+  grid.innerHTML = visibleDocs.map(d => {
+    const href = `#/doc/${encodeURIComponent(d.slug)}`;
+    return `<a class="feature-tile" href="${href}">
+      <div class="feature-tile__img">${d.icon || '📚'}</div>
+      <div class="feature-tile__content">
+        <div class="feature-tile__title">${escapeHtml(d.title)}</div>
+        <div class="feature-tile__desc">${escapeHtml(d.summary || '')}</div>
+      </div>
+    </a>`;
+  }).join('');
 }
 
 // =========================================
@@ -642,7 +580,7 @@ async function applyDocFolderFilter() {
   const input = document.getElementById('docSearchInput');
   const kw = input ? input.value : '';
   renderDocSidebarTree(kw);
-  renderHomeCategoryGrids();
+  renderDocRootList();
   renderDocFolders();
   updateVisEmptyPlaceholders();
   renderDocBreadcrumb();

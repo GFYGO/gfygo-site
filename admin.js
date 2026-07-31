@@ -221,7 +221,7 @@ function initAdminThemeOptions() {
             // 同步偏好到后端（可选）
             const token = AuthGuard.getToken();
             if (token) {
-                fetch(`${API_BASE_URL}/api/v1/user/preferences`, {
+                fetch(`${API_BASE_URL}/api/v1/user/theme`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -531,4 +531,45 @@ function escapeHtml(str) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+}
+
+function renderTopNavAuth(user) {
+    const authContainer = document.getElementById('auth-container');
+    if (!authContainer) return;
+    authContainer.innerHTML = '';
+    const navLoginLinks = document.querySelectorAll('.header__nav a[href*="login"]');
+    const navRegisterLinks = document.querySelectorAll('.header__nav a[href*="register"]');
+    const avatar = (user.profile && user.profile.avatar) ? user.profile.avatar : '';
+    const defaultAvatar = `${BASE_PATH}/favicon.png`;
+    const userEl = document.createElement('div');
+    userEl.className = 'user-info';
+    const img = document.createElement('img');
+    img.src = avatar || defaultAvatar;
+    img.alt = user.username;
+    img.className = 'user-avatar';
+    img.onerror = function() { this.src = defaultAvatar; };
+    userEl.appendChild(img);
+    const usernameLink = document.createElement('a');
+    usernameLink.href = `${BASE_PATH}/user/dashboard.html`;
+    usernameLink.className = 'username';
+    usernameLink.textContent = user.username;
+    userEl.appendChild(usernameLink);
+    const logoutLink = document.createElement('a');
+    logoutLink.href = '#';
+    logoutLink.className = 'logout-link';
+    logoutLink.id = 'logoutBtn';
+    logoutLink.textContent = '退出';
+    userEl.appendChild(logoutLink);
+    authContainer.appendChild(userEl);
+    navLoginLinks.forEach(link => link.style.display = 'none');
+    navRegisterLinks.forEach(link => link.style.display = 'none');
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            AuthGuard.clearToken();
+            localStorage.removeItem('guest_view_mode');
+            window.location.href = `${BASE_PATH}/index.html`;
+        });
+    }
 }
