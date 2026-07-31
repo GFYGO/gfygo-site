@@ -17,10 +17,7 @@ const __DOC = {
   revisions: [],           // 当前文档修订缓存
   markedReady: false,      // marked.js 是否已加载
   markedLoading: false,    // marked.js 是否正在加载中（防止并发脚本注入）
-<<<<<<< HEAD
-=======
   dompurifyReady: false,   // DOMPurify 是否已加载
->>>>>>> parent of 49c1ede (big doc fix)
   visFilter: 'public',     // 侧栏可见类型筛选：public / group / private
   folders: [],              // 文件夹列表：匿名时仅公共文件夹；登录时=个人(personal)+公共(public)合并
   currentFolderId: null,    // null=不过滤；0=根目录；正整数=该文件夹
@@ -52,11 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // 先渲染文件夹（用于 active 状态显示），再渲染依赖 docs 的目录树与首页卡片
       renderDocFolders();
       renderDocSidebarTree();
-<<<<<<< HEAD
-      renderDocRootList();
-=======
       renderHomeCategoryGrids();
->>>>>>> parent of 49c1ede (big doc fix)
       bindDocSearch();
       bindVisTabs();
       bindRevisionsToggle();
@@ -314,15 +307,10 @@ function renderDocSidebarTree(keyword = '') {
   // 可见类型 tab 过滤（public / group / private）
   if (__DOC.visFilter) {
     if (__DOC.visFilter === 'private') {
-<<<<<<< HEAD
-      visibleDocs = visibleDocs.filter(d => d.visibility === 'private' && uid && d.author_id === uid);
-    } else {
-=======
       // 私有 tab：仅显示当前用户自己创建的私有文档
       visibleDocs = visibleDocs.filter(d => d.visibility === 'private' && uid && d.author_id === uid);
     } else {
       // 公共/组 tab：按 owning 分类（非 private 文档）
->>>>>>> parent of 49c1ede (big doc fix)
       visibleDocs = visibleDocs.filter(d => d.visibility !== 'private' && owningToTab(d) === __DOC.visFilter);
     }
   }
@@ -340,10 +328,6 @@ function renderDocSidebarTree(keyword = '') {
     return;
   }
 
-<<<<<<< HEAD
-  // 扁平列表（无分类分组）
-  let html = list.map(d => docItemHTML(d)).join('');
-=======
   // 按分类分组
   const byCat = {};
   const orphans = [];
@@ -375,7 +359,6 @@ function renderDocSidebarTree(keyword = '') {
       ${orphans.map(d => docItemHTML(d)).join('')}
     </div>`;
   }
->>>>>>> parent of 49c1ede (big doc fix)
   root.innerHTML = html;
 }
 function docItemHTML(d) {
@@ -388,17 +371,11 @@ function docItemHTML(d) {
 }
 
 // =========================================
-<<<<<<< HEAD
-// 5. 渲染：主页文档列表（扁平卡片网格）
-// =========================================
-function renderDocRootList() {
-=======
 // 5. 渲染：主页按分类 feature-grid 填充卡片
 // =========================================
 // 注：folder_id 过滤由后端完成（fetchDocList 内部按 __DOC.currentFolderId 拼 ?folder_id=），
 // 此函数只基于已过滤的 __DOC.docs 渲染。
 function renderHomeCategoryGrids() {
->>>>>>> parent of 49c1ede (big doc fix)
   const lvl = __DOC.user.permissionLevel;
   const uid = __DOC.user.id;
   let visibleDocs = __DOC.docs.filter(doc =>
@@ -407,39 +384,14 @@ function renderHomeCategoryGrids() {
   // 可见类型 tab 过滤（与侧边栏保持一致）
   if (__DOC.visFilter) {
     if (__DOC.visFilter === 'private') {
-<<<<<<< HEAD
-      visibleDocs = visibleDocs.filter(d => d.visibility === 'private' && uid && d.author_id === uid);
-    } else {
-=======
       // 私有 tab：仅显示当前用户自己创建的私有文档
       visibleDocs = visibleDocs.filter(d => d.visibility === 'private' && uid && d.author_id === uid);
     } else {
       // 公共/组 tab：按 owning 分类（非 private 文档）
->>>>>>> parent of 49c1ede (big doc fix)
       visibleDocs = visibleDocs.filter(d => d.visibility !== 'private' && owningToTab(d) === __DOC.visFilter);
     }
   }
 
-<<<<<<< HEAD
-  const grid = document.getElementById('docRootGrid');
-  if (!grid) return;
-
-  if (visibleDocs.length === 0) {
-    grid.innerHTML = '';
-    return;
-  }
-
-  grid.innerHTML = visibleDocs.map(d => {
-    const href = `#/doc/${encodeURIComponent(d.slug)}`;
-    return `<a class="feature-tile" href="${href}">
-      <div class="feature-tile__img">${d.icon || '📚'}</div>
-      <div class="feature-tile__content">
-        <div class="feature-tile__title">${escapeHtml(d.title)}</div>
-        <div class="feature-tile__desc">${escapeHtml(d.summary || '')}</div>
-      </div>
-    </a>`;
-  }).join('');
-=======
   const mountPoints = document.querySelectorAll('[data-category-slug]');
   let anyEmpty = true;
   mountPoints.forEach(grid => {
@@ -466,7 +418,6 @@ function renderHomeCategoryGrids() {
   });
   const tip = document.getElementById('emptyCatTip');
   if (tip) tip.style.display = anyEmpty ? 'block' : 'none';
->>>>>>> parent of 49c1ede (big doc fix)
 }
 
 // =========================================
@@ -672,11 +623,7 @@ async function applyDocFolderFilter() {
   const input = document.getElementById('docSearchInput');
   const kw = input ? input.value : '';
   renderDocSidebarTree(kw);
-<<<<<<< HEAD
-  renderDocRootList();
-=======
   renderHomeCategoryGrids();
->>>>>>> parent of 49c1ede (big doc fix)
   renderDocFolders();
   updateVisEmptyPlaceholders();
   renderDocBreadcrumb();
@@ -1110,28 +1057,6 @@ function ensureMarkedLoaded() {
     __DOC.markedReady = true;
     return Promise.resolve(true);
   }
-<<<<<<< HEAD
-
-  // M8: SRI integrity hash（marked 12.0.0 / dompurify 3.1.6，值来自浏览器实际计算）
-  const tasks = [];
-  if (!hasMarked) tasks.push(loadScriptWithSRI({
-    src: 'https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js',
-    integrity: 'sha384-NNQgBjjuhtXzPmmy4gurS5X7P4uTt1DThyevz4Ua0IVK5+kazYQI1W27JHjbbxQz',
-    check: () => !!(window.marked && typeof window.marked.parse === 'function')
-  }).then(ok => { if (ok) __DOC.markedReady = true; return ok; }));
-  if (!hasPurify) tasks.push(loadScriptWithSRI({
-    src: 'https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js',
-    integrity: 'sha384-+VfUPEb0PdtChMwmBcBmykRMDd+v6D/oFmB3rZM/puCMDYcIvF968OimRh4KQY9a',
-    check: () => !!(window.DOMPurify && typeof window.DOMPurify.sanitize === 'function')
-  }).then(ok => { if (ok) __DOC.dompurifyReady = true; return ok; }));
-
-  if (tasks.length === 0) return Promise.resolve(true);
-  return Promise.all(tasks).then(results => results.every(Boolean) || hasMarked || __DOC.markedReady);
-}
-
-/** 通用：带 SRI 完整性校验的脚本加载器 */
-function loadScriptWithSRI({ src, integrity, check }) {
-=======
   if (__DOC.markedLoading) {
     // 正在加载，轮询
     return new Promise(resolve => {
@@ -1147,7 +1072,6 @@ function loadScriptWithSRI({ src, integrity, check }) {
     });
   }
   __DOC.markedLoading = true;
->>>>>>> parent of 2780429 (big_fix3.5)
   return new Promise(resolve => {
     const s = document.createElement('script');
     s.src = 'https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js';
