@@ -350,8 +350,16 @@ function renderDocSidebarTree(keyword = '') {
     </div>`;
   }
   if (orphans.length) {
+    // 标题随当前目录动态变化：null=全部文档 / 0=根目录 / 正整数=对应文件夹名
+    let orphanTitle = '全部文档';
+    if (__DOC.currentFolderId === 0) {
+      orphanTitle = '根目录';
+    } else if (typeof __DOC.currentFolderId === 'number' && __DOC.currentFolderId > 0) {
+      const cur = __DOC.folders.find(f => f.id === __DOC.currentFolderId);
+      if (cur && cur.name) orphanTitle = cur.name;
+    }
     html += `<div class="doc-cat">
-      <div class="doc-cat__title">其他文档</div>
+      <div class="doc-cat__title">${escapeHtml(orphanTitle)}</div>
       ${orphans.map(d => docItemHTML(d)).join('')}
     </div>`;
   }
