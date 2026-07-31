@@ -123,6 +123,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             // 更新最近登录 uid，用于登出时清理相关 localStorage
             try { localStorage.setItem('__gfygo_last_uid', String(user.id)); } catch (_) { /* ignore */ }
 
+            // 竞态修复：若 personal-docs tab 已被首次加载过（initPersonalDocs 已触发但 loadPersonalFolders 因
+            // pdocsCurrentUserId 未就绪被跳过），此处用就绪后的 uid 重新加载文件夹
+            if (staticPanelLoaded.has('personal-docs')) {
+                loadPersonalFolders();
+            }
+
             // ================================
             // H2: 路径准入校验（admin 路径需真实 permission_level 足够）
             // ================================
@@ -1600,8 +1606,15 @@ async function renderPdocsPreview() {
 // 个人文件夹相关函数（多级树形 + 面包屑）
 // =========================================
 
-/** 加载个人文件夹列表（过滤 user_id === pdocsCurrentUserId 项） */
+/** 加载个人文件夹列表（过滤 user_id === pdocsCurrentUserId 项）
+ *  注意：pdocsCurrentUserId 由 /auth/status 异步赋值，未就绪时跳过过滤避免误判（竞态保护） */
 async function loadPersonalFolders() {
+    // 竞态保护：若 /auth/status 尚未返回，pdocsCurrentUserId 仍为 null，
+    // 此时过滤会把所有个人文件夹误判为公共文件夹而全部剔除 → 直接跳过，等 auth 完成后由调用方重试
+    if (pdocsCurrentUserId === null || pdocsCurrentUserId === undefined) {
+        console.warn('[pdocs] loadPersonalFolders 跳过：pdocsCurrentUserId 未就绪（等待 auth/status 完成）');
+        return;
+    }
     const data = await pdocsRequest('/folders');
     if (!data || data.code !== 200) {
         console.error('[pdocs] 加载文件夹失败:', data);
