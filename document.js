@@ -73,6 +73,7 @@ function initDocSidebarControls() {
   const overlay = document.getElementById('docSidebarOverlay');
   const toggleBtn = document.getElementById('docSidebarToggle');
   const closeBtn = document.getElementById('docSidebarClose');
+  const backHomeBtn = document.getElementById('backToHomeBtn');
   if (!sidebar) return;
 
   function open() { sidebar.classList.add('is-open'); if (overlay) overlay.classList.add('doc-sidebar-overlay--visible'); }
@@ -81,6 +82,20 @@ function initDocSidebarControls() {
   if (toggleBtn) toggleBtn.addEventListener('click', open);
   if (closeBtn)  closeBtn.addEventListener('click', close);
   if (overlay)   overlay.addEventListener('click', close);
+
+  // 顶部「文档中心首页」按钮:重置所有筛选状态(tab/folder/搜索)并切回主页视图。
+  // 与详情页主区的「← 返回文档主页」(#docBackBtn) 区分:后者只切回主页视图,保留筛选状态。
+  if (backHomeBtn) {
+    backHomeBtn.addEventListener('click', async () => {
+      // 统一筛选状态机:重置到默认状态(visFilter=public, folderId=null, 搜索框空)
+      resetToDefaultFilter();
+      // a 标签默认跳转会改 hash → 触发 routeByHash → showDocHome(切回主页视图)
+      // 重新拉取数据 + 全量重渲染
+      await applyDocFolderFilter();
+      // 移动端:收起侧边栏
+      close();
+    });
+  }
 
   // 点击目录项时，移动端自动收起
   document.addEventListener('click', (e) => {
@@ -350,14 +365,10 @@ function renderDocSidebarTree(keyword = '') {
     </div>`;
   }
   if (orphans.length) {
-    // 标题随当前目录动态变化：null=全部文档 / 0=根目录 / 正整数=对应文件夹名
-    let orphanTitle = '全部文档';
-    if (__DOC.currentFolderId === 0) {
-      orphanTitle = '根目录';
-    } else if (typeof __DOC.currentFolderId === 'number' && __DOC.currentFolderId > 0) {
-      const cur = __DOC.folders.find(f => f.id === __DOC.currentFolderId);
-      if (cur && cur.name) orphanTitle = cur.name;
-    }
+    // orphans = 无 category 的文档。标题统一为「未分类文档」,
+    // 避免与文件夹区的「全部文档 / 根目录」重名导致用户混淆。
+    // (当前所在文件夹的名称已由顶部面包屑展示,此处不再重复)
+    const orphanTitle = '未分类文档';
     html += `<div class="doc-cat">
       <div class="doc-cat__title">${escapeHtml(orphanTitle)}</div>
       ${orphans.map(d => docItemHTML(d)).join('')}
@@ -449,8 +460,12 @@ function bindVisTabs() {
   if (!wrap) return;
   const tabs = wrap.querySelectorAll('.doc-tab');
   tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
+    tab.addEventListener('click', async () => {
       const vis = tab.getAttribute('data-vis');
+      // 统一筛选状态机:tab 与 folder 互斥,切 tab 时清空 folder 筛选与搜索框
+      __DOC.currentFolderId = null;
+      const input = document.getElementById('docSearchInput');
+      if (input) input.value = '';
       // 再次点击已激活的 tab 视为取消筛选（回到全部）
       if (__DOC.visFilter === vis) {
         __DOC.visFilter = '';
@@ -463,11 +478,8 @@ function bindVisTabs() {
           t.setAttribute('aria-selected', String(on));
         });
       }
-      // 保留搜索关键字一起重渲染
-      const input = document.getElementById('docSearchInput');
-      renderDocSidebarTree(input ? input.value : '');
-      renderHomeCategoryGrids();
-      updateVisEmptyPlaceholders();
+      // folderId 变了,需重新拉数据 + 全量重渲染（applyDocFolderFilter 内部会调用 renderDocSidebarTree/renderHomeCategoryGrids/renderDocFolders 等）
+      await applyDocFolderFilter();
     });
   });
 }
@@ -603,8 +615,14 @@ function __bindDocBreadcrumbClicks(container, scrollToTop = false) {
   container.querySelectorAll('[data-folder-id]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const fid = btn.dataset.folderId;
-      if (fid === '__all__') __DOC.currentFolderId = null;
-      else __DOC.currentFolderId = Number(fid);
+      if (fid === '__all__') {
+        // 点「📋 文档中心」= 重置到默认状态(与 backToHomeBtn 一致)
+        resetToDefaultFilter();
+      } else {
+        // 点具体 folder = 切到 folder 维度,清空 tab + 搜索
+        resetVisFilterAndSearchUI();
+        __DOC.currentFolderId = Number(fid);
+      }
       const vDetail = document.getElementById('viewDetail');
       if (vDetail && vDetail.style.display !== 'none') {
         window.location.hash = '#/';
@@ -617,10 +635,13 @@ function __bindDocBreadcrumbClicks(container, scrollToTop = false) {
 
 /**
  * 切换文件夹筛选：重新拉取文档列表 + 刷新面包屑 + 空态
+ * 注:内部读取搜索框当前值传给 renderDocSidebarTree,保证搜索关键字不丢失
  */
 async function applyDocFolderFilter() {
   await fetchDocList();
-  renderDocSidebarTree();
+  const input = document.getElementById('docSearchInput');
+  const kw = input ? input.value : '';
+  renderDocSidebarTree(kw);
   renderHomeCategoryGrids();
   renderDocFolders();
   updateVisEmptyPlaceholders();
@@ -683,6 +704,38 @@ function renderDocFolders() {
 }
 
 /**
+ * 统一筛选状态机辅助:清空 visFilter + 搜索框,并把 tab UI 全部去激活。
+ * 用于"切换到文件夹筛选维度"时,把 tab 维度重置干净。
+ */
+function resetVisFilterAndSearchUI() {
+  __DOC.visFilter = '';
+  const input = document.getElementById('docSearchInput');
+  if (input) input.value = '';
+  const tabs = document.querySelectorAll('#docVisTabs .doc-tab');
+  tabs.forEach(t => {
+    t.classList.remove('is-active');
+    t.setAttribute('aria-selected', 'false');
+  });
+}
+
+/**
+ * 统一筛选状态机辅助:重置到默认状态(visFilter=public, folderId=null, 搜索框空,「公共」tab 激活)。
+ * 用于「文档中心首页」类入口(backToHomeBtn / 面包屑「文档中心」)。
+ */
+function resetToDefaultFilter() {
+  __DOC.currentFolderId = null;
+  __DOC.visFilter = 'public';
+  const input = document.getElementById('docSearchInput');
+  if (input) input.value = '';
+  const tabs = document.querySelectorAll('#docVisTabs .doc-tab');
+  tabs.forEach(t => {
+    const on = t.getAttribute('data-vis') === 'public';
+    t.classList.toggle('is-active', on);
+    t.setAttribute('aria-selected', String(on));
+  });
+}
+
+/**
  * 绑定文件夹区段的点击事件（树形版）
  */
 function bindDocFolderActions() {
@@ -692,8 +745,13 @@ function bindDocFolderActions() {
   list.querySelectorAll('[data-folder-id="__all__"], [data-folder-id="__uncategorized__"]').forEach(row => {
     row.addEventListener('click', async () => {
       const fid = row.dataset.folderId;
-      const newId = (fid === '__all__') ? null : ((fid === '__uncategorized__') ? 0 : __DOC.currentFolderId);
+      const newId = (fid === '__all__') ? null : 0;
       if (newId === __DOC.currentFolderId) return;
+      // 点「全部文档」(folderId=null) = 清空 folder 筛选,与 tab 维度兼容,保留 visFilter + 搜索
+      // 点「根目录」(folderId=0) = 切到 folder 维度的具体值,清空 tab + 搜索
+      if (fid !== '__all__') {
+        resetVisFilterAndSearchUI();
+      }
       __DOC.currentFolderId = newId;
       await applyDocFolderFilter();
     });
@@ -707,6 +765,8 @@ function bindDocFolderActions() {
       if (!node) return;
       const fid = Number(node.dataset.folderId);
       if (fid === __DOC.currentFolderId) return;
+      // 统一筛选状态机:folder 与 tab 互斥,切 folder 时清空 visFilter + 搜索框
+      resetVisFilterAndSearchUI();
       __DOC.currentFolderId = fid;
       await applyDocFolderFilter();
     });
