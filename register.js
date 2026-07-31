@@ -85,7 +85,11 @@ function getActiveTurnstileToken() {
     const container = document.getElementById(widgetId);
     if (!container) return null;
     try {
+<<<<<<< HEAD
         return window.turnstile.getResponse(container);
+=======
+        return window.turnstile.getResponse(widget);
+>>>>>>> parent of ec905ed (1)
     } catch (e) {
         return null;
     }
