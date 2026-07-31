@@ -8,8 +8,8 @@
 const API_BASE_URL = "https://back.gwl.net.cn";
 
 // 路径前缀：子目录页面用 '..'，根目录页面用 '.'
-// 支持 /user/, /admin1/, /admin2/, /admin3/, /superadmin/, /modle/ 等子目录
-const BASE_PATH = (window.location.pathname.match(/\/(user|admin1|admin2|admin3|superadmin|modle)\//) ? '..' : '.');
+// 支持 /user/, /admin1/, /admin2/, /admin3/, /superadmin/, /model/ 等子目录
+const BASE_PATH = (window.location.pathname.match(/\/(user|admin1|admin2|admin3|superadmin|model)\//) ? '..' : '.');
 
 // Token 相关常量
 const TOKEN_KEY = 'auth_token';
