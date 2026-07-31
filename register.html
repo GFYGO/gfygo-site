@@ -4,39 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GWL | 个人学习平台 - 注册</title>
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback" defer></script>
-    <script>
-    function onloadTurnstileCallback() {
-        if (typeof turnstile !== 'undefined') {
-            document.querySelectorAll('.cf-turnstile').forEach(function(el) {
-                try {
-                    turnstile.render(el, {
-                        'sitekey': el.getAttribute('data-sitekey'),
-                        'callback': function(token) {
-                            console.log('Turnstile token obtained');
-                        },
-                        'error-callback': function() {
-                            console.error('Turnstile 渲染失败');
-                            var mount = el.closest('.turnstile-mount');
-                            if (mount) {
-                                var errEl = mount.querySelector('.turnstile-error');
-                                if (!errEl) {
-                                    errEl = document.createElement('div');
-                                    errEl.className = 'turnstile-error';
-                                    errEl.style.cssText = 'color: #e74c3c; font-size: 13px; margin-top: 8px; text-align: center;';
-                                    errEl.textContent = '人机验证组件加载失败，请刷新页面重试';
-                                    mount.appendChild(errEl);
-                                }
-                            }
-                        }
-                    });
-                } catch (e) {
-                    console.error('Turnstile render error:', e);
-                }
-            });
-        }
-    }
-    </script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <link rel="stylesheet" href="./styles.css">
     <link rel="stylesheet" href="./login.css">
     <link rel="stylesheet" href="./register.css">

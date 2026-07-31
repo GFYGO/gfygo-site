@@ -62,20 +62,7 @@ function getActiveTurnstileToken() {
     const widget = activeForm.querySelector('.cf-turnstile');
     if (!widget) return null;
     try {
-        let token = window.turnstile.getResponse(widget);
-        // 如果 Token 为空，尝试重新渲染
-        if (!token) {
-            try {
-                window.turnstile.render(widget, {
-                    'sitekey': widget.getAttribute('data-sitekey')
-                });
-                // 重新获取 Token
-                token = window.turnstile.getResponse(widget);
-            } catch (renderErr) {
-                console.error('Turnstile 重新渲染失败:', renderErr);
-            }
-        }
-        return token;
+        return window.turnstile.getResponse(widget);
     } catch (e) {
         return null;
     }
