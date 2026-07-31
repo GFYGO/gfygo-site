@@ -10,16 +10,31 @@ document.addEventListener('DOMContentLoaded', () => {
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        // 1. 获取 Turnstile Token
+        // 1. 获取 Turnstile Token（带重试机制）
         if (typeof window.turnstile === 'undefined') {
             Toast.show('验证组件加载中，请稍后重试');
             return;
         }
-        const turnstileToken = window.turnstile.getResponse();
+        let turnstileToken = window.turnstile.getResponse();
 
-        // 新增：严格检查 Token 是否存在
+        // 如果 Token 为空，尝试重新渲染 Turnstile
         if (!turnstileToken) {
-            Toast.show('请完成人机验证');
+            try {
+                const turnstileEl = document.querySelector('.cf-turnstile');
+                if (turnstileEl) {
+                    window.turnstile.render(turnstileEl, {
+                        'sitekey': turnstileEl.getAttribute('data-sitekey')
+                    });
+                    // 重新获取 Token
+                    turnstileToken = window.turnstile.getResponse(turnstileEl);
+                }
+            } catch (e) {
+                console.error('Turnstile 重新渲染失败:', e);
+            }
+        }
+
+        if (!turnstileToken) {
+            Toast.show('人机验证未完成，请完成验证后重试');
             return;
         }
 
