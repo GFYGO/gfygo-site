@@ -61,8 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.ok && data.code === 200) {
                 // 4. 登录成功：存储 Token 并跳转
-                const uid = (data.data && data.data.user && data.data.user.id) ? data.data.user.id : null;
-                AuthGuard.setToken(data.data.access_token, data.data.expires_in, uid);
+                AuthGuard.setToken(data.data.access_token, data.data.expires_in);
 
                 // 清除访客视角模式，确保后续页面正常渲染登录状态
                 localStorage.removeItem('guest_view_mode');
