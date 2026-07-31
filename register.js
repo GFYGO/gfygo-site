@@ -116,14 +116,8 @@ function validatePasswordMatch(password, confirmPassword) {
         Toast.show('两次输入的密码不一致');
         return false;
     }
-    // L1: 与后端保持一致：长度 >= 8 且同时包含大写字母、小写字母、数字
-    if (password.length < 8) {
-        Toast.show('密码长度不能少于 8 位');
-        return false;
-    }
-    const complexityOk = /[a-z]/.test(password) && /[A-Z]/.test(password) && /\d/.test(password);
-    if (!complexityOk) {
-        Toast.show('密码必须同时包含大写字母、小写字母和数字');
+    if (password.length < 6) {
+        Toast.show('密码长度不能少于6位');
         return false;
     }
     return true;
@@ -300,8 +294,7 @@ async function handleTempAccess(e) {
         const data = await response.json();
 
         if (response.ok && data.code === 200) {
-            const uid = (data.data && data.data.user && data.data.user.id) ? data.data.user.id : null;
-            AuthGuard.setToken(data.data.access_token, data.data.expires_in, uid);
+            AuthGuard.setToken(data.data.access_token, data.data.expires_in);
             Toast.show('登录成功，正在进入系统...', 'success');
             setTimeout(() => {
                 window.location.href = './user/dashboard.html';

@@ -17,7 +17,6 @@ const __DOC = {
   revisions: [],           // 当前文档修订缓存
   markedReady: false,      // marked.js 是否已加载
   markedLoading: false,    // marked.js 是否正在加载中（防止并发脚本注入）
-  dompurifyReady: false,   // DOMPurify 是否已加载
   visFilter: 'public',     // 侧栏可见类型筛选：public / group / private
   folders: [],              // 文件夹列表：匿名时仅公共文件夹；登录时=个人(personal)+公共(public)合并
   currentFolderId: null,    // null=不过滤；0=根目录；正整数=该文件夹
@@ -991,10 +990,7 @@ function renderDocDetailView(doc) {
       .then(ok => {
         if (ok && window.marked && typeof window.marked.parse === 'function') {
           try {
-            // H4: 用 DOMPurify 净化 marked 输出，防止存储型 XSS
-            let html = window.marked.parse(raw || '（空文档）');
-            if (window.DOMPurify) html = window.DOMPurify.sanitize(html);
-            $content.innerHTML = html;
+            $content.innerHTML = window.marked.parse(raw || '（空文档）');
           } catch (err) {
             console.warn('[marked] 解析失败，降级:', err);
             $content.innerHTML = `<pre>${escapeHtml(raw || '')}</pre>`;
@@ -1009,19 +1005,15 @@ function renderDocDetailView(doc) {
 }
 
 // =========================================
-// 9. marked.js + DOMPurify CDN 动态加载（带 SRI 完整性校验）
+// 9. marked.js CDN 动态加载
 // =========================================
 function ensureMarkedLoaded() {
-  if (__DOC.markedReady && (__DOC.dompurifyReady || !window.DOMPurify)) {
-    return Promise.resolve(true);
-  }
-  const hasMarked = !!(window.marked && typeof window.marked.parse === 'function');
-  const hasPurify = !!(window.DOMPurify && typeof window.DOMPurify.sanitize === 'function');
-  if (hasMarked && hasPurify) {
+  if (__DOC.markedReady) return Promise.resolve(true);
+  if (window.marked && typeof window.marked.parse === 'function') {
     __DOC.markedReady = true;
-    __DOC.dompurifyReady = true;
     return Promise.resolve(true);
   }
+<<<<<<< HEAD
 
   // M8: SRI integrity hash（marked 12.0.0 / dompurify 3.1.6，值来自浏览器实际计算）
   const tasks = [];
@@ -1042,15 +1034,29 @@ function ensureMarkedLoaded() {
 
 /** 通用：带 SRI 完整性校验的脚本加载器 */
 function loadScriptWithSRI({ src, integrity, check }) {
+=======
+  if (__DOC.markedLoading) {
+    // 正在加载，轮询
+    return new Promise(resolve => {
+      let ticks = 0;
+      const t = setInterval(() => {
+        ticks++;
+        if (window.marked && typeof window.marked.parse === 'function') {
+          __DOC.markedReady = true; __DOC.markedLoading = false; clearInterval(t); resolve(true);
+        } else if (ticks > 50) {
+          clearInterval(t); resolve(false);
+        }
+      }, 120);
+    });
+  }
+  __DOC.markedLoading = true;
+>>>>>>> parent of 2780429 (big_fix3.5)
   return new Promise(resolve => {
-    if (check && check()) { resolve(true); return; }
     const s = document.createElement('script');
-    s.src = src;
-    if (integrity) s.integrity = integrity;
-    s.crossOrigin = 'anonymous';
+    s.src = 'https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js';
     s.referrerPolicy = 'no-referrer';
-    s.onload = () => resolve(!check || check());
-    s.onerror = () => { console.warn('[doc] 依赖加载失败:', src); resolve(false); };
+    s.onload = () => { __DOC.markedReady = true; __DOC.markedLoading = false; resolve(true); };
+    s.onerror = () => { __DOC.markedLoading = false; resolve(false); };
     document.head.appendChild(s);
   });
 }
