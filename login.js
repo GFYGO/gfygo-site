@@ -36,10 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const turnstileToken = window.turnstile.getResponse();
 
-<<<<<<< HEAD
-=======
         // 新增：严格检查 Token 是否存在
->>>>>>> parent of ec905ed (1)
         if (!turnstileToken) {
             Toast.show('请完成人机验证');
             return;
