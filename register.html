@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GWL | 个人学习平台 - 注册</title>
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" defer></script>
     <link rel="stylesheet" href="./styles.css">
     <link rel="stylesheet" href="./login.css">
     <link rel="stylesheet" href="./register.css">
@@ -54,7 +54,7 @@
                     <span>我已阅读并同意 <a href="#" style="color: var(--color-primary);">服务条款</a> 和 <a href="#" style="color: var(--color-primary);">隐私政策</a></span>
                 </label>
                 <div class="turnstile-mount">
-                    <div class="cf-turnstile" data-sitekey="0x4AAAAAABs6a1WlAXmVstmB"></div>
+                    <div id="turnstile-widget-email"></div>
                 </div>
                 <button type="submit" class="btn-primary">注册</button>
                 <p class="register-switch">已有账号？<a href="./login.html">去登录</a></p>
@@ -78,7 +78,7 @@
                     <span>我已阅读并同意 <a href="#" style="color: var(--color-primary);">服务条款</a> 和 <a href="#" style="color: var(--color-primary);">隐私政策</a></span>
                 </label>
                 <div class="turnstile-mount">
-                    <div class="cf-turnstile" data-sitekey="0x4AAAAAABs6a1WlAXmVstmB"></div>
+                    <div id="turnstile-widget-phone"></div>
                 </div>
                 <button type="submit" class="btn-primary">注册</button>
                 <p class="register-switch">已有账号？<a href="./login.html">去登录</a></p>
@@ -95,7 +95,7 @@
                     <p>💡 临时访问由邀请码创建，权限等级为 1，有效期为 7 天。</p>
                 </div>
                 <div class="turnstile-mount">
-                    <div class="cf-turnstile" data-sitekey="0x4AAAAAABs6a1WlAXmVstmB"></div>
+                    <div id="turnstile-widget-temp"></div>
                 </div>
                 <button type="submit" class="btn-primary">进入系统</button>
                 <p class="register-switch">已有账号？<a href="./login.html">去登录</a></p>

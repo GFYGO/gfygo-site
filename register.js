@@ -6,9 +6,28 @@
 const REGISTER_TABS = ['email', 'phone', 'temp'];
 let currentTab = 'email';
 
+// 显式渲染当前激活标签页的 Turnstile 组件
+function renderActiveTurnstile() {
+    const widgetId = 'turnstile-widget-' + currentTab;
+    const container = document.getElementById(widgetId);
+    if (!container) return;
+    if (typeof window.turnstile === 'undefined') {
+        setTimeout(renderActiveTurnstile, 300);
+        return;
+    }
+    try {
+        window.turnstile.render(container, {
+            sitekey: '0x4AAAAAABs6a1WlAXmVstmB'
+        });
+    } catch (e) {
+        console.warn('[Turnstile] render error:', e);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initTabSwitching();
     initForms();
+    renderActiveTurnstile();
 });
 
 function initTabSwitching() {
@@ -42,27 +61,31 @@ function switchTab(tabName) {
         targetForm.classList.add('register-form--active');
     }
 
+    // 销毁旧 widget 并重新渲染当前标签页的 widget
     resetTurnstile();
+    renderActiveTurnstile();
 }
 
 function resetTurnstile() {
     if (typeof window.turnstile !== 'undefined') {
-        document.querySelectorAll('.cf-turnstile').forEach(el => {
-            try {
-                window.turnstile.reset(el);
-            } catch (e) { /* ignore */ }
-        });
+        try {
+            // 销毁当前标签页的 widget，准备重新渲染
+            const widgetId = 'turnstile-widget-' + currentTab;
+            const container = document.getElementById(widgetId);
+            if (container) {
+                window.turnstile.remove(container);
+            }
+        } catch (e) { /* ignore */ }
     }
 }
 
 function getActiveTurnstileToken() {
     if (typeof window.turnstile === 'undefined') return null;
-    const activeForm = document.querySelector('.register-form--active');
-    if (!activeForm) return null;
-    const widget = activeForm.querySelector('.cf-turnstile');
-    if (!widget) return null;
+    const widgetId = 'turnstile-widget-' + currentTab;
+    const container = document.getElementById(widgetId);
+    if (!container) return null;
     try {
-        return window.turnstile.getResponse(widget);
+        return window.turnstile.getResponse(container);
     } catch (e) {
         return null;
     }

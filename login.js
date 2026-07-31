@@ -3,7 +3,26 @@
  * 登录页交互逻辑
  */
 
+// 显式渲染 Turnstile 验证组件
+function renderTurnstileLogin() {
+    const container = document.getElementById('turnstile-widget-login');
+    if (!container) return;
+    if (typeof window.turnstile === 'undefined') {
+        // 如果 API 尚未加载，延迟重试
+        setTimeout(renderTurnstileLogin, 300);
+        return;
+    }
+    try {
+        window.turnstile.render(container, {
+            sitekey: '0x4AAAAAAECyOCbL7qIJUOgg'
+        });
+    } catch (e) {
+        console.warn('[Turnstile] render error:', e);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    renderTurnstileLogin();
     const loginForm = document.getElementById('loginForm');
 
     // 任务 FE-JS-02: 处理表单提交
