@@ -136,10 +136,16 @@ function parsePermBits(bits) {
 /**
  * 当前身份是否可以查看某文档（前端预过滤，后端仍会二次校验）
  * userLevel: null=匿名 / 1~5
+ * 与后端 _check_view_permission 保持一致：
+ *   - private: 仅作者/超管（前端无法判作者，一律过滤，后端放行作者）
+ *   - group: 后端已按组员过滤，前端直接放行返回的组文档
+ *   - public: 按 permission_bits 位检查
  */
 function canViewByBits(bits, visibility, userLevel) {
   // 私有文档：仅作者本人 & 超管可看，前端无法判断作者，所以一律过滤掉（后端二次校验会放行作者）
   if (visibility === 'private') return false;
+  // 组文档：后端已按组成员过滤，返回的都是可见的
+  if (visibility === 'group') return true;
   // 等级5（超级管理员）直接 true（与后端兜底一致）
   if (userLevel && userLevel >= 5) return true;
 
@@ -601,16 +607,19 @@ function renderDocFolders() {
   const list = document.getElementById('docFoldersList');
   if (!section || !list) return;
 
-  // 按 visFilter 过滤文件夹：
-  //   - public / group tab：仅显示公共文件夹（user_id === null）
-  //   - private tab：仅显示个人文件夹（user_id === 当前用户）
-  //   - 无筛选（''）：显示全部（个人 + 公共）
+  // 按 visFilter 过滤文件夹（使用 scope 字段）：
+  //   - public tab  : scope==='public'
+  //   - group tab   : scope==='group'（后端已按用户所属组过滤）
+  //   - private tab : scope==='private' && user_id === 当前用户
+  //   - 无筛选（''）：显示全部可见
   const uid = __DOC.user.id;
   let filteredFolders = __DOC.folders;
-  if (__DOC.visFilter === 'public' || __DOC.visFilter === 'group') {
-    filteredFolders = __DOC.folders.filter(f => f.user_id === null || f.user_id === undefined);
+  if (__DOC.visFilter === 'public') {
+    filteredFolders = __DOC.folders.filter(f => f.scope === 'public');
+  } else if (__DOC.visFilter === 'group') {
+    filteredFolders = __DOC.folders.filter(f => f.scope === 'group');
   } else if (__DOC.visFilter === 'private') {
-    filteredFolders = __DOC.folders.filter(f => uid && f.user_id === uid);
+    filteredFolders = __DOC.folders.filter(f => f.scope === 'private' && uid && f.user_id === uid);
   }
 
   if (filteredFolders.length === 0 && !__DOC.isAdmin) {
@@ -917,28 +926,57 @@ function renderDocDetailView(doc) {
   const $content = document.getElementById('docContent');
   if ($title) $title.textContent = doc.title || '（无标题）';
 
+  // 组根目录只读警示横幅：slug=group-readme 或 is_readonly=true 或 (visibility=group && folder_id 为空)
+  const isGroupRoot = doc.slug === 'group-readme' || doc.is_readonly === true ||
+                      (doc.visibility === 'group' && (doc.folder_id === null || doc.folder_id === undefined));
+  const $banner = document.getElementById('docGroupReadmeBanner');
+  if ($banner) $banner.style.display = isGroupRoot ? '' : 'none';
+
   // --- 元信息条 ---
   const lvl = __DOC.user.permissionLevel;
+  const uid = __DOC.user.id;
   const isAdminView = lvl && lvl >= 5;
 
   const pills = [];
-  // 1. 可见性徽章（公开文档需进一步判断 bit[0] 决定访客是否真正可见）
+  // 1. 可见性徽章 + 归属 pill
   const isPublic = doc.visibility === 'public';
+  const isGroup = doc.visibility === 'group';
+  const isPrivate = doc.visibility === 'private';
   const __bits = doc.permission_bits || '000000';
-  const visitorCanView = isPublic && __bits[0] === '1';
-  const visText = isPublic
-    ? (visitorCanView ? '🌐 公开（访客可见）' : '🌐 公开（需登录）')
-    : '🔒 私密（仅登录）';
-  pills.push(`<span class="meta-pill doc-visibility-badge ${isPublic ? 'is-public' : ''}" title="${isAdminView ? '仅超级管理员可切换公开/私密' : ''}">
+
+  let visText, visClass = '';
+  if (isPublic) {
+    const visitorCanView = __bits[0] === '1';
+    visText = visitorCanView ? '🌐 公开（访客可见）' : '🌐 公开（需登录）';
+    visClass = 'is-public';
+  } else if (isGroup) {
+    visText = '👥 组文档';
+    visClass = 'is-group';
+  } else {
+    visText = '🔒 私密';
+    visClass = 'is-private';
+  }
+  pills.push(`<span class="meta-pill doc-visibility-badge ${visClass}">
     <span>${visText}</span>
   </span>`);
 
-  // 2. 权限展示：所有用户统一看过滤矩阵
-  //    等级映射（permission_bits 索引 0..5）：
-  //      0=未登录访客, 1=user, 2=admin1, 3=admin2, 4=admin3, 5=superadmin(强制允许)
-  //    用户 permissionLevel N → 仅可见 0..(N-1) 行（低于自己权限的查看情况）
-  //      - 匿名(null)/等级1 → maxRow=0（仅访客行）
-  //      - 等级2 → maxRow=1，... 等级6 → maxRow=5（全部，superadmin 行强制 ✅）
+  // 1.1 紫色 🔒 ownership pill：私有文档且当前用户为拥有者
+  if (isPrivate && uid && doc.owning == String(uid)) {
+    pills.push(`<span class="meta-pill doc-ownership-pill" title="您是此文档的拥有者">🔒 我的私有文档</span>`);
+  }
+  // 1.2 组名 pill（组文档显示所属组名）
+  if (isGroup && doc.owning && doc.owning !== '0') {
+    pills.push(`<span class="meta-pill doc-group-pill" title="所属组">👥 组：${escapeHtml(doc.owning)}</span>`);
+  }
+  // 1.3 只读 pill（组根目录文件）
+  if (isGroupRoot) {
+    pills.push(`<span class="meta-pill doc-readonly-pill" title="此文件不可编辑">🚫 只读</span>`);
+  }
+
+  // 2. 权限展示
+  //    - 公开文档：展示完整权限矩阵（含访客行）
+  //    - 组文档：仅显示组成员可见提示
+  //    - 私有文档：仅显示作者可见提示
   if (isPublic) {
     const __userLevel = lvl || 0; // null/undefined=匿名 => 0
     const __maxRow = Math.max(0, __userLevel - 1);
@@ -967,10 +1005,15 @@ function renderDocDetailView(doc) {
       </div>`);
     }
     pills.push(`<div class="doc-perm-grid">${showRows.join('')}</div>`);
-  } else {
-    // 私密文档：仅显示一句话（不暴露权限矩阵）
+  } else if (isGroup) {
+    // 组文档：仅显示组成员可见提示（不暴露权限矩阵）
     pills.push(`<span class="meta-pill doc-perm-summary">
-      🔒 私密文档 · 仅作者本人可见
+      👥 组文档 · 仅组成员可见
+    </span>`);
+  } else {
+    // 私有文档：仅显示作者可见提示（不暴露权限矩阵）
+    pills.push(`<span class="meta-pill doc-perm-summary">
+      🔒 私有文档 · 仅作者本人可见
     </span>`);
   }
 
@@ -1106,6 +1149,9 @@ function hideDocStates() {
   if ($meta) $meta.style.display = '';
   if ($content) $content.style.display = '';
   if ($revs) $revs.style.display = 'none';
+  // 重置警示横幅（由 renderDocDetailView 重新决定显隐）
+  const $banner = document.getElementById('docGroupReadmeBanner');
+  if ($banner) $banner.style.display = 'none';
 }
 
 function showDocState404() {

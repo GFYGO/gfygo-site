@@ -128,6 +128,12 @@
           <!-- 详情页专属面包屑（包含返回上一层 → 返回到首页） -->
           <div id="docDetailPathBreadcrumb" class="doc-path-breadcrumb-wrap"></div>
 
+          <!-- 组根目录只读警示横幅（slug=group-readme 时显示） -->
+          <div id="docGroupReadmeBanner" class="doc-warning-banner" style="display:none;">
+            <span class="doc-warning-banner__icon">⚠️</span>
+            <span class="doc-warning-banner__text">这是组根目录的只读说明文件，所有组成员可见，不可编辑或删除。</span>
+          </div>
+
           <!-- 顶部返回按钮 + 标题 -->
           <header class="doc-header">
             <a href="#/" class="doc-back-btn" id="docBackBtn">← 返回文档主页</a>

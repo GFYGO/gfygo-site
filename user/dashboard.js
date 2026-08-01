@@ -358,12 +358,6 @@ async function loadNotifyList() {
     }
 }
 
-function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str == null ? '' : String(str);
-    return div.innerHTML;
-}
-
 function initThemeOptions(token) {
     const options = document.getElementById('themeOptions');
     if (!options) return;
@@ -989,7 +983,7 @@ function ensureMarkedLoaded() {
 }
 
 /** HTML 转义 */
-function pdocsEscape(str) {
+function escapeHtml(str) {
     return String(str || '').replace(/[&<>"']/g, c => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[c]));
@@ -1148,9 +1142,9 @@ function renderExplorerGrid() {
     // 文件夹项
     subFolders.forEach(f => {
         items.push(`
-            <div class="pdocs-explorer-item pdocs-explorer-item--folder" data-folder-id="${f.id}" title="${pdocsEscape(f.name)}">
+            <div class="pdocs-explorer-item pdocs-explorer-item--folder" data-folder-id="${f.id}" title="${escapeHtml(f.name)}">
                 <div class="pdocs-explorer-item__icon">📁</div>
-                <div class="pdocs-explorer-item__name">${pdocsEscape(f.name)}</div>
+                <div class="pdocs-explorer-item__name">${escapeHtml(f.name)}</div>
                 <div class="pdocs-explorer-item__actions">
                     <button class="pdocs-explorer-item__btn" data-action="rename-folder" data-id="${f.id}" title="重命名">✏️</button>
                     <button class="pdocs-explorer-item__btn" data-action="delete-folder" data-id="${f.id}" title="删除">🗑</button>
@@ -1161,15 +1155,15 @@ function renderExplorerGrid() {
     // 文档项
     docs.forEach(doc => {
         items.push(`
-            <div class="pdocs-explorer-item pdocs-explorer-item--doc" data-doc-id="${doc.id}" title="${pdocsEscape(doc.title)}">
-                <div class="pdocs-explorer-item__icon">${pdocsEscape(doc.icon || '📄')}</div>
-                <div class="pdocs-explorer-item__name">${pdocsEscape(doc.title)}</div>
+            <div class="pdocs-explorer-item pdocs-explorer-item--doc" data-doc-id="${doc.id}" title="${escapeHtml(doc.title)}">
+                <div class="pdocs-explorer-item__icon">${escapeHtml(doc.icon || '📄')}</div>
+                <div class="pdocs-explorer-item__name">${escapeHtml(doc.title)}</div>
                 <div class="pdocs-explorer-item__meta">${pdocsFmtTime(doc.updated_at)}</div>
                 <div class="pdocs-explorer-item__actions">
                     <select class="pdocs-explorer-move" data-action="move" data-id="${doc.id}" title="移动到文件夹">
                         <option value="" disabled selected>📁</option>
                         <option value="0">无文件夹</option>
-                        ${pdocsFolders.map(f => `<option value="${f.id}" ${doc.folder_id === f.id ? 'selected' : ''}>${pdocsEscape(f.name)}</option>`).join('')}
+                        ${pdocsFolders.map(f => `<option value="${f.id}" ${doc.folder_id === f.id ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('')}
                     </select>
                     <button class="pdocs-explorer-item__btn" data-action="browse" data-id="${doc.id}" title="浏览">👁</button>
                     <button class="pdocs-explorer-item__btn" data-action="edit" data-id="${doc.id}" title="编辑">✏️</button>
@@ -1291,7 +1285,7 @@ async function openPdocsBrowser(docId) {
     if (metaEl) {
         const vis = { public: '🌐 公有', private: '🔒 私有' }[doc.visibility] || '🔒 私有';
         metaEl.innerHTML = `
-            <span>作者：${pdocsEscape(doc.author_username || doc.author_id || '-')}</span>
+            <span>作者：${escapeHtml(doc.author_username || doc.author_id || '-')}</span>
             <span>${vis}</span>
             <span>创建于 ${pdocsFmtTime(doc.created_at)}</span>
             <span>更新于 ${pdocsFmtTime(doc.updated_at)}</span>
@@ -1303,10 +1297,10 @@ async function openPdocsBrowser(docId) {
             if (pdocsMarkedReady && window.marked) {
                 contentEl.innerHTML = window.marked.parse(doc.content || '*空内容*');
             } else {
-                contentEl.innerHTML = `<pre>${pdocsEscape(doc.content || '')}</pre>`;
+                contentEl.innerHTML = `<pre>${escapeHtml(doc.content || '')}</pre>`;
             }
         } catch (e) {
-            contentEl.innerHTML = `<pre>${pdocsEscape(doc.content || '')}</pre>`;
+            contentEl.innerHTML = `<pre>${escapeHtml(doc.content || '')}</pre>`;
         }
     }
 }
@@ -1328,9 +1322,9 @@ function renderPdocsTrash(docs) {
     container.innerHTML = docs.map(doc => `
         <div class="pdocs-trash-item">
             <div class="pdocs-trash-item__info">
-                <span class="pdocs-trash-item__icon">${pdocsEscape(doc.icon || '📄')}</span>
+                <span class="pdocs-trash-item__icon">${escapeHtml(doc.icon || '📄')}</span>
                 <div>
-                    <h4 class="pdocs-trash-item__title">${pdocsEscape(doc.title)}</h4>
+                    <h4 class="pdocs-trash-item__title">${escapeHtml(doc.title)}</h4>
                     <span class="pdocs-trash-item__time">删除于 ${pdocsFmtTime(doc.deleted_at)}</span>
                 </div>
             </div>
@@ -1499,10 +1493,10 @@ async function renderPdocsPreview() {
         if (pdocsMarkedReady && window.marked) {
             preview.innerHTML = window.marked.parse(content || '*空内容*');
         } else {
-            preview.innerHTML = `<pre>${pdocsEscape(content)}</pre>`;
+            preview.innerHTML = `<pre>${escapeHtml(content)}</pre>`;
         }
     } catch (e) {
-        preview.innerHTML = `<pre>${pdocsEscape(content)}</pre>`;
+        preview.innerHTML = `<pre>${escapeHtml(content)}</pre>`;
     }
 }
 
@@ -1566,7 +1560,7 @@ async function renderPdocsBreadcrumb() {
         chain.forEach((f, idx) => {
             const isLast = idx === chain.length - 1;
             items.push(`<span class="pdocs-breadcrumb__sep">›</span>`);
-            items.push(`<button class="pdocs-breadcrumb__item ${isLast ? 'is-active' : ''}" data-folder-id="${f.id}">${pdocsEscape(f.name)}</button>`);
+            items.push(`<button class="pdocs-breadcrumb__item ${isLast ? 'is-active' : ''}" data-folder-id="${f.id}">${escapeHtml(f.name)}</button>`);
         });
     }
 
