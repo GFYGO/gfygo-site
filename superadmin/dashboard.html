@@ -37,6 +37,12 @@
                 }
                 document.body.appendChild(s);
             });
+
+            // 加载超级管理员专属模块：公有文档管理
+            const pubdocsScript = document.createElement('script');
+            pubdocsScript.src = './../js/superadmin-public-docs.js';
+            pubdocsScript.async = false;
+            document.body.appendChild(pubdocsScript);
         } catch (e) {
             console.error('[superadmin] 加载 dashboard 失败:', e);
             document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:8px;color:#c00;font-family:system-ui,sans-serif;"><p>加载失败</p><p style="font-size:0.85rem;color:#666;">' + (e.message || '未知错误') + '</p><a href="../user/dashboard.html" style="color:#2563eb;">前往用户主页</a></div>';
