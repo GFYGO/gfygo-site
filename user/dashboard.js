@@ -1589,7 +1589,7 @@ async function addPersonalFolder() {
         parentId = pdocsCurrentFolderId;
     }
 
-    const body = { name: name.trim(), scope: 'personal' };
+    const body = { name: name.trim(), scope: 'private' };
     if (parentId !== null) body.parent_id = parentId;
 
     const data = await pdocsRequest('/folders', {

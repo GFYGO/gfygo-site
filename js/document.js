@@ -636,12 +636,6 @@ function renderDocFolders() {
         <span class="doc-folder-node__name">全部文档</span>
         <span class="doc-folder-node__actions"></span>
       </div>
-      <div class="doc-folder-node__row ${__DOC.currentFolderId === 0 ? 'is-active' : ''}" data-folder-id="__uncategorized__" style="padding-left:10px">
-        <span class="doc-folder-node__arrow"></span>
-        <span class="doc-folder-node__icon">🗂</span>
-        <span class="doc-folder-node__name">根目录</span>
-        <span class="doc-folder-node__actions"></span>
-      </div>
     </div>
   `;
 
@@ -696,16 +690,12 @@ function bindDocFolderActions() {
   const list = document.getElementById('docFoldersList');
   if (!list) return;
 
-  list.querySelectorAll('[data-folder-id="__all__"], [data-folder-id="__uncategorized__"]').forEach(row => {
+  list.querySelectorAll('[data-folder-id="__all__"]').forEach(row => {
     row.addEventListener('click', async () => {
       const fid = row.dataset.folderId;
       const newId = (fid === '__all__') ? null : 0;
       if (newId === __DOC.currentFolderId) return;
       // 点「全部文档」(folderId=null) = 清空 folder 筛选,与 tab 维度兼容,保留 visFilter + 搜索
-      // 点「根目录」(folderId=0) = 切到 folder 维度的具体值,清空 tab + 搜索
-      if (fid !== '__all__') {
-        resetVisFilterAndSearchUI();
-      }
       __DOC.currentFolderId = newId;
       await applyDocFolderFilter();
     });
