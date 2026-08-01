@@ -249,14 +249,16 @@ async function fetchDocAuthState() {
     const d = await r.json();
     if (r.ok && d.code === 200 && d.data && d.data.user) {
       const u = d.data.user;
+      // 运行时等级优先读 now_permission（默认 1）；真实等级用于超管判断
+      const npLevel = (window.__nowPermission && window.__nowPermission.level) || 1;
       __DOC.user = {
         isLoggedIn: true,
         id: u.id,
-        permissionLevel: u.permission_level || 1,
+        permissionLevel: npLevel,
         username: u.username || '',
         group: (u.profile && u.profile.group) ? u.profile.group : 'default'
       };
-      // 等级≥5 才能管理公共文件夹
+      // 等级≥5 才能管理公共文件夹（超管判断仍用真实等级）
       __DOC.isAdmin = (u.permission_level || 0) >= 5;
     } else {
       __DOC.user = { isLoggedIn: false, permissionLevel: null, username: '', group: 'default' };

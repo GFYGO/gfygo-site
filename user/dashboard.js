@@ -75,18 +75,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const user = data.data.user;
             pdocsCurrentUserId = user.id;
             renderUserProfile(user);
-            // 根据当前 dashboard 页面路径同步视角等级（用于权限按钮高亮）
-            // admin1=等级2(一级管理员), admin2=等级3(二级管理员), admin3=等级4(三级管理员), superadmin=等级5
-            const __pathMatch = window.location.pathname.match(/\/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i);
-            if (__pathMatch) {
-                const __folderToLevel = { user: 1, admin1: 2, admin2: 3, admin3: 4, superadmin: 5 };
-                const __inferred = __folderToLevel[__pathMatch[1]];
-                if (__inferred === 1) {
-                    localStorage.removeItem('view_as_level');
-                } else if (__inferred && __inferred <= (user.permission_level || 1)) {
-                    localStorage.setItem('view_as_level', String(__inferred));
-                }
-            }
+            // now_permission 运行时等级由 token claims 决定（config.js 初始化 window.__nowPermission）
+            // 用户直接访问 adminN/dashboard.html 时若 level 不足，需主动点切换按钮（Q10.1 接受的新流程）
             if (typeof window.renderPermissionButtons === 'function') {
                 window.renderPermissionButtons(user.permission_level);
             }
@@ -476,50 +466,47 @@ function renderTopNavAuth(user) {
     }
 }
 
-window.renderPermissionButtons = window.renderPermissionButtons || function renderPermissionButtons(permissionLevel) {
+window.renderPermissionButtons = window.renderPermissionButtons || function renderPermissionButtons(realLevel) {
     const container = document.getElementById('permissionButtons');
     if (!container) return;
 
     container.innerHTML = '';
 
-    if (permissionLevel <= 1) return;
+    if (!realLevel || realLevel <= 1) return;
 
-    // 读取视角覆盖等级
-    const viewOverrideRaw = localStorage.getItem('view_as_level');
-    const viewOverride = viewOverrideRaw ? parseInt(viewOverrideRaw, 10) : null;
-    const effectiveLevel = Number.isInteger(viewOverride) ? viewOverride : 1;
+    // 当前运行时等级（从 now_permission 读）
+    const np = window.__nowPermission || { level: 1 };
+    const currentLevel = np.level || 1;
 
-    // 管理员用户：显示等级 1 + 从 2 到当前等级的按钮
+    // 显示等级 1 到真实等级的按钮（可升可降）
     const levels = [1];
-    for (let level = 2; level <= permissionLevel; level++) {
+    for (let level = 2; level <= realLevel; level++) {
         levels.push(level);
     }
 
     levels.forEach(level => {
         const btn = document.createElement('button');
         btn.className = 'perm-btn';
-        // 当前视角等级高亮（若有覆盖则按覆盖，否则默认等级 1 高亮）
-        if (level === effectiveLevel) {
+        if (level === currentLevel) {
             btn.classList.add('perm-btn--current');
         }
         btn.textContent = level;
-        btn.title = `切换到 ${window.ROLE_NAMES[level] || `等级${level}`} 视角预览（仅前端渲染，不改变实际权限）`;
+        btn.title = `切换到 ${window.ROLE_NAMES[level] || `等级${level}`}`;
         btn.addEventListener('click', () => window.handlePermissionClick(level));
         container.appendChild(btn);
     });
 
-    // 如果视角覆盖等级生效，显示一个 banner 提示用户
+    // banner：当前运行时等级非 1 时显示
     const bannerEl = document.getElementById('viewOverrideBanner');
     if (bannerEl) {
-        if (effectiveLevel !== 1) {
+        if (currentLevel !== 1) {
             bannerEl.style.display = 'block';
-            bannerEl.innerHTML = `当前以 <strong>${window.ROLE_NAMES[effectiveLevel] || `等级${effectiveLevel}`}</strong> 视角预览（实际权限未改变） · <a href="#" id="clearViewOverrideBtn">返回真实视角</a>`;
+            bannerEl.innerHTML = `已切换到 <strong>${window.ROLE_NAMES[currentLevel] || `等级${currentLevel}`}</strong> · <a href="#" id="clearViewOverrideBtn">返回等级 1</a>`;
             const clearBtn = document.getElementById('clearViewOverrideBtn');
             if (clearBtn) {
                 clearBtn.addEventListener('click', (e) => {
                     e.preventDefault();
-                    localStorage.removeItem('view_as_level');
-                    window.location.reload();
+                    if (typeof window.handlePermissionClick === 'function') window.handlePermissionClick(1);
                 });
             }
         } else {
@@ -528,23 +515,37 @@ window.renderPermissionButtons = window.renderPermissionButtons || function rend
     }
 };
 
-window.handlePermissionClick = window.handlePermissionClick || function handlePermissionClick(level) {
+window.handlePermissionClick = window.handlePermissionClick || async function handlePermissionClick(level) {
+    // 调用切换 API（真实切换 now_permission.level，可升可降）
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/auth/switch-permission`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${AuthGuard.getToken()}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ target_level: level })
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            console.warn('切换权限失败:', err.msg || res.status);
+            return;
+        }
+        const data = await res.json();
+        const np = (data.data || {});
+        AuthGuard.setToken(np.access_token, np.expires_in);
+        window.__nowPermission = np.now_permission || { level, context: null, nodes: [] };
+    } catch (e) {
+        console.warn('切换权限请求异常:', e);
+        return;
+    }
+
     // 判断当前页面是否是 dashboard 类页面（需要跳转）
     const isDashboardPage = /\/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname);
+    const adminPaths = { 2: 'admin1', 3: 'admin2', 4: 'admin3', 5: 'superadmin' };
 
-    // admin 文件夹与等级对应：admin1=一级管理员(2), admin2=二级管理员(3), admin3=三级管理员(4), superadmin=超级管理员(5)
-    const adminPaths = {
-        2: 'admin1',
-        3: 'admin2',
-        4: 'admin3',
-        5: 'superadmin'
-    };
-
-    // ============== dashboard 页面：执行跳转 ==============
     if (isDashboardPage) {
         if (level === 1) {
-            // 等级 1：回用户 dashboard
-            localStorage.removeItem('view_as_level');
             localStorage.removeItem('guest_view_mode');
             window.location.href = `${BASE_PATH}/user/dashboard.html`;
             return;
@@ -552,25 +553,13 @@ window.handlePermissionClick = window.handlePermissionClick || function handlePe
         const folder = adminPaths[level];
         if (folder) {
             localStorage.removeItem('guest_view_mode');
-            // 记录视角等级，供跳转后按钮高亮使用
-            localStorage.setItem('view_as_level', String(level));
             window.location.href = `${BASE_PATH}/${folder}/dashboard.html`;
         }
         return;
     }
 
-    // ============== 非 dashboard 页面：不跳转，只更新视角高亮（存 localStorage，刷新按钮重绘） ==============
-    if (level === 1) {
-        localStorage.removeItem('view_as_level');
-    } else {
-        localStorage.setItem('view_as_level', String(level));
-    }
-    localStorage.removeItem('guest_view_mode');
-
-    const userPerm = (typeof window.__currentUserPermissionLevel === 'number') ? window.__currentUserPermissionLevel : level;
-    if (typeof window.renderPermissionButtons === 'function') {
-        window.renderPermissionButtons(userPerm);
-    }
+    // 非 dashboard 页面：刷新以重新渲染
+    window.location.reload();
 };
 
 // =========================================

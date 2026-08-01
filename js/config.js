@@ -61,3 +61,27 @@ const AuthGuard = {
     window.location.href = `${BASE_PATH}/login.html`;
   }
 };
+
+/**
+ * 从 JWT claims 解析 now_permission（运行时权限对象）。
+ * 旧 token 无 now_permission claims 时返回 level=0（访客语义，触发降级路径）。
+ * @returns {{level:number, context:string|null, nodes:Array}}
+ */
+function getNowPermission() {
+  const raw = AuthGuard.getToken();
+  if (!raw) return { level: 0, context: null, nodes: [] };
+  try {
+    const parts = raw.split('.');
+    if (parts.length < 2) return { level: 0, context: null, nodes: [] };
+    // base64url → base64 + padding
+    let payloadB64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (payloadB64.length % 4) payloadB64 += '=';
+    const payload = JSON.parse(atob(payloadB64));
+    return payload.now_permission || { level: 0, context: null, nodes: [] };
+  } catch (e) {
+    return { level: 0, context: null, nodes: [] };
+  }
+}
+
+// 全局运行时权限状态（页面加载时初始化，权限切换后由 handlePermissionClick 更新）
+window.__nowPermission = getNowPermission();
