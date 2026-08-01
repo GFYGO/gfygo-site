@@ -206,9 +206,15 @@ async function fetchDocList() {
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     // folder_id 过滤：null=不过滤；0=根目录；正整数=该文件夹
     // scope 过滤：三目录（public/group/private）后端按 scope 决定返回哪一目录根下的数据
+    // 若 currentFolderId 为具体正整数文件夹：用该文件夹的真实 scope（避免点击组/私有文件夹时默认 public 导致空数据）
+    let actualScope = __DOC.visFilter || 'public';
+    if (typeof __DOC.currentFolderId === 'number' && __DOC.currentFolderId > 0) {
+      const f = __DOC.folders.find(x => x.id === __DOC.currentFolderId);
+      if (f && f.scope) actualScope = f.scope;
+    }
     let url = `${API_BASE_URL}/api/v1/document/list`;
     const qp = [];
-    qp.push(`scope=${encodeURIComponent(__DOC.visFilter || 'public')}`);
+    qp.push(`scope=${encodeURIComponent(actualScope)}`);
     if (__DOC.currentFolderId !== null && __DOC.currentFolderId !== undefined) {
       qp.push(`folder_id=${encodeURIComponent(__DOC.currentFolderId)}`);
     }
@@ -274,7 +280,13 @@ async function fetchDocFolders() {
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     // 已登录时走 /folders（支持 personal + public；匿名需 401 兜底）
     // scope=三目录过滤，后端按 scope 决定返回 public/ group/ private 哪一目录下的文件夹
-    const _scope = encodeURIComponent(__DOC.visFilter || 'public');
+    // 若 currentFolderId 为具体正整数文件夹：用该文件夹的真实 scope（避免点击组/私有文件夹时默认 public 导致空树）
+    let actualScope = __DOC.visFilter || 'public';
+    if (typeof __DOC.currentFolderId === 'number' && __DOC.currentFolderId > 0) {
+      const f = __DOC.folders.find(x => x.id === __DOC.currentFolderId);
+      if (f && f.scope) actualScope = f.scope;
+    }
+    const _scope = encodeURIComponent(actualScope);
     const url = token
       ? `${API_BASE_URL}/api/v1/document/folders?scope=${_scope}`
       : `${API_BASE_URL}/api/v1/document/folders/public?scope=${_scope}`;

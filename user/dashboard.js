@@ -101,6 +101,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             initThemeOptions(token);
             // 初始化日历打卡
             initCheckinCalendar(user.id);
+
+            // 竞态补偿：若 initTabSwitching 在 auth/status 返回前已触发个人文档初始化（pdocsCurrentUserId 当时为 null，被跳过），
+            // 此处 pdocsCurrentUserId 已就绪 → 重新加载个人文档和文件夹
+            if (staticPanelLoaded.has('personal-docs')) {
+                loadPersonalFolders();
+                loadPersonalDocs();
+            }
         }
     } catch (error) {
         console.error('获取用户信息失败:', error);
