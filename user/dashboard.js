@@ -28,47 +28,6 @@ const staticPanelLoaded = new Set();
 // URL 中携带的邮箱验证码（用于邮件链接跳转后自动填入）
 let pendingEmailCode = null;
 
-<<<<<<< HEAD
-// =========================================
-// M4: 统一 dashboard 请求封装：自动注入 Authorization + X-Permission-Context
-//     401 自动触发 handleAuthError
-// =========================================
-/**
- * 推断当前页面所在权限上下文：
- *  - /admin1|admin2|admin3|superadmin/ → admin
- *  - 其他（含 /user/）→ dashboard
- */
-function __inferPermissionContext() {
-    return window.location.pathname.match(/\/(admin1|admin2|admin3|superadmin)\//) ? 'admin' : 'dashboard';
-}
-
-async function dashboardRequest(urlOrPath, options = {}) {
-    const token = AuthGuard.getToken();
-    if (!token) { AuthGuard.handleAuthError(); return null; }
-    const isFullUrl = /^https?:\/\//i.test(urlOrPath);
-    const url = isFullUrl ? urlOrPath : `${API_BASE_URL}${urlOrPath}`;
-    const method = (options.method || 'GET').toUpperCase();
-    const hasBody = options.body !== undefined && options.body !== null;
-    // 只有带 body 的请求才设置 Content-Type，避免 GET 无 body 触发 WAF/nginx 400
-    const baseHeaders = {
-        'Authorization': `Bearer ${token}`,
-        'X-Permission-Context': __inferPermissionContext()
-    };
-    if (hasBody) baseHeaders['Content-Type'] = 'application/json';
-    const headers = Object.assign(baseHeaders, options.headers || {});
-    try {
-        const res = await fetch(url, Object.assign({}, options, { method, headers }));
-        if (res.status === 401) { AuthGuard.handleAuthError(); return null; }
-        return res;
-    } catch (e) {
-        console.error('[dashboardRequest] 请求失败:', e);
-        if (typeof Toast !== 'undefined') Toast.show('网络请求失败', 'error');
-        return null;
-    }
-}
-
-=======
->>>>>>> parent of 2780429 (big_fix3.5)
 document.addEventListener('DOMContentLoaded', async () => {
     initSidebarToggle();
     initSettingsButton();
@@ -115,24 +74,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (response.ok && data.code === 200) {
             const user = data.data.user;
             pdocsCurrentUserId = user.id;
-<<<<<<< HEAD
-            // 更新最近登录 uid，用于登出时清理相关 localStorage
-            try { localStorage.setItem('__gfygo_last_uid', String(user.id)); } catch (_) { /* ignore */ }
-
-            // 竞态修复：若 personal-docs tab 已被首次加载过（initPersonalDocs 已触发但 loadPersonalFolders 因
-            // pdocsCurrentUserId 未就绪被跳过），此处用就绪后的 uid 重新加载文件夹
-            if (staticPanelLoaded.has('personal-docs')) {
-                loadPersonalFolders();
-            }
-
-            // ================================
-            // H2: 路径准入校验（admin 路径需真实 permission_level 足够）
-            // ================================
-=======
             renderUserProfile(user);
             // 根据当前 dashboard 页面路径同步视角等级（用于权限按钮高亮）
             // admin1=等级2(一级管理员), admin2=等级3(二级管理员), admin3=等级4(三级管理员), superadmin=等级5
->>>>>>> parent of 2780429 (big_fix3.5)
             const __pathMatch = window.location.pathname.match(/\/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i);
             if (__pathMatch) {
                 const __folderToLevel = { user: 1, admin1: 2, admin2: 3, admin3: 4, superadmin: 5 };
@@ -1034,37 +978,6 @@ async function pdocsRequest(path, options = {}) {
 function ensureMarkedLoaded() {
     if (pdocsMarkedReady) return Promise.resolve();
     if (pdocsMarkedLoading) return pdocsMarkedLoading;
-<<<<<<< HEAD
-    pdocsMarkedLoading = (async () => {
-        // M8: SRI integrity hash（marked 12.0.0 / dompurify 3.1.6，值来自浏览器实际计算）
-        const resources = [
-            {
-                src: 'https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js',
-                integrity: 'sha384-NNQgBjjuhtXzPmmy4gurS5X7P4uTt1DThyevz4Ua0IVK5+kazYQI1W27JHjbbxQz',
-                check: () => !!(window.marked && typeof window.marked.parse === 'function')
-            },
-            {
-                src: 'https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js',
-                integrity: 'sha384-+VfUPEb0PdtChMwmBcBmykRMDd+v6D/oFmB3rZM/puCMDYcIvF968OimRh4KQY9a',
-                check: () => !!(window.DOMPurify && typeof window.DOMPurify.sanitize === 'function')
-            }
-        ];
-        for (const r of resources) {
-            if (r.check()) continue;
-            await new Promise((resolve) => {
-                const s = document.createElement('script');
-                s.src = r.src;
-                s.integrity = r.integrity;
-                s.crossOrigin = 'anonymous';
-                s.referrerPolicy = 'no-referrer';
-                s.onload = () => resolve();
-                s.onerror = () => { console.warn('[pdocs] 依赖加载失败:', r.src); resolve(); };
-                document.head.appendChild(s);
-            });
-        }
-        pdocsMarkedReady = true;
-    })();
-=======
     pdocsMarkedLoading = new Promise((resolve) => {
         const s = document.createElement('script');
         s.src = 'https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js';
@@ -1072,7 +985,6 @@ function ensureMarkedLoaded() {
         s.onerror = () => { console.warn('[pdocs] marked.js 加载失败'); resolve(); };
         document.head.appendChild(s);
     });
->>>>>>> parent of 2780429 (big_fix3.5)
     return pdocsMarkedLoading;
 }
 
