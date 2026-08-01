@@ -7,6 +7,7 @@
 const __DOC = {
   
   docs: [],                // [{id, title, slug, permission_bits, visibility, owning, ...}]
+  categories: [],          // 三目录重构后已废弃，保留空数组兜底避免 for...of 报错
   user: {
     isLoggedIn: false,
     permissionLevel: null, // null/undefined = 匿名
