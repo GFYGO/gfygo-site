@@ -23,18 +23,15 @@
             document.head.innerHTML = '<base href="../user/">' + doc.head.innerHTML;
             document.title = '二级管理员 | GWL';
 
-            // 替换 body 内容（先移除 <script> 标签，避免浏览器尝试从错误路径请求资源）
-            const bodyHtml = doc.body.innerHTML.replace(/<script[\s\S]*?<\/script>/gi, '');
-            document.body.innerHTML = bodyHtml;
+            // 替换 body 内容
+            document.body.innerHTML = doc.body.innerHTML;
 
             // innerHTML 复制的 <script> 不会执行，需手动重建
-            // 使用 getAttribute('src') 获取原始相对路径，手动拼接到 ../user/ 下
             doc.querySelectorAll('script').forEach(oldScript => {
                 const s = document.createElement('script');
-                const rawSrc = oldScript.getAttribute('src');
-                if (rawSrc) {
-                    s.src = '../user/' + rawSrc.replace(/^\.\//, '');
-                    s.async = false;
+                if (oldScript.src) {
+                    s.src = oldScript.src;
+                    s.async = false; // 保证按插入顺序执行（config.js → ... → dashboard.js）
                 } else {
                     s.textContent = oldScript.textContent;
                 }
