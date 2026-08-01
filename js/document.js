@@ -198,10 +198,14 @@ async function fetchDocList() {
     const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     // folder_id 过滤：null=不过滤；0=根目录；正整数=该文件夹
+    // scope 过滤：三目录（public/group/private）后端按 scope 决定返回哪一目录根下的数据
     let url = `${API_BASE_URL}/api/v1/document/list`;
+    const qp = [];
+    qp.push(`scope=${encodeURIComponent(__DOC.visFilter || 'public')}`);
     if (__DOC.currentFolderId !== null && __DOC.currentFolderId !== undefined) {
-      url += `?folder_id=${encodeURIComponent(__DOC.currentFolderId)}`;
+      qp.push(`folder_id=${encodeURIComponent(__DOC.currentFolderId)}`);
     }
+    if (qp.length) url += '?' + qp.join('&');
     const r = await fetch(url, { headers });
     const d = await r.json();
     if (r.ok && d.code === 200) {
@@ -262,9 +266,11 @@ async function fetchDocFolders() {
     const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     // 已登录时走 /folders（支持 personal + public；匿名需 401 兜底）
+    // scope=三目录过滤，后端按 scope 决定返回 public/ group/ private 哪一目录下的文件夹
+    const _scope = encodeURIComponent(__DOC.visFilter || 'public');
     const url = token
-      ? `${API_BASE_URL}/api/v1/document/folders`
-      : `${API_BASE_URL}/api/v1/document/folders/public`;
+      ? `${API_BASE_URL}/api/v1/document/folders?scope=${_scope}`
+      : `${API_BASE_URL}/api/v1/document/folders/public?scope=${_scope}`;
     const r = await fetch(url, { headers });
     const d = await r.json();
     if (r.ok && d.code === 200) {
@@ -759,7 +765,7 @@ function bindDocFolderActions() {
       const node = arrow.closest('.doc-folder-node');
       if (!node) return;
       const childrenEl = node.querySelector(':scope > .doc-folder-node__children');
-      if (!childrenEl || childrenEl.style.display === 'none') return;
+      if (!childrenEl) return;
       const expanded = arrow.classList.contains('is-expanded');
       if (expanded) {
         childrenEl.style.display = 'none';
