@@ -6,10 +6,10 @@
   1. 复制此文件到目标位置（根目录或 user/ 子目录）
   2. 修改 <title> 和主体内容
   3. 根据所在目录调整相对路径：
-     - 根目录页面：href="./xxx"  src="./xxx"
-     - user/ 子目录：href="../xxx"  src="../xxx"
-  4. 根目录页面引入 JS 顺序：config.js → theme.js → toast.js → index.js → 页面专属.js
-     user/ 子目录引入 JS：../config.js → ../theme.js → ../toast.js → ../index.js → 页面专属.js
+     - 根目录页面：CSS href="./css/xxx.css"  JS src="./js/xxx.js"
+     - 子目录页面(user/admin*/model/)：CSS href="../css/xxx.css"  JS src="../js/xxx.js"
+  4. 根目录页面引入 JS 顺序：js/config.js → js/theme.js → js/toast.js → js/index.js → 页面专属.js
+     子目录引入 JS：../js/config.js → ../js/theme.js → ../js/toast.js → ../js/index.js → 页面专属.js
   5. 需要登录的页面在 DOMContentLoaded 中调用 AuthGuard.requireAuth()
 -->
 <html lang="zh-CN">
@@ -17,7 +17,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GWL | 页面标题</title>
-  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="../css/styles.css">
   <link rel="icon" href="../favicon.png" type="image/png">
 </head>
 <body>
@@ -98,10 +98,10 @@
   <!-- ============================================
        JS 引入（顺序很重要：config → theme → toast → index → 页面专属）
        ============================================ -->
-  <script src="../config.js"></script>
-  <script src="../theme.js"></script>
-  <script src="../toast.js"></script>
-  <script src="../index.js"></script>
+  <script src="../js/config.js"></script>
+  <script src="../js/theme.js"></script>
+  <script src="../js/toast.js"></script>
+  <script src="../js/index.js"></script>
   <!-- <script src="../page-specific.js"></script> -->
 </body>
 </html>
