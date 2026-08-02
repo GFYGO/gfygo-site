@@ -32,6 +32,10 @@
                     <span class="sidebar__nav-icon">📁</span>
                     <span class="sidebar__nav-text">个人文档</span>
                 </a>
+                <a href="#" class="sidebar__nav-item" data-tab="public-docs" id="publicDocsNavItem" style="display:none;">
+                    <span class="sidebar__nav-icon">🌐</span>
+                    <span class="sidebar__nav-text">公有文档</span>
+                </a>
                 <!-- 动态项挂载点（由 dashboard.js 从后端拉取并渲染） -->
                 <div class="sidebar__nav-divider" id="dynamicMenuDivider" style="display:none;"></div>
                 <div id="dynamicMenuContainer"></div>
@@ -181,6 +185,57 @@
                         </div>
                         <div class="pdocs-trash-list" id="pdocsTrashContainer">
                             <p class="loading-text">加载中...</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 公有文档（仅超级管理员可见） -->
+                <section class="tab-panel" id="panel-public-docs" style="display: none;">
+                    <div class="pdocs-breadcrumb" id="pubdocsPathBreadcrumb"></div>
+
+                    <div class="pdocs-view" id="pubdocs-view-list">
+                        <div class="pdocs-toolbar">
+                            <h2 class="panel-title">公有文档</h2>
+                            <div class="pdocs-toolbar-actions">
+                                <button class="pdocs-btn pdocs-btn--secondary" id="pubdocsUpBtn" title="返回上一级">↑ 返回上一级</button>
+                                <button class="pdocs-btn pdocs-btn--secondary" id="pubdocsFolderAddBtn" title="新建文件夹">📁 新建文件夹</button>
+                                <button class="pdocs-btn pdocs-btn--primary" id="pubdocsNewBtn">+ 新建文档</button>
+                            </div>
+                        </div>
+                        <div class="pdocs-explorer-grid" id="pubdocsListContainer">
+                            <p class="loading-text">加载中...</p>
+                        </div>
+                    </div>
+
+                    <div class="pdocs-view" id="pubdocs-view-browse" style="display: none;">
+                        <div class="pdocs-browser-toolbar">
+                            <button class="pdocs-btn pdocs-btn--secondary" id="pubdocsBrowserBackBtn">← 返回列表</button>
+                            <div class="pdocs-browser-titlebar">
+                                <span class="pdocs-browser-icon" id="pubdocsBrowserIcon">📄</span>
+                                <span class="pdocs-browser-title" id="pubdocsBrowserTitle">加载中...</span>
+                            </div>
+                            <div class="pdocs-browser-actions">
+                                <button class="pdocs-btn pdocs-btn--ghost" id="pubdocsBrowserOpenInDocBtn" title="在文档中心打开">🔗 外部打开</button>
+                                <button class="pdocs-btn pdocs-btn--secondary" id="pubdocsBrowserEditBtn">✏️ 编辑</button>
+                                <button class="pdocs-btn pdocs-btn--danger" id="pubdocsBrowserDeleteBtn">🗑 删除</button>
+                            </div>
+                        </div>
+                        <div class="pdocs-browser-meta" id="pubdocsBrowserMeta"></div>
+                        <div class="pdocs-browser-body">
+                            <div id="pubdocsBrowserContent" class="pdocs-browser-content markdown-body"></div>
+                        </div>
+                    </div>
+
+                    <div class="pdocs-view" id="pubdocs-view-editor" style="display: none;">
+                        <div class="pdocs-editor-toolbar">
+                            <button class="pdocs-btn pdocs-btn--secondary" id="pubdocsBackBtn">← 返回</button>
+                            <input type="text" class="pdocs-title-input" id="pubdocsTitleInput" placeholder="文档标题" maxlength="200">
+                            <button class="pdocs-btn pdocs-btn--ghost" id="pubdocsPreviewToggleBtn">👁 预览</button>
+                            <button class="pdocs-btn pdocs-btn--primary" id="pubdocsSaveBtn">💾 保存</button>
+                        </div>
+                        <div class="pdocs-editor-body">
+                            <textarea class="pdocs-content-input" id="pubdocsContentInput" placeholder="使用 Markdown 编写文档..."></textarea>
+                            <div class="pdocs-preview" id="pubdocsPreview" style="display: none;"></div>
                         </div>
                     </div>
                 </section>

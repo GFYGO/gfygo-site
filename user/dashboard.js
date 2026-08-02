@@ -206,6 +206,13 @@ async function switchTab(tab, skipSave = false) {
         staticPanelLoaded.add('personal-docs');
         initPersonalDocs();
     }
+    // 公有文档首次加载（由 superadmin/dashboard.js 负责初始化）
+    if (tab === 'public-docs' && !staticPanelLoaded.has('public-docs')) {
+        staticPanelLoaded.add('public-docs');
+        if (typeof window.initPublicDocs === 'function') {
+            window.initPublicDocs();
+        }
+    }
 
     // 切换内容面板
     document.querySelectorAll('.tab-panel').forEach(panel => {
