@@ -28,6 +28,17 @@ const staticPanelLoaded = new Set();
 // URL 中携带的邮箱验证码（用于邮件链接跳转后自动填入）
 let pendingEmailCode = null;
 
+// ====== 个人文档/公有文档全局状态（必须声明在 initDashboard() 调用之前，避免 TDZ） ======
+let pdocsEditingId = null;         // 当前编辑的文档 id（null=新建）
+let pdocsMarkedReady = false;      // marked.js 是否已加载
+let pdocsMarkedLoading = null;     // 加载中的 Promise（防重复）
+let pdocsFolders = [];             // 当前用户的个人文件夹列表
+let pdocsCurrentFolderId = null;   // null=根目录（个人文档根）；正整数=某文件夹内
+let pdocsCurrentUserId = null;     // 从 auth/status 拿到，用于过滤个人文件夹
+let pdocsCurrentDocs = null;       // 当前层级的文档列表（null=未加载）
+let pdocsEditorInstance = null;    // EasyMDE 个人文档编辑器实例
+let pubdocsEditorInstance = null;  // EasyMDE 公有文档编辑器实例（超管用）
+
 async function initDashboard() {
     initSidebarToggle();
     initSettingsButton();
@@ -933,16 +944,6 @@ function handleCheckin() {
 // =========================================
 // 个人文档相关函数
 // =========================================
-
-let pdocsEditingId = null;      // 当前编辑的文档 id（null=新建）
-let pdocsMarkedReady = false;   // marked.js 是否已加载
-let pdocsMarkedLoading = null;  // 加载中的 Promise（防重复）
-let pdocsFolders = [];          // 当前用户的个人文件夹列表
-let pdocsCurrentFolderId = null; // null=根目录（个人文档根）；正整数=某文件夹内（资源管理器模型）
-let pdocsCurrentUserId = null;   // 从 auth/status 拿到，用于过滤个人文件夹
-let pdocsCurrentDocs = null;     // 当前层级的文档列表（null=未加载）
-let pdocsEditorInstance = null;  // EasyMDE 个人文档编辑器实例
-let pubdocsEditorInstance = null; // EasyMDE 公有文档编辑器实例（超管用）
 
 /** 统一请求封装（统一走 /api/v1/document 接口）
  *  根据 URL 路径自动判断权限上下文：

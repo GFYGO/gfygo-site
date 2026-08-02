@@ -21,7 +21,7 @@ const __DOC = {
   dompurifyReady: false,   // DOMPurify 是否已加载
   visFilter: 'public',     // 侧栏可见类型筛选：public / group / private
   folders: [],              // 文件夹列表：匿名时仅公共文件夹；登录时=个人(personal)+公共(public)合并
-  currentFolderId: null,    // null=不过滤；0=根目录；正整数=该文件夹
+  currentFolderId: 0,       // 0=根目录（默认）；正整数=该文件夹
   isAdmin: false            // 等级≥5 才为 true
 };
 
@@ -426,8 +426,8 @@ function bindVisTabs() {
   tabs.forEach(tab => {
     tab.addEventListener('click', async () => {
       const vis = tab.getAttribute('data-vis');
-      // 统一筛选状态机:tab 与 folder 互斥,切 tab 时清空 folder 筛选与搜索框
-      __DOC.currentFolderId = null;
+      // 统一筛选状态机:切 tab 时 folder 重置为根目录,清空搜索框
+      __DOC.currentFolderId = 0;
       const input = document.getElementById('docSearchInput');
       if (input) input.value = '';
       // 再次点击已激活的 tab 视为取消筛选（回到全部）
@@ -511,7 +511,7 @@ function renderDocFolderTreeNode(node, depth = 0) {
           ` : ''}
         </span>
       </div>
-      <div class="doc-folder-node__children" style="${hasChildren ? '' : 'display:none'}">
+      <div class="doc-folder-node__children" style="display:none">
         ${hasChildren ? node.children.map(c => renderDocFolderTreeNode(c, depth + 1)).join('') : ''}
       </div>
     </div>
@@ -644,10 +644,10 @@ function renderDocFolders() {
 
   let html = `
     <div class="doc-folder-quick">
-      <div class="doc-folder-node__row ${__DOC.currentFolderId === null ? 'is-active' : ''}" data-folder-id="__all__" style="padding-left:10px">
+      <div class="doc-folder-node__row ${__DOC.currentFolderId === 0 ? 'is-active' : ''}" data-folder-id="__all__" style="padding-left:10px">
         <span class="doc-folder-node__arrow"></span>
-        <span class="doc-folder-node__icon">📋</span>
-        <span class="doc-folder-node__name">全部文档</span>
+        <span class="doc-folder-node__icon">🏠</span>
+        <span class="doc-folder-node__name">根目录</span>
         <span class="doc-folder-node__actions"></span>
       </div>
     </div>
@@ -685,7 +685,7 @@ function resetVisFilterAndSearchUI() {
  * 用于「文档中心首页」类入口(backToHomeBtn / 面包屑「文档中心」)。
  */
 function resetToDefaultFilter() {
-  __DOC.currentFolderId = null;
+  __DOC.currentFolderId = 0;
   __DOC.visFilter = 'public';
   const input = document.getElementById('docSearchInput');
   if (input) input.value = '';
@@ -706,11 +706,9 @@ function bindDocFolderActions() {
 
   list.querySelectorAll('[data-folder-id="__all__"]').forEach(row => {
     row.addEventListener('click', async () => {
-      const fid = row.dataset.folderId;
-      const newId = (fid === '__all__') ? null : 0;
-      if (newId === __DOC.currentFolderId) return;
-      // 点「全部文档」(folderId=null) = 清空 folder 筛选,与 tab 维度兼容,保留 visFilter + 搜索
-      __DOC.currentFolderId = newId;
+      if (__DOC.currentFolderId === 0) return;
+      // 点「根目录」(folderId=0) = 仅查看根目录下的文件,保留 visFilter + 搜索
+      __DOC.currentFolderId = 0;
       await applyDocFolderFilter();
     });
   });
@@ -821,9 +819,9 @@ async function deleteDocFolder(id) {
     });
     const d = await r.json();
     if (r.ok && d.code === 200) {
-      // 如果当前正在查看被删除的文件夹，重置为"全部"
+      // 如果当前正在查看被删除的文件夹，重置为根目录
       if (__DOC.currentFolderId === id) {
-        __DOC.currentFolderId = null;
+        __DOC.currentFolderId = 0;
       }
       await fetchDocFolders();
       await applyDocFolderFilter();
