@@ -72,10 +72,15 @@ const ThemeEngine = {
     }
 };
 
-// 页面加载时初始化
-document.addEventListener('DOMContentLoaded', () => {
+// 页面加载时初始化（管理员页面通过 fetch 动态加载脚本，DOMContentLoaded 可能已触发）
+function initTheme() {
     ThemeEngine.init();
     ThemeEngine.bindSwitchEvent();
-});
+}
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTheme);
+} else {
+    initTheme();
+}
 
 window.ThemeEngine = ThemeEngine;

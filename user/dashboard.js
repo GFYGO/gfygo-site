@@ -28,7 +28,7 @@ const staticPanelLoaded = new Set();
 // URL 中携带的邮箱验证码（用于邮件链接跳转后自动填入）
 let pendingEmailCode = null;
 
-document.addEventListener('DOMContentLoaded', async () => {
+async function initDashboard() {
     initSidebarToggle();
     initSettingsButton();
     initTabSwitching();
@@ -102,7 +102,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (error) {
         console.error('获取用户信息失败:', error);
     }
-});
+}
+
+// 管理员页面通过 fetch 动态加载脚本，DOMContentLoaded 可能已触发
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDashboard);
+} else {
+    initDashboard();
+}
 
 function initSidebarToggle() {
     const menuBtn = document.getElementById('menuToggle');

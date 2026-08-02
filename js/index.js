@@ -3,7 +3,7 @@
  * 首页初始化脚本 + 全局公共逻辑（移动端菜单、侧边栏）
  */
 
-document.addEventListener('DOMContentLoaded', () => {
+function initIndex() {
   // 初始化移动端汉堡菜单
   initMobileMenu();
 
@@ -18,7 +18,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // 捕获单个请求失败可能抛出的错误，避免影响其他功能
     console.error('首页初始化请求发生异常:', error);
   });
-});
+}
+
+// 管理员页面通过 fetch 动态加载脚本，DOMContentLoaded 可能已触发
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initIndex);
+} else {
+  initIndex();
+}
 
 /**
  * 移动端汉堡菜单切换
