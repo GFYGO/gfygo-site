@@ -941,6 +941,8 @@ let pdocsFolders = [];          // 当前用户的个人文件夹列表
 let pdocsCurrentFolderId = null; // null=根目录（个人文档根）；正整数=某文件夹内（资源管理器模型）
 let pdocsCurrentUserId = null;   // 从 auth/status 拿到，用于过滤个人文件夹
 let pdocsCurrentDocs = null;     // 当前层级的文档列表（null=未加载）
+let pdocsEditorInstance = null;  // EasyMDE 个人文档编辑器实例
+let pubdocsEditorInstance = null; // EasyMDE 公有文档编辑器实例（超管用）
 
 /** 统一请求封装（统一走 /api/v1/document 接口）
  *  根据 URL 路径自动判断权限上下文：
@@ -1021,6 +1023,40 @@ function pdocsExtractSummary(content) {
     return firstLine.slice(0, 100);
 }
 
+/** 初始化 EasyMDE 编辑器（个人文档） */
+function initPdocsEasyMDE() {
+    const textarea = document.getElementById('pdocsContentInput');
+    if (!textarea || pdocsEditorInstance) return;
+    try {
+        pdocsEditorInstance = new EasyMDE({
+            element: textarea,
+            spellChecker: false,
+            autosave: { enabled: false },
+            toolbar: [
+                'bold', 'italic', 'strikethrough', 'heading', 'heading-smaller', 'heading-bigger', '|',
+                'code', 'quote', 'unordered-list', 'ordered-list', '|',
+                'link', 'image', 'table', 'horizontal-rule', '|',
+                'preview', 'side-by-side', 'fullscreen', '|',
+                'guide'
+            ],
+            previewRender: async function(plainText, preview) {
+                await ensureMarkedLoaded();
+                if (pdocsMarkedReady && window.marked) {
+                    preview.innerHTML = window.marked.parse(plainText || '*空内容*');
+                } else {
+                    preview.innerHTML = `<pre>${escapeHtml(plainText)}</pre>`;
+                }
+                return preview;
+            },
+            placeholder: '使用 Markdown 编写文档...',
+            minHeight: '400px',
+            status: ['lines', 'words', 'cursor']
+        });
+    } catch (e) {
+        console.error('[pdocs] EasyMDE 初始化失败:', e);
+    }
+}
+
 /** 初始化个人文档：绑定事件 + 加载列表 */
 function initPersonalDocs() {
     // 绑定按钮事件（防重复）
@@ -1060,15 +1096,8 @@ function initPersonalDocs() {
         }
     });
 
-    // 编辑器实时预览
-    const contentInput = document.getElementById('pdocsContentInput');
-    if (contentInput && !contentInput.dataset.pdocsBound) {
-        contentInput.dataset.pdocsBound = '1';
-        contentInput.addEventListener('input', () => {
-            const preview = document.getElementById('pdocsPreview');
-            if (preview.style.display !== 'none') renderPdocsPreview();
-        });
-    }
+    // 初始化 EasyMDE 编辑器
+    initPdocsEasyMDE();
 
     loadPersonalDocs();
     loadPersonalFolders();
@@ -1361,13 +1390,15 @@ async function openPdocsEditor(docId) {
     showPdocsView('editor');
 
     const titleInput = document.getElementById('pdocsTitleInput');
-    const contentInput = document.getElementById('pdocsContentInput');
     const preview = document.getElementById('pdocsPreview');
+
+    // 确保 EasyMDE 已初始化
+    if (!pdocsEditorInstance) initPdocsEasyMDE();
 
     if (!docId) {
         // 新建
         titleInput.value = '';
-        contentInput.value = '';
+        if (pdocsEditorInstance) pdocsEditorInstance.value('');
         preview.style.display = 'none';
         preview.innerHTML = '';
         titleInput.focus();
@@ -1376,7 +1407,7 @@ async function openPdocsEditor(docId) {
 
     // 编辑已有：拉取详情
     titleInput.value = '加载中...';
-    contentInput.value = '';
+    if (pdocsEditorInstance) pdocsEditorInstance.value('');
     const data = await pdocsRequest(`/${docId}`);
     if (!data || data.code !== 200) {
         if (typeof Toast !== 'undefined') Toast.show('加载文档失败', 'error');
@@ -1384,16 +1415,20 @@ async function openPdocsEditor(docId) {
         return;
     }
     titleInput.value = data.data.title || '';
-    contentInput.value = data.data.content || '';
+    if (pdocsEditorInstance) pdocsEditorInstance.value(data.data.content || '');
     preview.style.display = 'none';
     preview.innerHTML = '';
+    // EasyMDE 有自己的预览机制，这里的预览保留为备用
     if (preview.style.display !== 'none') renderPdocsPreview();
 }
 
 /** 保存文档（新建或更新） */
 async function savePersonalDoc() {
     const title = document.getElementById('pdocsTitleInput').value.trim();
-    const content = document.getElementById('pdocsContentInput').value;
+    // 优先从 EasyMDE 实例获取内容，兜底用 textarea
+    const content = pdocsEditorInstance
+        ? pdocsEditorInstance.value()
+        : document.getElementById('pdocsContentInput').value;
 
     if (!title) {
         if (typeof Toast !== 'undefined') Toast.show('请输入标题', 'warning');
@@ -1436,9 +1471,9 @@ async function savePersonalDoc() {
 
     if (typeof Toast !== 'undefined') Toast.show('保存成功', 'success');
     pdocsEditingId = data.data.id;  // 新建后记住 id，后续保存变成更新
-    // 更新预览
+    // 更新预览（EasyMDE 自带预览，此处保留外部预览的同步）
     const preview = document.getElementById('pdocsPreview');
-    if (preview.style.display !== 'none') renderPdocsPreview();
+    if (preview && preview.style.display !== 'none') renderPdocsPreview();
 }
 
 /** 软删除（移入回收站） */
@@ -1478,26 +1513,32 @@ async function permanentDeletePersonalDoc(docId) {
     loadPersonalTrash();
 }
 
-/** 切换预览显示 */
+/** 切换预览显示（EasyMDE 内置预览，此处为额外面板） */
 function togglePdocsPreview() {
     const preview = document.getElementById('pdocsPreview');
-    const contentInput = document.getElementById('pdocsContentInput');
     const isHidden = preview.style.display === 'none';
 
     if (isHidden) {
         preview.style.display = '';
-        contentInput.style.flex = '1';
+        // EasyMDE 容器也适当调整
+        const editorContainer = document.querySelector('#pdocs-view-editor .EasyMDEContainer');
+        if (editorContainer) editorContainer.style.flex = '1';
         renderPdocsPreview();
     } else {
         preview.style.display = 'none';
-        contentInput.style.flex = '';
+        const editorContainer = document.querySelector('#pdocs-view-editor .EasyMDEContainer');
+        if (editorContainer) editorContainer.style.flex = '';
     }
 }
 
 /** 渲染 Markdown 预览 */
 async function renderPdocsPreview() {
-    const content = document.getElementById('pdocsContentInput').value;
+    // 优先从 EasyMDE 获取内容，兜底用 textarea
+    const content = pdocsEditorInstance
+        ? pdocsEditorInstance.value()
+        : document.getElementById('pdocsContentInput').value;
     const preview = document.getElementById('pdocsPreview');
+    if (!preview) return;
     await ensureMarkedLoaded();
     try {
         if (pdocsMarkedReady && window.marked) {

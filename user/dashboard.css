@@ -1804,3 +1804,155 @@ body.theme-dark_green .calendar-day--checked {
     display: flex;
     flex-direction: column;
 }
+
+/* ============================================================
+ * EasyMDE 编辑器适配样式
+ * ============================================================ */
+
+/* EasyMDE 容器：在编辑器 body 中占满剩余空间 */
+.pdocs-editor-body .EasyMDEContainer {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 500px;
+    min-width: 0;
+}
+
+.pdocs-editor-body .EasyMDEContainer .editor-toolbar {
+    border-top-left-radius: var(--radius-md, 8px);
+    border-top-right-radius: var(--radius-md, 8px);
+    border-color: var(--color-border, #d1d5db);
+    background: var(--color-bg-section-alt, #f9fafb);
+}
+
+.pdocs-editor-body .EasyMDEContainer .CodeMirror {
+    border-color: var(--color-border, #d1d5db);
+    background: var(--color-bg-white, #fff);
+    color: var(--color-text-main, #1f2937);
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    flex: 1;
+    min-height: 400px;
+}
+
+.pdocs-editor-body .EasyMDEContainer .CodeMirror-focused {
+    border-color: var(--color-primary, #2563eb);
+}
+
+.pdocs-editor-body .EasyMDEContainer .editor-statusbar {
+    border-bottom-left-radius: var(--radius-md, 8px);
+    border-bottom-right-radius: var(--radius-md, 8px);
+    border-color: var(--color-border, #d1d5db);
+    background: var(--color-bg-section-alt, #f9fafb);
+    color: var(--color-text-muted, #6b7280);
+    font-size: 0.8rem;
+}
+
+/* 预览模式样式复用 .pdocs-preview */
+.pdocs-editor-body .EasyMDEContainer .editor-preview,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side {
+    background: var(--color-bg-white, #fff);
+    color: var(--color-text-main, #1f2937);
+    padding: 16px 20px;
+    line-height: 1.7;
+}
+
+.pdocs-editor-body .EasyMDEContainer .editor-preview h1,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side h1,
+.pdocs-editor-body .EasyMDEContainer .editor-preview h2,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side h2,
+.pdocs-editor-body .EasyMDEContainer .editor-preview h3,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side h3 {
+    margin: 16px 0 8px;
+    color: var(--color-text-main, #1f2937);
+}
+.pdocs-editor-body .EasyMDEContainer .editor-preview h1,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side h1 { font-size: 1.5rem; }
+.pdocs-editor-body .EasyMDEContainer .editor-preview h2,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side h2 { font-size: 1.25rem; }
+.pdocs-editor-body .EasyMDEContainer .editor-preview h3,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side h3 { font-size: 1.1rem; }
+
+.pdocs-editor-body .EasyMDEContainer .editor-preview p,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side p { margin: 8px 0; }
+
+.pdocs-editor-body .EasyMDEContainer .editor-preview pre,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side pre {
+    background: #f3f4f6;
+    padding: 12px;
+    border-radius: var(--radius-md, 8px);
+    overflow-x: auto;
+    font-size: 0.85rem;
+}
+.pdocs-editor-body .EasyMDEContainer .editor-preview code,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side code {
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+.pdocs-editor-body .EasyMDEContainer .editor-preview pre code,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side pre code {
+    background: none;
+    padding: 0;
+}
+.pdocs-editor-body .EasyMDEContainer .editor-preview ul,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side ul,
+.pdocs-editor-body .EasyMDEContainer .editor-preview ol,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side ol {
+    margin: 8px 0;
+    padding-left: 24px;
+}
+.pdocs-editor-body .EasyMDEContainer .editor-preview blockquote,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side blockquote {
+    border-left: 3px solid var(--color-primary, #2563eb);
+    margin: 8px 0;
+    padding: 4px 16px;
+    color: var(--color-text-muted, #6b7280);
+    background: rgba(0,0,0,0.02);
+}
+.pdocs-editor-body .EasyMDEContainer .editor-preview a,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side a {
+    color: var(--color-primary, #2563eb);
+    text-decoration: none;
+}
+.pdocs-editor-body .EasyMDEContainer .editor-preview a:hover,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side a:hover {
+    text-decoration: underline;
+}
+.pdocs-editor-body .EasyMDEContainer .editor-preview table,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+}
+.pdocs-editor-body .EasyMDEContainer .editor-preview th,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side th,
+.pdocs-editor-body .EasyMDEContainer .editor-preview td,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side td {
+    border: 1px solid var(--color-border, #d1d5db);
+    padding: 8px 12px;
+    text-align: left;
+}
+.pdocs-editor-body .EasyMDEContainer .editor-preview img,
+.pdocs-editor-body .EasyMDEContainer .editor-preview-side img {
+    max-width: 100%;
+    border-radius: var(--radius-md, 8px);
+}
+
+/* 全屏模式下保证尺寸 */
+.pdocs-editor-body .EasyMDEContainer.fullscreen {
+    z-index: 9999;
+}
+
+/* 响应式：移动端 EasyMDE 调整 */
+@media (max-width: 768px) {
+    .pdocs-editor-body .EasyMDEContainer {
+        min-height: 300px;
+        width: 100%;
+    }
+    .pdocs-editor-body .EasyMDEContainer .CodeMirror {
+        min-height: 250px;
+    }
+}

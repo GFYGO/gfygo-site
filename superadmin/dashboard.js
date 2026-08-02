@@ -63,6 +63,40 @@
         }
     }
 
+    /** 初始化 EasyMDE 编辑器（公有文档） */
+    function initPubdocsEasyMDE() {
+        const textarea = document.getElementById('pubdocsContentInput');
+        if (!textarea || pubdocsEditorInstance) return;
+        try {
+            pubdocsEditorInstance = new EasyMDE({
+                element: textarea,
+                spellChecker: false,
+                autosave: { enabled: false },
+                toolbar: [
+                    'bold', 'italic', 'strikethrough', 'heading', 'heading-smaller', 'heading-bigger', '|',
+                    'code', 'quote', 'unordered-list', 'ordered-list', '|',
+                    'link', 'image', 'table', 'horizontal-rule', '|',
+                    'preview', 'side-by-side', 'fullscreen', '|',
+                    'guide'
+                ],
+                previewRender: async function(plainText, preview) {
+                    await ensureMarkedLoaded();
+                    if (pdocsMarkedReady && window.marked) {
+                        preview.innerHTML = window.marked.parse(plainText || '*空内容*');
+                    } else {
+                        preview.innerHTML = `<pre>${escapeHtml(plainText)}</pre>`;
+                    }
+                    return preview;
+                },
+                placeholder: '使用 Markdown 编写公有文档...',
+                minHeight: '400px',
+                status: ['lines', 'words', 'cursor']
+            });
+        } catch (e) {
+            console.error('[pubdocs] EasyMDE 初始化失败:', e);
+        }
+    }
+
     /** 初始化公有文档 */
     window.initPublicDocs = function () {
         const bind = (id, handler) => {
@@ -92,14 +126,8 @@
             if (slug) window.open(`${BASE_PATH}/document.html?slug=${encodeURIComponent(slug)}`, '_blank');
         });
 
-        const contentInput = document.getElementById('pubdocsContentInput');
-        if (contentInput && !contentInput.dataset.pubdocsBound) {
-            contentInput.dataset.pubdocsBound = '1';
-            contentInput.addEventListener('input', () => {
-                const preview = document.getElementById('pubdocsPreview');
-                if (preview && preview.style.display !== 'none') renderPubdocsPreview();
-            });
-        }
+        // 初始化 EasyMDE 编辑器
+        initPubdocsEasyMDE();
 
         loadPubdocsDocs();
         loadPubdocsFolders();
@@ -364,12 +392,14 @@
         showPubdocsView('editor');
 
         const titleInput = document.getElementById('pubdocsTitleInput');
-        const contentInput = document.getElementById('pubdocsContentInput');
         const preview = document.getElementById('pubdocsPreview');
+
+        // 确保 EasyMDE 已初始化
+        if (!pubdocsEditorInstance) initPubdocsEasyMDE();
 
         if (!docId) {
             titleInput.value = '';
-            contentInput.value = '';
+            if (pubdocsEditorInstance) pubdocsEditorInstance.value('');
             preview.style.display = 'none';
             preview.innerHTML = '';
             titleInput.focus();
@@ -377,7 +407,7 @@
         }
 
         titleInput.value = '加载中...';
-        contentInput.value = '';
+        if (pubdocsEditorInstance) pubdocsEditorInstance.value('');
         const data = await pubdocsRequest(`/${docId}`);
         if (!data || data.code !== 200) {
             if (typeof Toast !== 'undefined') Toast.show('加载文档失败', 'error');
@@ -385,7 +415,7 @@
             return;
         }
         titleInput.value = data.data.title || '';
-        contentInput.value = data.data.content || '';
+        if (pubdocsEditorInstance) pubdocsEditorInstance.value(data.data.content || '');
         preview.style.display = 'none';
         preview.innerHTML = '';
     }
@@ -393,7 +423,10 @@
     /** 保存文档 */
     async function savePubdocsDoc() {
         const title = document.getElementById('pubdocsTitleInput').value.trim();
-        const content = document.getElementById('pubdocsContentInput').value;
+        // 优先从 EasyMDE 实例获取内容，兜底用 textarea
+        const content = pubdocsEditorInstance
+            ? pubdocsEditorInstance.value()
+            : document.getElementById('pubdocsContentInput').value;
 
         if (!title) {
             if (typeof Toast !== 'undefined') Toast.show('请输入标题', 'warning');
@@ -455,22 +488,28 @@
     /** 切换预览 */
     function togglePubdocsPreview() {
         const preview = document.getElementById('pubdocsPreview');
-        const contentInput = document.getElementById('pubdocsContentInput');
         const isHidden = preview.style.display === 'none';
         if (isHidden) {
             preview.style.display = '';
-            contentInput.style.flex = '1';
+            // EasyMDE 容器也适当调整
+            const editorContainer = document.querySelector('#pubdocs-view-editor .EasyMDEContainer');
+            if (editorContainer) editorContainer.style.flex = '1';
             renderPubdocsPreview();
         } else {
             preview.style.display = 'none';
-            contentInput.style.flex = '';
+            const editorContainer = document.querySelector('#pubdocs-view-editor .EasyMDEContainer');
+            if (editorContainer) editorContainer.style.flex = '';
         }
     }
 
     /** 渲染预览 */
     async function renderPubdocsPreview() {
-        const content = document.getElementById('pubdocsContentInput').value;
+        // 优先从 EasyMDE 获取内容，兜底用 textarea
+        const content = pubdocsEditorInstance
+            ? pubdocsEditorInstance.value()
+            : document.getElementById('pubdocsContentInput').value;
         const preview = document.getElementById('pubdocsPreview');
+        if (!preview) return;
         await ensureMarkedLoaded();
         try {
             if (pdocsMarkedReady && window.marked) {
