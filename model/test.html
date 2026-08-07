@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GWL | 前端测试面板</title>
+  <link rel="stylesheet" href="../css/styles.css">
+  <link rel="icon" href="../favicon.png" type="image/png">
+  <style>
+    /* ===== 测试面板布局 ===== */
+    .test-layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      min-height: calc(100vh - var(--header-height) - 160px);
+      gap: 0;
+    }
+    .test-sidebar {
+      background: var(--color-bg-white);
+      border-right: 1px solid var(--color-border);
+      padding: 16px;
+      overflow-y: auto;
+      max-height: calc(100vh - var(--header-height) - 160px);
+    }
+    .test-sidebar__title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--color-text-muted);
+      margin: 16px 0 8px;
+      letter-spacing: 0.5px;
+    }
+    .test-sidebar__title:first-child { margin-top: 0; }
+    .test-btn {
+      display: block;
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      background: var(--color-bg-white);
+      color: var(--color-text-main);
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-align: left;
+      margin-bottom: 4px;
+      transition: all 0.15s;
+    }
+    .test-btn:hover { background: var(--color-bg-section-alt); border-color: var(--color-primary); }
+    .test-btn:active { transform: scale(0.98); }
+    .test-btn--primary { background: var(--color-primary); color: #fff; border-color: var(--color-primary); text-align: center; }
+    .test-btn--primary:hover { background: var(--color-primary-hover); }
+    .test-btn--danger { border-color: #ef4444; color: #ef4444; }
+    .test-btn--danger:hover { background: #fef2f2; }
+
+    .test-main {
+      padding: 24px;
+      overflow-y: auto;
+      max-height: calc(100vh - var(--header-height) - 160px);
+    }
+    .test-section {
+      background: var(--color-bg-white);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .test-section__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--color-bg-section-alt);
+      border-bottom: 1px solid var(--color-border);
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .test-section__head:hover { background: #e2e8f0; }
+    .test-section__body {
+      padding: 16px;
+      font-size: 0.85rem;
+      line-height: 1.7;
+    }
+    .test-section__body pre {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 12px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 0.8rem;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    /* ===== 输入框组 ===== */
+    .test-input-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .test-input-group input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      outline: none;
+    }
+    .test-input-group input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(79,70,229,0.15); }
+    .test-input-group button {
+      padding: 8px 16px;
+      border: 1px solid var(--color-primary);
+      border-radius: 6px;
+      background: var(--color-primary);
+      color: #fff;
+      font-size: 0.85rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .test-input-group button:hover { background: var(--color-primary-hover); }
+
+    /* ===== 状态标签 ===== */
+    .test-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .test-badge--ok { background: #dcfce7; color: #166534; }
+    .test-badge--warn { background: #fef3c7; color: #92400e; }
+    .test-badge--err { background: #fce4ec; color: #c62828; }
+    .test-badge--info { background: #dbeafe; color: #1e40af; }
+
+    @media (max-width: 768px) {
+      .test-layout { grid-template-columns: 1fr; }
+      .test-sidebar { max-height: none; border-right: none; border-bottom: 1px solid var(--color-border); }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header__logo">GWL Works Lab</div>
+    <button class="header__toggle" id="menuToggle" aria-label="切换菜单">☰</button>
+    <nav class="header__nav" id="headerNav">
+      <a href="../index.html">首页</a>
+      <a href="../document.html">文档</a>
+      <a href="index.html">模型</a>
+      <a href="../login.html">登录</a>
+    </nav>
+    <div class="header__actions">
+      <div id="auth-container"></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="home-section" style="padding:20px 24px;">
+      <h1 class="home-section__title" style="font-size:1.5rem;margin-bottom:4px;">🧪 前端测试面板</h1>
+      <p class="home-section__desc" style="font-size:0.9rem;">查看所有前端缓存数据，点击按钮触发各项功能</p>
+    </section>
+
+    <div class="test-layout">
+      <!-- 左侧：功能按钮 -->
+      <aside class="test-sidebar" id="testSidebar">
+        <div class="test-sidebar__title">🔐 认证</div>
+        <button class="test-btn" onclick="testApi.authStatus()">GET /auth/status</button>
+        <button class="test-btn" onclick="testApi.authProfile()">GET /user/profile</button>
+        <button class="test-btn test-btn--danger" onclick="testUtils.clearToken()">清除 Token</button>
+        <button class="test-btn" onclick="testUtils.showToken()">查看 Token</button>
+
+        <div class="test-sidebar__title">📢 通知</div>
+        <button class="test-btn" onclick="testApi.globalNotifications()">GET /notify/global</button>
+
+        <div class="test-sidebar__title">📄 文档</div>
+        <button class="test-btn" onclick="testApi.docList()">GET /document/list</button>
+        <button class="test-btn" onclick="testApi.docFolders()">GET /document/folders</button>
+        <div class="test-input-group">
+          <input id="docSlugInput" placeholder="文档 slug" value="welcome-gwl">
+          <button onclick="testApi.docDetail()">查看详情</button>
+        </div>
+
+        <div class="test-sidebar__title">🎨 UI 组件</div>
+        <button class="test-btn" onclick="testUtils.showToast('success', '这是一条成功提示')">Toast 成功</button>
+        <button class="test-btn" onclick="testUtils.showToast('error', '这是一条错误提示')">Toast 错误</button>
+        <button class="test-btn" onclick="testUtils.showToast('info', '这是一条信息提示')">Toast 信息</button>
+        <button class="test-btn" onclick="testUtils.showModalConfirm()">Modal 确认框</button>
+        <button class="test-btn" onclick="testUtils.showModalPrompt()">Modal 输入框</button>
+
+        <div class="test-sidebar__title">🌓 主题</div>
+        <button class="test-btn" onclick="testUtils.toggleTheme()">切换主题</button>
+        <button class="test-btn" onclick="testUtils.setTheme('light')">设为亮色</button>
+        <button class="test-btn" onclick="testUtils.setTheme('dark')">设为暗色</button>
+
+        <div class="test-sidebar__title">🔧 工具</div>
+        <button class="test-btn" onclick="testUtils.refreshCache()">🔄 刷新缓存视图</button>
+        <button class="test-btn test-btn--danger" onclick="testUtils.clearAll()">🗑 清空所有输出</button>
+      </aside>
+
+      <!-- 右侧：缓存数据展示 -->
+      <main class="test-main" id="testMain">
+        <div class="test-section">
+          <div class="test-section__head" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
+            📦 localStorage 缓存数据
+          </div>
+          <div class="test-section__body" id="cacheLocalStorage">
+            <pre>加载中...</pre>
+          </div>
+        </div>
+
+        <div class="test-section">
+          <div class="test-section__head" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
+            🌐 全局配置 & AuthGuard
+          </div>
+          <div class="test-section__body" id="cacheGlobalConfig">
+            <pre>加载中...</pre>
+          </div>
+        </div>
+
+        <div class="test-section">
+          <div class="test-section__head" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
+            🧠 内存状态 (window / 全局变量)
+          </div>
+          <div class="test-section__body" id="cacheMemoryState">
+            <pre>加载中...</pre>
+          </div>
+        </div>
+
+        <div class="test-section">
+          <div class="test-section__head" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
+            📄 文档中心状态 (__DOC)
+          </div>
+          <div class="test-section__body" id="cacheDocState">
+            <pre>加载中...</pre>
+          </div>
+        </div>
+
+        <div class="test-section">
+          <div class="test-section__head" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
+            📁 Dashboard 文档状态
+          </div>
+          <div class="test-section__body" id="cacheDashboardState">
+            <pre>加载中...</pre>
+          </div>
+        </div>
+
+        <!-- API 输出区域 -->
+        <div class="test-section">
+          <div class="test-section__head" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
+            📡 API 请求输出
+          </div>
+          <div class="test-section__body" id="apiOutput">
+            <pre>点击左侧按钮发送 API 请求，结果将显示在此处。</pre>
+          </div>
+        </div>
+      </main>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer__container">
+      <div class="footer__top">
+        <div class="footer__brand">
+          <h3 class="footer__logo">GWL Works Lab</h3>
+          <p class="footer__slogan">探索学习的无限可能</p>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
+
+  <script src="../js/config.js"></script>
+  <script src="../js/theme.js"></script>
+  <script src="../js/toast.js"></script>
+  <script src="../js/modal.js"></script>
+  <script src="../js/index.js"></script>
+  <script src="test.js"></script>
+</body>
+</html>
