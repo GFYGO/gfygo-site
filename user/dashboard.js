@@ -1712,9 +1712,8 @@ async function movePersonalDoc(docId, folderId) {
 
 /** 初始化注销功能：绑定事件 */
 function initDeletion() {
-    // 弹窗按钮
     const cancelBtn = document.getElementById('deletionCancelBtn');
-    const submitBtn = document.getElementById('deletionSubmitBtn');
+    const sendCodeBtn = document.getElementById('deletionSendCodeBtn');
     const confirmBtn = document.getElementById('deletionConfirmBtn');
     const overlay = document.getElementById('deletionOverlay');
 
@@ -1722,7 +1721,7 @@ function initDeletion() {
     if (overlay) overlay.addEventListener('click', (e) => {
         if (e.target === overlay) closeDeletionModal();
     });
-    if (submitBtn) submitBtn.addEventListener('click', submitDeletionRequest);
+    if (sendCodeBtn) sendCodeBtn.addEventListener('click', sendDeletionCode);
     if (confirmBtn) confirmBtn.addEventListener('click', submitDeletionRequest);
 }
 
@@ -1731,9 +1730,11 @@ function openDeletionModal() {
     const overlay = document.getElementById('deletionOverlay');
     const countdown = document.getElementById('deletionCountdown');
     const countdownNum = document.getElementById('deletionCountdownNum');
-    const submitBtn = document.getElementById('deletionSubmitBtn');
     const emailGroup = document.getElementById('deletionEmailGroup');
+    const codeGroup = document.getElementById('deletionCodeGroup');
     const emailInput = document.getElementById('deletionEmailInput');
+    const codeInput = document.getElementById('deletionCodeInput');
+    const sendCodeBtn = document.getElementById('deletionSendCodeBtn');
 
     if (!overlay) return;
 
@@ -1741,8 +1742,13 @@ function openDeletionModal() {
     overlay.classList.add('deletion-overlay--visible');
     countdown.style.display = '';
     emailGroup.style.display = 'none';
-    submitBtn.disabled = true;
+    codeGroup.style.display = 'none';
     if (emailInput) emailInput.value = '';
+    if (codeInput) codeInput.value = '';
+    if (sendCodeBtn) {
+        sendCodeBtn.disabled = false;
+        sendCodeBtn.textContent = '发送验证码';
+    }
 
     // 5秒倒计时
     let seconds = 5;
@@ -1756,8 +1762,6 @@ function openDeletionModal() {
             // 倒计时结束，显示邮箱输入
             countdown.style.display = 'none';
             emailGroup.style.display = 'flex';
-            submitBtn.disabled = false;
-            submitBtn.textContent = '提交注销申请';
         }
     }, 1000);
 
@@ -1776,15 +1780,14 @@ function closeDeletionModal() {
     }
 }
 
-/** 提交注销请求 */
-async function submitDeletionRequest() {
+/** 发送注销验证码到邮箱 */
+async function sendDeletionCode() {
     const token = AuthGuard.getToken();
     if (!token) {
         if (typeof Toast !== 'undefined') Toast.show('请先登录', 'error');
         return;
     }
 
-    // 获取邮箱
     const emailInput = document.getElementById('deletionEmailInput');
     const email = emailInput ? emailInput.value.trim() : '';
     if (!email) {
@@ -1792,14 +1795,14 @@ async function submitDeletionRequest() {
         return;
     }
 
-    const submitBtn = document.getElementById('deletionSubmitBtn');
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = '提交中...';
+    const sendCodeBtn = document.getElementById('deletionSendCodeBtn');
+    if (sendCodeBtn) {
+        sendCodeBtn.disabled = true;
+        sendCodeBtn.textContent = '发送中...';
     }
 
     try {
-        const r = await fetch(API_BASE_URL + '/api/v1/user/request-deletion', {
+        const r = await fetch(API_BASE_URL + '/api/v1/user/send-deletion-code', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1809,21 +1812,82 @@ async function submitDeletionRequest() {
         });
         const d = await r.json();
         if (d.code === 200) {
+            if (typeof Toast !== 'undefined') Toast.show('验证码已发送至您的邮箱，5分钟内有效', 'success');
+            // 切换到验证码输入
+            const emailGroup = document.getElementById('deletionEmailGroup');
+            const codeGroup = document.getElementById('deletionCodeGroup');
+            if (emailGroup) emailGroup.style.display = 'none';
+            if (codeGroup) codeGroup.style.display = 'flex';
+        } else {
+            if (typeof Toast !== 'undefined') Toast.show(d.msg || '发送失败', 'error');
+            if (sendCodeBtn) {
+                sendCodeBtn.disabled = false;
+                sendCodeBtn.textContent = '发送验证码';
+            }
+        }
+    } catch (e) {
+        if (typeof Toast !== 'undefined') Toast.show('网络请求失败', 'error');
+        if (sendCodeBtn) {
+            sendCodeBtn.disabled = false;
+            sendCodeBtn.textContent = '发送验证码';
+        }
+    }
+}
+
+/** 提交注销请求（含验证码校验） */
+async function submitDeletionRequest() {
+    const token = AuthGuard.getToken();
+    if (!token) {
+        if (typeof Toast !== 'undefined') Toast.show('请先登录', 'error');
+        return;
+    }
+
+    const emailInput = document.getElementById('deletionEmailInput');
+    const email = emailInput ? emailInput.value.trim() : '';
+    if (!email) {
+        if (typeof Toast !== 'undefined') Toast.show('请先输入注册邮箱', 'error');
+        return;
+    }
+
+    const codeInput = document.getElementById('deletionCodeInput');
+    const code = codeInput ? codeInput.value.trim() : '';
+    if (!code || code.length !== 6) {
+        if (typeof Toast !== 'undefined') Toast.show('请输入6位验证码', 'error');
+        return;
+    }
+
+    const confirmBtn = document.getElementById('deletionConfirmBtn');
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = '提交中...';
+    }
+
+    try {
+        const r = await fetch(API_BASE_URL + '/api/v1/user/request-deletion', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ email, code })
+        });
+        const d = await r.json();
+        if (d.code === 200) {
             if (typeof Toast !== 'undefined') Toast.show('注销请求已提交，14天内登录可取消', 'success');
             closeDeletionModal();
             renderDeletionStatus();
         } else {
             if (typeof Toast !== 'undefined') Toast.show(d.msg || '提交失败', 'error');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = '提交注销申请';
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = '确认注销';
             }
         }
     } catch (e) {
         if (typeof Toast !== 'undefined') Toast.show('网络请求失败', 'error');
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = '提交注销申请';
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = '确认注销';
         }
     }
 }

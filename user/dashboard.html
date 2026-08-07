@@ -364,13 +364,16 @@
                     请等待 <span class="countdown-number" id="deletionCountdownNum">5</span> 秒后继续
                 </div>
                 <div class="deletion-input-group" id="deletionEmailGroup" style="display:none;">
-                    <input type="email" id="deletionEmailInput" placeholder="请输入注册邮箱确认">
+                    <input type="email" id="deletionEmailInput" placeholder="请输入注册邮箱">
+                    <button class="deletion-btn deletion-btn--secondary" id="deletionSendCodeBtn">发送验证码</button>
+                </div>
+                <div class="deletion-input-group" id="deletionCodeGroup" style="display:none;">
+                    <input type="text" id="deletionCodeInput" placeholder="请输入6位验证码" maxlength="6">
                     <button class="deletion-btn deletion-btn--danger" id="deletionConfirmBtn">确认注销</button>
                 </div>
             </div>
             <div class="deletion-modal__footer">
                 <button class="deletion-btn deletion-btn--secondary" id="deletionCancelBtn">取消</button>
-                <button class="deletion-btn deletion-btn--danger" id="deletionSubmitBtn" disabled>确认注销</button>
             </div>
         </div>
     </div>
