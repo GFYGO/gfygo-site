@@ -119,6 +119,17 @@
                             <button class="theme-opt" data-theme="dark_green">暗绿</button>
                         </div>
                     </div>
+
+                    <hr class="settings-divider">
+
+                    <div class="settings-section" id="deletionSection">
+                        <h3 class="settings-section__danger">注销账号</h3>
+                        <p class="settings-desc" style="color: var(--color-text-muted); font-size: 0.85rem; margin-bottom: 12px;">
+                            注销后，您的所有数据将在14天后被永久删除。14天内登录可取消注销。
+                        </p>
+                        <div id="deletionStatusArea"></div>
+                        <div id="deletionActionArea"></div>
+                    </div>
                 </section>
 
                 <!-- 个人文档 -->
@@ -334,6 +345,35 @@
     </div>
 
     <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
+
+    <!-- ===== 注销账号红色警告弹窗 ===== -->
+    <div class="deletion-overlay" id="deletionOverlay">
+        <div class="deletion-modal">
+            <div class="deletion-modal__header">
+                <span class="deletion-modal__icon">⚠️</span>
+                <h2>危险操作：注销账号</h2>
+            </div>
+            <div class="deletion-modal__body">
+                <div class="deletion-modal__warning">
+                    <strong>你确定要注销吗？</strong><br><br>
+                    你使用数据将在注销后 <strong>14天</strong> 被永久删除<br>
+                    <span style="font-size:0.8rem;color:#dc2626;">（真的很久！）</span><br><br>
+                    14天内登录可自动取消注销，账号将恢复正常。
+                </div>
+                <div class="deletion-modal__countdown" id="deletionCountdown">
+                    请等待 <span class="countdown-number" id="deletionCountdownNum">5</span> 秒后继续
+                </div>
+                <div class="deletion-input-group" id="deletionEmailGroup" style="display:none;">
+                    <input type="email" id="deletionEmailInput" placeholder="请输入注册邮箱确认">
+                    <button class="deletion-btn deletion-btn--danger" id="deletionConfirmBtn">确认注销</button>
+                </div>
+            </div>
+            <div class="deletion-modal__footer">
+                <button class="deletion-btn deletion-btn--secondary" id="deletionCancelBtn">取消</button>
+                <button class="deletion-btn deletion-btn--danger" id="deletionSubmitBtn" disabled>确认注销</button>
+            </div>
+        </div>
+    </div>
 
     <script src="./../js/config.js"></script>
     <script src="./../js/theme.js"></script>
