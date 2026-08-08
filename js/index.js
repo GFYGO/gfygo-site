@@ -77,6 +77,10 @@ function initMobileSidebar() {
  * 任务 FE-JS-03: 处理 /api/v1/notify/global 的响应并渲染
  */
 async function fetchGlobalNotifications() {
+  // dashboard 页面有自己的通知加载逻辑，此处跳过
+  if (/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname)) {
+    return;
+  }
   try {
     const response = await fetch(`${API_BASE_URL}/api/v1/notify/global`);
     const data = await response.json();

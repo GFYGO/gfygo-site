@@ -1,10 +1,9 @@
 /**
  * dashboard.js
  * 精简入口：全局初始化、用户信息、侧边栏、退出
+ *
+ * 注意：API_BASE_URL 已由 config.js 定义，此处不重复声明。
  */
-
-// 全局配置
-const API_BASE_URL = window.APP_CONFIG ? window.APP_CONFIG.apiBaseUrl : '';
 
 // DOMContentLoaded 后初始化
 document.addEventListener('DOMContentLoaded', async () => {
