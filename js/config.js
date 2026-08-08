@@ -85,3 +85,35 @@ function getNowPermission() {
 
 // 全局运行时权限状态（页面加载时初始化，权限切换后由 handlePermissionClick 更新）
 window.__nowPermission = getNowPermission();
+
+/**
+ * 检查当前用户是否拥有指定权限节点
+ * @param {string} nodeCode 权限节点代码，如 'admin.notify.view'
+ * @returns {boolean}
+ */
+function hasPermission(nodeCode) {
+  const np = window.__nowPermission || getNowPermission();
+  return (np.nodes || []).includes(nodeCode);
+}
+
+/**
+ * 根据 data-permission 属性自动显隐元素
+ * 页面加载时调用一次，权限切换后重新调用
+ */
+function initPermissionVisibility() {
+  document.querySelectorAll('[data-permission]').forEach(el => {
+    const node = el.dataset.permission;
+    if (!node) return;
+    if (!hasPermission(node)) {
+      el.style.display = 'none';
+      el.setAttribute('data-permission-hidden', 'true');
+    } else if (el.hasAttribute('data-permission-hidden')) {
+      el.style.display = '';
+      el.removeAttribute('data-permission-hidden');
+    }
+  });
+}
+
+// 全局暴露
+window.hasPermission = hasPermission;
+window.initPermissionVisibility = initPermissionVisibility;

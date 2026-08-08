@@ -20,6 +20,9 @@ const adminPanelLoaded = new Set();
 document.addEventListener('DOMContentLoaded', async () => {
     initSidebarToggle();
     initAdminTabSwitching();
+    if (typeof initPermissionVisibility === 'function') {
+        initPermissionVisibility();
+    }
 
     // 访客视角模式：直接跳转首页
     if (localStorage.getItem('guest_view_mode') === 'true') {
@@ -143,6 +146,14 @@ function bindAdminTabClicks() {
 }
 
 function switchAdminTab(tabName, skipSave = false) {
+    // 权限检查：读取 sidebar item 的 data-permission
+    const navItem = document.querySelector(`.sidebar__nav-item[data-tab="${tabName}"]`);
+    const requiredNode = navItem?.dataset.permission;
+    if (requiredNode && typeof hasPermission === 'function' && !hasPermission(requiredNode)) {
+        showToast(`权限不足，无法访问「${navItem?.querySelector('.sidebar__nav-text')?.textContent || tabName}」`, 'error');
+        return;
+    }
+
     // 隐藏所有 tab panel
     document.querySelectorAll('.admin-content .tab-panel').forEach(p => p.style.display = 'none');
     // 清除所有 sidebar nav 激活态
@@ -153,8 +164,7 @@ function switchAdminTab(tabName, skipSave = false) {
     const target = document.getElementById(`panel-${tabName}`);
     if (target) target.style.display = 'block';
     // 激活对应 sidebar item
-    const activeItem = document.querySelector(`.sidebar__nav-item[data-tab="${tabName}"]`);
-    if (activeItem) activeItem.classList.add('sidebar__nav-item--active');
+    if (navItem) navItem.classList.add('sidebar__nav-item--active');
 
     if (!skipSave) localStorage.setItem(ADMIN_STORAGE_KEY, tabName);
 

@@ -45,6 +45,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 初始化侧边栏
     initSidebar();
 
+    // 根据权限节点自动显隐元素
+    if (typeof initPermissionVisibility === 'function') {
+        initPermissionVisibility();
+    }
+
     // 初始化设置按钮
     const settingsBtn = $('settingsBtn');
     if (settingsBtn) {
