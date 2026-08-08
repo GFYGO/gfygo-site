@@ -440,11 +440,18 @@ function parsePendingEmailCode() {
 
 /** 认证模块初始化入口 */
 function initAuthModules(token, user) {
-    renderUserProfile(user, window.DEFAULT_AVATAR, window.DEFAULT_BANNER);
+    const defaultAvatar = window.DEFAULT_AVATAR || `${BASE_PATH}/favicon.png`;
+    const defaultBanner = window.DEFAULT_BANNER || '';
+    renderUserProfile(user, defaultAvatar, defaultBanner);
     if (typeof window.renderPermissionButtons === 'function') {
         window.renderPermissionButtons(user.permission_level);
     }
     renderTopNavAuth(user);
     checkEmailVerificationStatus(token, user.email);
     initThemeOptions(token);
+}
+
+/** 发送邮箱验证码（供 dashboard.js 的 verifyEmailBtn 调用） */
+async function sendVerificationEmail() {
+    await handleResendCode();
 }

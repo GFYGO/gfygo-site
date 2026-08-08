@@ -166,3 +166,25 @@ function handleCheckin() {
     renderCalendar();
     showToast('打卡成功！继续加油 💪', 'success');
 }
+
+/** 初始化打卡功能入口（供 dashboard.js 调用） */
+function initCheckinButtons() {
+    const token = AuthGuard.getToken();
+    if (!token) return;
+
+    // 解析 user_id
+    try {
+        const parts = token.split('.');
+        if (parts.length >= 2) {
+            let payloadB64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            while (payloadB64.length % 4) payloadB64 += '=';
+            const payload = JSON.parse(atob(payloadB64));
+            const userId = payload.sub || payload.user_id || payload.id;
+            if (userId) {
+                initCheckinCalendar(userId);
+            }
+        }
+    } catch (e) {
+        console.warn('初始化打卡失败', e);
+    }
+}

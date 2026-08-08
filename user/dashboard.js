@@ -5,6 +5,26 @@
  * 注意：API_BASE_URL 已由 config.js 定义，此处不重复声明。
  */
 
+/** 获取并渲染用户信息 */
+async function renderUserInfo(token) {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/user/profile`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (res.ok && data.code === 200) {
+            const user = data.data;
+            if (typeof initAuthModules === 'function') {
+                initAuthModules(token, user);
+            }
+        } else {
+            console.warn('加载用户信息失败:', data.msg);
+        }
+    } catch (e) {
+        console.error('获取用户信息异常:', e);
+    }
+}
+
 // DOMContentLoaded 后初始化
 document.addEventListener('DOMContentLoaded', async () => {
     // 初始化 Toast
@@ -15,7 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 鉴权检查
     const token = AuthGuard.getToken();
     if (!token) {
-        AuthGuard.redirectToLogin();
+        AuthGuard.handleAuthError();
         return;
     }
 

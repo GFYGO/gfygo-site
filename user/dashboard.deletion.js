@@ -271,3 +271,4 @@ async function renderDeletionStatus() {
 // 暴露到全局供 HTML 内联事件使用
 window.openDeletionModal = openDeletionModal;
 window.cancelDeletion = cancelDeletion;
+window.renderDeletionStatus = renderDeletionStatus;
