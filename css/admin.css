@@ -248,27 +248,210 @@
 
 /* ========== 响应式 ========== */
 
+/* ========== 权限编辑器 ========== */
+
+.perm-editor-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+    padding: 1rem 1.2rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+}
+
+.perm-editor-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.perm-editor-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.perm-editor-select,
+.perm-editor-input {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    min-width: 160px;
+}
+
+.perm-editor-input {
+    min-width: 120px;
+}
+
+.perm-editor-select:focus,
+.perm-editor-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+}
+
+.perm-editor-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.perm-dirty-hint {
+    color: #f59e0b;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.perm-table-wrap {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.perm-module-group {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.perm-module-group:last-child {
+    border-bottom: none;
+}
+
+.perm-module-header {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: var(--bg-tertiary);
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    user-select: none;
+}
+
+.perm-module-header:hover {
+    background: var(--bg-tertiary);
+    opacity: 0.85;
+}
+
+.perm-module-header .perm-module-icon {
+    margin-right: 0.5rem;
+}
+
+.perm-module-body {
+    padding: 0;
+}
+
+.perm-node-row {
+    display: flex;
+    align-items: center;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    gap: 0.75rem;
+}
+
+.perm-node-row:last-child {
+    border-bottom: none;
+}
+
+.perm-node-row:nth-child(even) {
+    background: rgba(124, 58, 237, 0.03);
+}
+
+.perm-node-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.perm-node-code {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.2rem;
+    margin-right: 0.5rem;
+}
+
+.perm-node-name {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.perm-node-default-tag {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-left: 0.5rem;
+}
+
+.perm-state-toggle {
+    display: flex;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.perm-state-btn {
+    padding: 0.35rem 0.85rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    transition: all 0.15s ease;
+}
+
+.perm-state-btn:hover {
+    background: var(--bg-tertiary);
+}
+
+.perm-state-btn.active--allow {
+    background: #10b981;
+    color: white;
+}
+
+.perm-state-btn.active--deny {
+    background: #ef4444;
+    color: white;
+}
+
+.perm-state-btn.active--inherit {
+    background: #6b7280;
+    color: white;
+}
+
+.perm-state-btn:first-child {
+    border-right: 1px solid var(--border-color);
+}
+
 @media (max-width: 768px) {
-    .overview-stats-grid {
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 0.75rem;
+    .perm-editor-toolbar {
+        flex-direction: column;
+        align-items: stretch;
     }
-    .admin-stat-card {
-        padding: 1rem;
+    .perm-editor-select,
+    .perm-editor-input {
+        min-width: 100%;
     }
-    .admin-stat-card__value {
-        font-size: 1.4rem;
+    .perm-state-btn {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.75rem;
     }
-    .admin-mode-badge {
-        font-size: 0.7rem;
-        padding: 0.25rem 0.6rem;
+    .perm-node-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
     }
-    .admin-table-wrap {
-        padding: 0.75rem;
-    }
-    .admin-table th,
-    .admin-table td {
-        padding: 0.5rem 0.6rem;
-        font-size: 0.8rem;
+    .perm-state-toggle {
+        width: 100%;
+        justify-content: space-between;
     }
 }

@@ -468,37 +468,307 @@ function loadInvitesPanel() {
     }
 }
 
+// ==================== 权限节点编辑器 ====================
+
+let permNodesCache = [];
+let permCurrentAssignments = {};
+let permDirty = false;
+
 function loadPermissionNodesPanel() {
-    const wrap = document.getElementById('permNodesExplain');
-    if (!wrap) return;
-    adminRequest('/api/v1/admin/permission-nodes').then(async res => {
-        if (res.status === 403) {
-            const d = await res.json().catch(() => ({}));
-            wrap.innerHTML = '';
-            renderPermPending(wrap, d && d.msg);
-            return;
-        }
+    initPermissionEditor();
+}
+
+function initPermissionEditor() {
+    // 绑定 scope type 切换
+    const scopeType = document.getElementById('permScopeType');
+    const levelRow = document.getElementById('permLevelRow');
+    const userIdRow = document.getElementById('permUserIdRow');
+    const groupRow = document.getElementById('permGroupRow');
+
+    if (!scopeType || scopeType._bound) return;
+    scopeType._bound = true;
+
+    scopeType.addEventListener('change', () => {
+        const t = scopeType.value;
+        levelRow.style.display = (t === 'level') ? '' : 'none';
+        userIdRow.style.display = (t === 'user') ? '' : 'none';
+        groupRow.style.display = (t === 'group') ? '' : 'none';
+    });
+
+    // 加载按钮
+    const loadBtn = document.getElementById('permLoadBtn');
+    if (loadBtn) {
+        loadBtn.addEventListener('click', loadPermissionData);
+    }
+
+    // 保存按钮
+    const saveBtn = document.getElementById('permSaveBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', savePermissionData);
+    }
+
+    // 重置按钮
+    const resetBtn = document.getElementById('permResetBtn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            if (confirm('确定要重置所有权限为"继承"吗？此操作将清除所有手动设置。')) {
+                Object.keys(permCurrentAssignments).forEach(k => {
+                    permCurrentAssignments[k].state = 'inherit';
+                });
+                renderPermTable();
+                updatePermDirtyState();
+            }
+        });
+    }
+
+    // 初始加载节点列表
+    fetchPermNodes();
+    fetchGroups();
+}
+
+async function fetchPermNodes() {
+    try {
+        const res = await adminRequest('/api/v1/admin/permission-nodes');
         if (!res.ok) {
-            wrap.innerHTML = '<p class="empty-state__text">权限节点说明加载失败</p>';
+            const wrap = document.getElementById('permTableWrap');
+            wrap.innerHTML = '<p class="empty-state__text">权限节点加载失败</p>';
             return;
         }
         const r = await res.json();
-        const mod = (r && r.data && r.data.expected_modules) || [];
-        const status = (r && r.data && r.data.implementation_status) || '规划中';
-        wrap.innerHTML = `
-            <div class="perm-explain-card">
-                <h3>实现状态：<span class="perm-status perm-status--${status === '规划中' ? 'pending' : 'active'}">${escapeHtml(status)}</span></h3>
-                <h4>预期支持的权限节点：</h4>
-                <ul class="perm-nodes-list">
-                    ${mod.map(m => `<li>${escapeHtml(m)}</li>`).join('')}
-                </ul>
-                ${r && r.placeholder ? '<div class="placeholder-tag">占位</div>' : ''}
-            </div>
-        `;
-    }).catch(err => {
-        console.error('[ADMIN] 权限节点说明加载失败:', err);
-        wrap.innerHTML = '<p class="empty-state__text">加载失败（网络错误）</p>';
+        permNodesCache = (r.data || []).sort((a, b) => {
+            if (a.module !== b.module) return a.module.localeCompare(b.module);
+            return a.node_code.localeCompare(b.node_code);
+        });
+    } catch (e) {
+        console.error('[PERM] 权限节点加载失败:', e);
+    }
+}
+
+async function fetchGroups() {
+    const groupSelect = document.getElementById('permGroup');
+    if (!groupSelect) return;
+    try {
+        const res = await adminRequest('/api/v1/admin/groups');
+        if (!res.ok) {
+            groupSelect.innerHTML = '<option value="">加载失败</option>';
+            return;
+        }
+        const r = await res.json();
+        const groups = r.data || [];
+        if (groups.length === 0) {
+            groupSelect.innerHTML = '<option value="">暂无用户组</option>';
+        } else {
+            groupSelect.innerHTML = '<option value="">-- 选择组 --</option>' +
+                groups.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+        }
+    } catch (e) {
+        console.error('[PERM] 用户组加载失败:', e);
+        groupSelect.innerHTML = '<option value="">加载失败</option>';
+    }
+}
+
+async function loadPermissionData() {
+    const scopeType = document.getElementById('permScopeType').value;
+    const level = parseInt(document.getElementById('permLevel').value, 10);
+    let scopeId = '';
+
+    if (scopeType === 'user') {
+        const uidInput = document.getElementById('permUserId');
+        scopeId = (uidInput.value || '').trim();
+        if (!scopeId || isNaN(parseInt(scopeId, 10))) {
+            showToast('请输入有效的用户 ID', 'warn');
+            return;
+        }
+    } else if (scopeType === 'group') {
+        scopeId = document.getElementById('permGroup').value;
+        if (!scopeId) {
+            showToast('请选择一个用户组', 'warn');
+            return;
+        }
+    } else {
+        scopeId = String(level);
+    }
+
+    const wrap = document.getElementById('permTableWrap');
+    wrap.innerHTML = '<p class="loading-text">权限加载中...</p>';
+
+    try {
+        const res = await adminRequest(
+            `/api/v1/admin/permission-assignments?scope_type=${scopeType}&scope_id=${encodeURIComponent(scopeId)}&level=${level}`
+        );
+        if (!res.ok) {
+            wrap.innerHTML = '<p class="empty-state__text">权限加载失败</p>';
+            return;
+        }
+        const r = await res.json();
+        const assignments = (r.data && r.data.assignments) || {};
+
+        // 合并：所有节点默认为 inherit，已配置的节点用其 state
+        permCurrentAssignments = {};
+        permNodesCache.forEach(node => {
+            const existing = assignments[node.node_code];
+            permCurrentAssignments[node.node_code] = {
+                node_code: node.node_code,
+                display_name: node.display_name,
+                module: node.module,
+                default_levels: node.default_levels || [],
+                state: existing ? existing.state : 'inherit',
+                id: existing ? existing.id : null,
+            };
+        });
+
+        permDirty = false;
+        renderPermTable();
+        updatePermDirtyState();
+    } catch (e) {
+        console.error('[PERM] 权限加载失败:', e);
+        wrap.innerHTML = '<p class="empty-state__text">权限加载失败（网络错误）</p>';
+    }
+}
+
+function renderPermTable() {
+    const wrap = document.getElementById('permTableWrap');
+    if (!wrap || permNodesCache.length === 0) {
+        wrap.innerHTML = '<p class="empty-state__text">暂无权限节点数据</p>';
+        return;
+    }
+
+    // 按 module 分组
+    const modules = {};
+    Object.values(permCurrentAssignments).forEach(item => {
+        if (!modules[item.module]) modules[item.module] = [];
+        modules[item.module].push(item);
     });
+
+    const moduleIcons = {
+        'admin': '🛡️',
+        'doc': '📚',
+    };
+
+    let html = '';
+    Object.keys(modules).sort().forEach(mod => {
+        const items = modules[mod];
+        const allowedCount = items.filter(i => i.state === 'allow').length;
+        const deniedCount = items.filter(i => i.state === 'deny').length;
+
+        html += `
+            <div class="perm-module-group">
+                <div class="perm-module-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? '' : 'none'">
+                    <span class="perm-module-icon">${moduleIcons[mod] || '📁'}</span>
+                    ${escapeHtml(mod)} <span style="font-weight:400;font-size:0.8rem;color:var(--text-secondary);margin-left:auto;">允许 ${allowedCount} · 拒绝 ${deniedCount} · 继承 ${items.length - allowedCount - deniedCount}</span>
+                </div>
+                <div class="perm-module-body">
+        `;
+
+        items.forEach(item => {
+            const currentState = item.state;
+            const isDefault = item.default_levels && item.default_levels.length > 0;
+            const defaultTag = isDefault
+                ? `<span class="perm-node-default-tag">(默认Lv.${item.default_levels.join(',')})</span>`
+                : '';
+
+            html += `
+                <div class="perm-node-row" data-node="${escapeHtml(item.node_code)}">
+                    <div class="perm-node-info">
+                        <span class="perm-node-code">${escapeHtml(item.node_code)}</span>
+                        <span class="perm-node-name">${escapeHtml(item.display_name)}</span>
+                        ${defaultTag}
+                    </div>
+                    <div class="perm-state-toggle">
+                        <button class="perm-state-btn ${currentState === 'allow' ? 'active--allow' : ''}" data-state="allow">✅ 允许</button>
+                        <button class="perm-state-btn ${currentState === 'inherit' ? 'active--inherit' : ''}" data-state="inherit">↩️ 继承</button>
+                        <button class="perm-state-btn ${currentState === 'deny' ? 'active--deny' : ''}" data-state="deny">⛔ 拒绝</button>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div></div>';
+    });
+
+    wrap.innerHTML = html;
+
+    // 绑定状态切换
+    wrap.querySelectorAll('.perm-node-row').forEach(row => {
+        const nodeCode = row.dataset.node;
+        row.querySelectorAll('.perm-state-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const newState = btn.dataset.state;
+                if (permCurrentAssignments[nodeCode]) {
+                    permCurrentAssignments[nodeCode].state = newState;
+                }
+                renderPermTable();
+                updatePermDirtyState();
+            });
+        });
+    });
+}
+
+function updatePermDirtyState() {
+    // 检查是否有修改（与原始加载不同）
+    const hint = document.getElementById('permDirtyHint');
+    const saveBtn = document.getElementById('permSaveBtn');
+    const hasAny = Object.keys(permCurrentAssignments).length > 0;
+    if (hint) hint.style.display = hasAny ? '' : 'none';
+    if (saveBtn) saveBtn.disabled = !hasAny;
+}
+
+async function savePermissionData() {
+    const scopeType = document.getElementById('permScopeType').value;
+    const level = parseInt(document.getElementById('permLevel').value, 10);
+    let scopeId = '';
+
+    if (scopeType === 'user') {
+        scopeId = (document.getElementById('permUserId').value || '').trim();
+    } else if (scopeType === 'group') {
+        scopeId = document.getElementById('permGroup').value;
+    } else {
+        scopeId = String(level);
+    }
+
+    // 收集需要保存的分配
+    const assignments = Object.values(permCurrentAssignments)
+        .filter(item => item.state !== 'inherit')
+        .map(item => ({
+            node_code: item.node_code,
+            state: item.state,
+        }));
+
+    // 添加被改为 inherit 的记录（需要删除/重置）
+    const changedToInherit = Object.values(permCurrentAssignments)
+        .filter(item => item.state === 'inherit' && item.id !== null)
+        .map(item => ({
+            node_code: item.node_code,
+            state: 'inherit',
+        }));
+
+    const allAssignments = [...assignments, ...changedToInherit];
+
+    try {
+        const res = await adminRequest('/api/v1/admin/permission-assignments', {
+            method: 'POST',
+            body: JSON.stringify({
+                scope_type: scopeType,
+                scope_id: scopeId,
+                level: level,
+                assignments: allAssignments,
+            }),
+        });
+
+        if (!res.ok) {
+            const r = await res.json().catch(() => ({}));
+            showToast(r.msg || '保存失败', 'error');
+            return;
+        }
+
+        const r = await res.json();
+        showToast(r.msg || '保存成功', 'success');
+        permDirty = false;
+        updatePermDirtyState();
+    } catch (e) {
+        console.error('[PERM] 保存失败:', e);
+        showToast('保存失败（网络错误）', 'error');
+    }
 }
 
 
