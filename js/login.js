@@ -18,6 +18,8 @@ const TURNSTILE_SDK_LOAD_TIMEOUT_MS = 30000; // 30s 加载超时
 let _loginWidgetId = null;      // turnstile.render() 返回的 widget id
 let _loginTurnstileReady = false;
 let _loginSdkLoadStart = Date.now();
+let _turnstileBroken = false;   // Turnstile 完全不可用（如 300010 域名未授权）
+let _turnstileBrokenReason = '';
 
 /**
  * 等待 turnstile SDK 就绪（轮询 + 超时）
@@ -73,11 +75,20 @@ async function renderTurnstileLogin() {
             theme: 'auto',
             callback: (token) => {
                 console.debug('[Turnstile][Login] 验证完成 callback, token 前20:', (token || '').slice(0, 20));
+                _turnstileBroken = false;
             },
             'error-callback': (err) => {
                 console.error('[Turnstile][Login] 验证出错:', err);
-                if (typeof Toast !== 'undefined') {
-                    Toast.show('人机验证出错，请重试');
+                _turnstileBroken = true;
+                _turnstileBrokenReason = String(err || '');
+                if (err === 300010) {
+                    container.innerHTML = `
+                        <div style="padding:12px;border:1px dashed #f80;border-radius:8px;color:#a00;font-size:13px;text-align:center;">
+                            ⚠️ 人机验证暂不可用（域名未授权）<br/>
+                            <small>已自动开启开发模式，可直接登录</small>
+                        </div>`;
+                } else if (typeof Toast !== 'undefined') {
+                    Toast.show('人机验证出错，请刷新重试');
                 }
             },
             'expired-callback': () => {
@@ -155,18 +166,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2) 取 Turnstile token（允许 null，后端 DEVELOPMENT=True 时会跳过）
         const turnstileToken = getLoginTurnstileToken();
-        if (!turnstileToken) {
-            // SDK 没加载好 / 用户没勾选 → 给明确提示；若后端开 DEVELOPMENT 还是能走
-            const sdkMissing = (typeof window.turnstile === 'undefined');
-            if (sdkMissing) {
-                console.warn('[Login] Turnstile SDK 未加载，继续尝试提交（若后端 DEVELOPMENT=True 会跳过）');
-            } else {
-                if (typeof Toast !== 'undefined') {
-                    Toast.show('请完成人机验证（点击左侧勾选框）');
-                }
-                // 但不阻止提交，让后端返回失败再提示
+        if (!turnstileToken && !_turnstileBroken) {
+            // SDK 正常但用户没勾选 → 提示
+            if (typeof Toast !== 'undefined') {
+                Toast.show('请完成人机验证（点击左侧勾选框）');
             }
+            return;
         }
+        // _turnstileBroken 时允许空 token 提交（后端 DEVELOPMENT=True 会放行）
 
         const payload = {
             username: username,

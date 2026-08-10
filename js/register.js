@@ -29,6 +29,7 @@ let currentTab = 'email';
 const _regWidgets = { email: null, phone: null, temp: null };  // 每个 tab 的 widgetId
 let _regSdkReady = false;
 const _regSdkStart = Date.now();
+let _regTurnstileBroken = false;  // Turnstile 完全不可用（如 300010）
 
 
 // =========================================
@@ -84,10 +85,20 @@ async function renderActiveTurnstile() {
             theme: 'auto',
             callback: (tok) => {
                 console.debug(`[Turnstile][Reg][${tabName}] callback ok, len=${(tok || '').length}`);
+                _regTurnstileBroken = false;
             },
             'error-callback': (err) => {
                 console.error(`[Turnstile][Reg][${tabName}] error:`, err);
-                if (typeof Toast !== 'undefined') Toast.show(`人机验证出错，请刷新重试`);
+                _regTurnstileBroken = true;
+                if (err === 300010) {
+                    container.innerHTML = `
+                        <div style="padding:12px;border:1px dashed #f80;border-radius:8px;color:#a00;font-size:13px;text-align:center;">
+                            ⚠️ 人机验证暂不可用（域名未授权）<br/>
+                            <small>已自动开启开发模式，可直接提交</small>
+                        </div>`;
+                } else if (typeof Toast !== 'undefined') {
+                    Toast.show(`人机验证出错，请刷新重试`);
+                }
             },
             'expired-callback': () => {
                 console.warn(`[Turnstile][Reg][${tabName}] token 过期，请重新勾选`);
@@ -300,7 +311,7 @@ async function handleEmailRegister(e) {
     if (!validateUsername(username)) return;
     if (!validatePasswordMatch(password, confirmPassword)) return;
     if (!agree) { Toast.show('请先阅读并同意服务条款和隐私政策'); return; }
-    if (!cfToken && typeof window.turnstile !== 'undefined') {
+    if (!cfToken && typeof window.turnstile !== 'undefined' && !_regTurnstileBroken) {
         Toast.show('请先完成人机验证（点击左侧勾选框）');
         return;
     }
@@ -325,7 +336,7 @@ async function handlePhoneRegister(e) {
     if (!validateUsername(username)) return;
     if (!validatePasswordMatch(password, confirmPassword)) return;
     if (!agree) { Toast.show('请先阅读并同意服务条款和隐私政策'); return; }
-    if (!cfToken && typeof window.turnstile !== 'undefined') {
+    if (!cfToken && typeof window.turnstile !== 'undefined' && !_regTurnstileBroken) {
         Toast.show('请先完成人机验证（点击左侧勾选框）');
         return;
     }
@@ -345,7 +356,7 @@ async function handleTempAccess(e) {
 
     if (!validateUsername(username)) return;
     if (!inviteCode) { Toast.show('请输入邀请码'); return; }
-    if (!cfToken && typeof window.turnstile !== 'undefined') {
+    if (!cfToken && typeof window.turnstile !== 'undefined' && !_regTurnstileBroken) {
         Toast.show('请先完成人机验证（点击左侧勾选框）');
         return;
     }
