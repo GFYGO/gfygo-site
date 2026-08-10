@@ -42,8 +42,7 @@ function initSidebarToggle() {
     if (userTrigger) {
         userTrigger.style.cursor = 'pointer';
         on(userTrigger, 'click', () => {
-            const event = new CustomEvent('dashboard:navigate', { detail: 'home' });
-            document.dispatchEvent(event);
+            if (window.DashboardMenu) window.DashboardMenu.switchTab('home');
             closeSidebar();
         });
     }
@@ -54,8 +53,7 @@ function initSettingsButton() {
     const settingsBtn = $('settingsBtn');
     if (settingsBtn) {
         on(settingsBtn, 'click', () => {
-            const event = new CustomEvent('dashboard:navigate', { detail: 'settings' });
-            document.dispatchEvent(event);
+            if (window.DashboardMenu) window.DashboardMenu.switchTab('settings');
             const overlay = $('sidebarOverlay');
             const sidebar = $('dashboardSidebar');
             if (sidebar) sidebar.classList.remove('dashboard-sidebar--open');
@@ -159,54 +157,66 @@ function renderTopNavAuth(user) {
     }
 }
 
-/** 权限按钮渲染 */
-window.renderPermissionButtons = window.renderPermissionButtons || function(realLevel) {
+/** 权限按钮渲染 - 基于 user_info.nodes */
+window.renderPermissionButtons = window.renderPermissionButtons || function(userInfo) {
     const container = $('permissionButtons');
     if (!container) return;
 
     container.innerHTML = '';
 
-    if (!realLevel || realLevel <= 1) return;
+    // 从 userInfo.nodes 提取权限类别
+    const nodes = userInfo.nodes || [];
+    if (nodes.length === 0) return;
 
-    const np = window.__nowPermission || { level: 1 };
-    const currentLevel = np.level || 1;
-
-    const levels = [1];
-    for (let level = 2; level <= realLevel; level++) {
-        levels.push(level);
-    }
-
-    levels.forEach(level => {
-        const btn = document.createElement('button');
-        btn.className = 'perm-btn';
-        if (level === currentLevel) {
-            btn.classList.add('perm-btn--current');
+    // 按类别分组节点
+    const categories = {};
+    nodes.forEach(node => {
+        // node 可能是字符串 "admin.notify.view" 或带 category 的对象
+        const code = typeof node === 'string' ? node : (node.node_code || node.code || '');
+        const parts = code.split('.');
+        if (parts.length >= 2) {
+            const cat = parts[0];
+            if (!categories[cat]) categories[cat] = [];
+            categories[cat].push(code);
         }
-        btn.textContent = level;
-        btn.title = `切换到 ${window.ROLE_NAMES[level] || `等级${level}`}`;
-        on(btn, 'click', () => window.handlePermissionClick(level));
-        container.appendChild(btn);
     });
 
-    const bannerEl = $('viewOverrideBanner');
-    if (bannerEl) {
-        if (currentLevel !== 1) {
-            bannerEl.style.display = 'block';
-            bannerEl.innerHTML = `已切换到 <strong>${window.ROLE_NAMES[currentLevel] || `等级${currentLevel}`}</strong> · <a href="#" id="clearViewOverrideBtn">返回等级 1</a>`;
-            const clearBtn = $('clearViewOverrideBtn');
-            if (clearBtn) {
-                on(clearBtn, 'click', (e) => {
-                    e.preventDefault();
-                    if (typeof window.handlePermissionClick === 'function') window.handlePermissionClick(1);
-                });
-            }
-        } else {
-            bannerEl.style.display = 'none';
-        }
-    }
+    // 为每个有权限的类别创建按钮
+    const categoryLabels = {
+        'admin': '管理',
+        'doc': '文档',
+        'notify': '通知',
+        'user': '用户',
+        'invite': '邀请码',
+        'system': '系统',
+        'permission': '权限',
+        'menu': '页面',
+        'stats': '统计'
+    };
+
+    Object.keys(categories).forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = 'perm-btn';
+        const label = categoryLabels[cat] || cat;
+        btn.textContent = label;
+        btn.title = `查看 ${label} 相关内容`;
+        on(btn, 'click', () => handlePermissionCategoryClick(cat));
+        container.appendChild(btn);
+    });
 };
 
-/** 权限切换处理 */
+/** 按类别点击 - 重新加载菜单 */
+async function handlePermissionCategoryClick(category) {
+    // 重新加载菜单以获取该类别的完整视图
+    if (window.DashboardMenu) {
+        const data = await window.DashboardMenu.loadMenu();
+        if (data) {
+            showToast(`已加载 ${category} 相关功能`, 'success');
+        }
+    }
+}
+
+/** 兼容旧版 handlePermissionClick */
 window.handlePermissionClick = window.handlePermissionClick || async function(level) {
     try {
         const res = await fetch(`${API_BASE_URL}/api/v1/auth/switch-permission`, {
@@ -226,29 +236,14 @@ window.handlePermissionClick = window.handlePermissionClick || async function(le
         const np = (data.data || {});
         AuthGuard.setToken(np.access_token, np.expires_in);
         window.__nowPermission = np.now_permission || { level, context: null, nodes: [] };
+
+        // 重新加载菜单
+        if (window.DashboardMenu) {
+            await window.DashboardMenu.loadMenu();
+        }
     } catch (e) {
         console.warn('切换权限请求异常:', e);
-        return;
     }
-
-    const isDashboardPage = /\/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname);
-    const adminPaths = { 2: 'admin1', 3: 'admin2', 4: 'admin3', 5: 'superadmin' };
-
-    if (isDashboardPage) {
-        if (level === 1) {
-            localStorage.removeItem('guest_view_mode');
-            window.location.href = `${BASE_PATH}/user/dashboard.html`;
-            return;
-        }
-        const folder = adminPaths[level];
-        if (folder) {
-            localStorage.removeItem('guest_view_mode');
-            window.location.href = `${BASE_PATH}/${folder}/dashboard.html`;
-        }
-        return;
-    }
-
-    window.location.reload();
 };
 
 /** 初始化主题切换 */
@@ -444,7 +439,7 @@ function initAuthModules(token, user) {
     const defaultBanner = window.DEFAULT_BANNER || '';
     renderUserProfile(user, defaultAvatar, defaultBanner);
     if (typeof window.renderPermissionButtons === 'function') {
-        window.renderPermissionButtons(user.permission_level);
+        window.renderPermissionButtons(user);
     }
     renderTopNavAuth(user);
     checkEmailVerificationStatus(token, user.email);

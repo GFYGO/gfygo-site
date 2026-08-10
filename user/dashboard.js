@@ -5,23 +5,26 @@
  * 注意：API_BASE_URL 已由 config.js 定义，此处不重复声明。
  */
 
-/** 获取并渲染用户信息 */
+/** 获取并渲染用户信息（从 /api/v1/user/menu 获取 user_info） */
 async function renderUserInfo(token) {
     try {
-        const res = await fetch(`${API_BASE_URL}/api/v1/user/profile`, {
+        const res = await fetch(`${API_BASE_URL}/api/v1/user/menu`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
         if (res.ok && data.code === 200) {
-            const user = data.data;
+            const userInfo = data.data.user_info || data.data;
             if (typeof initAuthModules === 'function') {
-                initAuthModules(token, user);
+                initAuthModules(token, userInfo);
             }
+            return data.data;
         } else {
             console.warn('加载用户信息失败:', data.msg);
+            return null;
         }
     } catch (e) {
         console.error('获取用户信息异常:', e);
+        return null;
     }
 }
 
@@ -39,22 +42,35 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    // 渲染用户信息并加载权限
-    await renderUserInfo(token);
+    // 1. 渲染用户信息 + 加载菜单
+    const menuData = await renderUserInfo(token);
 
-    // 初始化侧边栏
+    // 2. 加载并渲染菜单（动态 + admin）
+    if (window.DashboardMenu) {
+        await window.DashboardMenu.loadMenu();
+    }
+
+    // 3. 初始化侧边栏
     initSidebar();
 
-    // 根据权限节点自动显隐元素
+    // 4. 根据权限节点自动显隐元素
     if (typeof initPermissionVisibility === 'function') {
         initPermissionVisibility();
+    }
+
+    // 5. 绑定事件
+    bindGlobalEvents();
+
+    // 6. 切换到默认 Tab (workspace)
+    if (window.DashboardMenu) {
+        window.DashboardMenu.switchTab('workspace');
     }
 
     // 初始化设置按钮
     const settingsBtn = $('settingsBtn');
     if (settingsBtn) {
         on(settingsBtn, 'click', () => {
-            if (typeof switchTab === 'function') switchTab('settings');
+            if (window.DashboardMenu) window.DashboardMenu.switchTab('settings');
         });
     }
 
@@ -64,9 +80,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderDeletionStatus();
     }
 
-    // 初始化 Tab 切换
-    if (typeof initTabSwitching === 'function') initTabSwitching();
-
     // 初始化个人文档全局引用
     if (typeof window.initPersonalDocs !== 'function') {
         window.initPersonalDocs = function() {
@@ -74,14 +87,40 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
-    // 绑定全局退出按钮
-    on($('logoutBtn'), 'click', () => {
-        AuthGuard.clearToken();
-        showToast('已退出登录', 'success');
-        setTimeout(() => {
-            window.location.href = `${BASE_PATH || './'}index.html`;
-        }, 800);
-    });
+    // 初始化打卡模块全局引用
+    if (typeof window.initCheckinModule !== 'function') {
+        window.initCheckinModule = function() {
+            if (typeof initCheckinButtons === 'function') initCheckinButtons();
+        };
+    }
+
+    // 绑定打卡相关按钮
+    if (typeof initCheckinButtons === 'function') initCheckinButtons();
+
+    // 绑定验证码按钮
+    let verifyEmailBtnEl = $('verifyEmailBtn');
+    if (verifyEmailBtnEl) {
+        on(verifyEmailBtnEl, 'click', () => {
+            if (typeof sendVerificationEmail === 'function') {
+                sendVerificationEmail();
+            }
+        });
+    }
+});
+
+/** 绑定全局事件 */
+function bindGlobalEvents() {
+    // 绑定退出按钮
+    const logoutBtn = $('logoutBtn');
+    if (logoutBtn) {
+        on(logoutBtn, 'click', () => {
+            AuthGuard.clearToken();
+            showToast('已退出登录', 'success');
+            setTimeout(() => {
+                window.location.href = `${BASE_PATH || './'}index.html`;
+            }, 800);
+        });
+    }
 
     // 绑定侧边栏切换
     const toggleBtn = $('sidebarToggleBtn');
@@ -94,31 +133,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // 绑定用户菜单
+    // 绑定侧边栏用户头像点击（回到主页 home）
     const userTrigger = $('sidebarUserTrigger');
-    const userMenu = $('userMenu');
-    if (userTrigger && userMenu) {
-        on(userTrigger, 'click', (e) => {
-            e.stopPropagation();
-            userMenu.classList.toggle('user-menu--visible');
-        });
-        on(document, 'click', (e) => {
-            if (!userMenu.contains(e.target) && !userTrigger.contains(e.target)) {
-                userMenu.classList.remove('user-menu--visible');
-            }
+    if (userTrigger) {
+        on(userTrigger, 'click', () => {
+            if (window.DashboardMenu) window.DashboardMenu.switchTab('home');
         });
     }
-
-    // 绑定打卡相关按钮
-    if (typeof initCheckinButtons === 'function') initCheckinButtons();
-
-    // 绑定验证码按钮
-    verifyEmailBtn = $('verifyEmailBtn');
-    on(verifyEmailBtn, 'click', sendVerifyEmail);
-
-    // 动态菜单
-    if (typeof loadDynamicMenu === 'function') loadDynamicMenu(token);
-});
+}
 
 /** 侧边栏初始化 */
 function initSidebar() {
@@ -132,11 +154,28 @@ function initSidebar() {
     }
 }
 
-/** 发送邮箱验证码（复用 auth 模块） */
-let verifyEmailBtn;
-
-async function sendVerifyEmail() {
-    if (typeof sendVerificationEmail === 'function') {
-        await sendVerificationEmail();
+/** 兼容旧调用：loadNotifyList 暴露到 window */
+window.loadNotifyList = async function() {
+    const list = $('notifyList');
+    if (!list) return;
+    const token = AuthGuard.getToken();
+    try {
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch(`${API_BASE_URL}/api/v1/notify/global`, { headers });
+        const data = await res.json();
+        if (data.code !== 200 || !Array.isArray(data.data) || data.data.length === 0) {
+            list.innerHTML = '<p class="loading-text">暂无通知</p>';
+            return;
+        }
+        list.innerHTML = data.data.map(n => `
+            <div class="notify-card">
+                <h4 class="notify-card__title">${escapeHtml(n.title)}</h4>
+                <p class="notify-card__content">${escapeHtml(n.content)}</p>
+            </div>
+        `).join('');
+    } catch (e) {
+        console.error('加载通知失败', e);
+        list.innerHTML = '<p class="loading-text">通知加载失败</p>';
     }
-}
+};

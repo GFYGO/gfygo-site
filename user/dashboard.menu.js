@@ -1,210 +1,159 @@
 /**
- * dashboard.menu.js
- * 动态菜单懒加载、Tab 切换
+ * dashboard.menu.js - 动态菜单与 Tab 切换
+ * 由 dashboard.js 调用初始化
  */
 
-// 动态菜单缓存
-const dynamicMenuCache = new Map();
-// 静态 tab（与后端动态项 tab_key 冲突时跳过）
-const STATIC_TABS = ['workspace', 'home', 'notify', 'settings', 'personal-docs'];
-// 静态 panel 首次加载标记
-const staticPanelLoaded = new Set();
+let _menuData = null;
 
-/** 初始化 Tab 切换 */
-function initTabSwitching() {
-    const savedTab = localStorage.getItem('dashboard_active_tab') || 'home';
-    const hasPanel = $('panel-' + savedTab);
-    if (hasPanel) {
-        switchTab(savedTab, true);
-    } else {
-        switchTab('home', true);
-    }
-
-    bindTabClicks();
-}
-
-/** 绑定导航项点击 */
-function bindTabClicks() {
-    $$('.sidebar__nav-item[data-tab]').forEach(item => {
-        if (item.dataset.bound === '1') return;
-        item.dataset.bound = '1';
-        on(item, 'click', (e) => {
-            e.preventDefault();
-            switchTab(item.dataset.tab);
-            const overlay = $('sidebarOverlay');
-            const sidebar = $('dashboardSidebar');
-            if (sidebar) sidebar.classList.remove('dashboard-sidebar--open');
-            if (overlay) overlay.classList.remove('sidebar-overlay--visible');
-        });
-    });
-}
-
-/** 切换 Tab */
-async function switchTab(tab, skipSave = false) {
-    if (!skipSave) {
-        localStorage.setItem('dashboard_active_tab', tab);
-    }
-
-    if (dynamicMenuCache.has(tab) && !dynamicMenuCache.get(tab).loaded) {
-        await loadPanelContent(tab);
-    }
-    if (tab === 'notify' && !staticPanelLoaded.has('notify')) {
-        staticPanelLoaded.add('notify');
-        loadNotifyList();
-    }
-    if (tab === 'personal-docs' && !staticPanelLoaded.has('personal-docs')) {
-        staticPanelLoaded.add('personal-docs');
-        if (typeof window.initPersonalDocs === 'function') {
-            window.initPersonalDocs();
-        }
-    }
-    if (tab === 'public-docs' && !staticPanelLoaded.has('public-docs')) {
-        staticPanelLoaded.add('public-docs');
-        if (typeof window.initPublicDocs === 'function') {
-            window.initPublicDocs();
-        }
-    }
-
-    $$('.tab-panel').forEach(panel => {
-        panel.style.display = 'none';
-    });
-    const targetPanel = $('panel-' + tab);
-    if (targetPanel) targetPanel.style.display = '';
-
-    $$('.sidebar__nav-item').forEach(item => {
-        item.classList.toggle('active', item.dataset.tab === tab);
-    });
-
-    const userTrigger = $('sidebarUserTrigger');
-    if (userTrigger) {
-        userTrigger.classList.toggle('is-active', tab === 'home');
-    }
-
-    const settingsBtn = $('settingsBtn');
-    if (settingsBtn) {
-        settingsBtn.classList.toggle('is-active', tab === 'settings');
-    }
-
-    if (tab === 'settings') {
-        if (typeof window.renderDeletionStatus === 'function') {
-            window.renderDeletionStatus();
-        }
-    }
-}
-
-/** 加载动态菜单 */
-async function loadDynamicMenu(token) {
-    const container = $('dynamicMenuContainer');
-    const divider = $('dynamicMenuDivider');
-    if (!container) return;
+async function loadMenu() {
     try {
         const res = await fetch(`${API_BASE_URL}/api/v1/user/menu`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 'Authorization': `Bearer ${AuthGuard.getToken()}` }
         });
-        const data = await res.json();
-        if (data.code !== 200 || !Array.isArray(data.data)) return;
-
-        const items = data.data;
-        if (items.length === 0) {
-            divider.style.display = 'none';
-            return;
+        if (!res.ok) throw new Error('Failed to load menu');
+        _menuData = await res.json();
+        if (_menuData.code === 200) {
+            renderMenu(_menuData.data);
         }
-        divider.style.display = '';
-
-        const contentHost = document.querySelector('.dashboard-content');
-        items.forEach(item => {
-            if (STATIC_TABS.includes(item.tab_key)) {
-                console.warn(`[menu] 动态项 tab_key 冲突，跳过: ${item.tab_key}`);
-                return;
-            }
-            dynamicMenuCache.set(item.tab_key, { meta: item, loaded: false });
-            const a = document.createElement('a');
-            a.href = '#';
-            a.className = 'sidebar__nav-item';
-            a.dataset.tab = item.tab_key;
-            a.innerHTML = `<span class="sidebar__nav-icon">${item.icon || '📄'}</span>
-                           <span class="sidebar__nav-text">${item.label}</span>`;
-            container.appendChild(a);
-            const panel = document.createElement('section');
-            panel.className = 'tab-panel';
-            panel.id = 'panel-' + item.tab_key;
-            panel.style.display = 'none';
-            panel.innerHTML = '<p class="loading-text">加载中...</p>';
-            contentHost.appendChild(panel);
-        });
-        bindTabClicks();
-
-        const savedTab = localStorage.getItem('dashboard_active_tab');
-        if (savedTab && dynamicMenuCache.has(savedTab)) {
-            const currentActive = document.querySelector('.sidebar__nav-item.active')?.dataset.tab;
-            if (currentActive !== savedTab) {
-                switchTab(savedTab, true);
-            }
-        }
+        return _menuData.data;
     } catch (e) {
-        console.error('[menu] 加载动态菜单失败', e);
+        console.error('[MENU] 加载菜单失败:', e);
+        return null;
     }
 }
 
-/** 懒加载面板内容 */
-async function loadPanelContent(tab) {
-    const cache = dynamicMenuCache.get(tab);
-    if (!cache || cache.loaded) return;
-    const token = AuthGuard.getToken();
-    if (!token) return;
-    const panel = $('panel-' + tab);
-    if (!panel) return;
-    try {
-        const res = await fetch(`${API_BASE_URL}/api/v1/user/menu/${cache.meta.id}/content`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-        if (data.code !== 200) {
-            panel.innerHTML = '<p class="loading-text">内容加载失败</p>';
-            return;
-        }
-        const d = data.data;
-        panel.innerHTML = d.html_content || '';
-        if (d.css_content) {
-            const style = document.createElement('style');
-            style.dataset.tabStyle = tab;
-            style.textContent = d.css_content;
-            panel.appendChild(style);
-        }
-        if (d.js_content) {
-            const script = document.createElement('script');
-            script.textContent = d.js_content;
-            panel.appendChild(script);
-        }
-        cache.loaded = true;
-    } catch (e) {
-        console.error('[menu] 加载 panel 内容失败', e);
-        panel.innerHTML = '<p class="loading-text">内容加载失败</p>';
-    }
-}
-
-/** 加载通知列表 */
-async function loadNotifyList() {
-    const list = $('notifyList');
-    if (!list) return;
-    const token = AuthGuard.getToken();
-    try {
-        const headers = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        const res = await fetch(`${API_BASE_URL}/api/v1/notify/global`, { headers });
-        const data = await res.json();
-        if (data.code !== 200 || !Array.isArray(data.data) || data.data.length === 0) {
-            list.innerHTML = '<p class="loading-text">暂无通知</p>';
-            return;
-        }
-        list.innerHTML = data.data.map(n => `
-            <div class="notify-card">
-                <h4 class="notify-card__title">${escapeHtml(n.title)}</h4>
-                <p class="notify-card__content">${escapeHtml(n.content)}</p>
-            </div>
+function renderMenu(data) {
+    // 渲染 admin 专属菜单
+    const adminContainer = document.getElementById('adminMenuContainer');
+    const adminDivider = document.getElementById('adminMenuDivider');
+    if (adminContainer && data.admin_items && data.admin_items.length > 0) {
+        adminDivider.style.display = '';
+        adminContainer.innerHTML = data.admin_items.map(item => `
+            <a href="#" class="sidebar__nav-item admin-only" data-tab="${item.tab_key}">
+                <span class="sidebar__nav-icon">${item.icon}</span>
+                <span class="sidebar__nav-text">${item.label}</span>
+            </a>
         `).join('');
-    } catch (e) {
-        console.error('加载通知失败', e);
-        list.innerHTML = '<p class="loading-text">通知加载失败</p>';
+        adminContainer.querySelectorAll('.sidebar__nav-item').forEach(bindTabClick);
+    } else if (adminContainer) {
+        adminContainer.innerHTML = '';
+        adminDivider.style.display = 'none';
+    }
+
+    // 渲染动态菜单
+    const dynamicContainer = document.getElementById('dynamicMenuContainer');
+    const dynamicDivider = document.getElementById('dynamicMenuDivider');
+    if (dynamicContainer && data.dynamic_items && data.dynamic_items.length > 0) {
+        dynamicDivider.style.display = '';
+        dynamicContainer.innerHTML = data.dynamic_items.map(item => `
+            <a href="#" class="sidebar__nav-item dynamic-only" data-tab="${item.tab_key}">
+                <span class="sidebar__nav-icon">${item.icon || '📄'}</span>
+                <span class="sidebar__nav-text">${item.label}</span>
+            </a>
+        `).join('');
+        dynamicContainer.querySelectorAll('.sidebar__nav-item').forEach(bindTabClick);
+    } else if (dynamicContainer) {
+        dynamicContainer.innerHTML = '';
+        dynamicDivider.style.display = 'none';
     }
 }
+
+function bindTabClick(item) {
+    item.addEventListener('click', (e) => {
+        e.preventDefault();
+        const tabKey = item.dataset.tab;
+        if (tabKey) switchTab(tabKey);
+    });
+}
+
+async function switchTab(tabKey) {
+    // 隐藏所有静态 panel
+    document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+
+    // 清空动态内容
+    const dynamicContainer = document.getElementById('dynamicContentContainer');
+    if (dynamicContainer) dynamicContainer.innerHTML = '';
+
+    // 高亮导航项
+    document.querySelectorAll('.sidebar__nav-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.tab === tabKey);
+    });
+
+    // 静态面板
+    const panel = document.getElementById(`panel-${tabKey}`);
+    if (panel) {
+        panel.style.display = '';
+        if (tabKey === 'workspace' && window.initCheckinModule) {
+            window.initCheckinModule();
+        }
+        if (tabKey === 'notifications' && typeof window.loadNotifyList === 'function') {
+            window.loadNotifyList();
+        }
+        if (tabKey === 'docs' && typeof window.initPersonalDocs === 'function') {
+            window.initPersonalDocs();
+        }
+        if (tabKey === 'settings' && typeof window.renderDeletionStatus === 'function') {
+            window.renderDeletionStatus();
+        }
+        return;
+    }
+
+    // 动态面板（admin 专属或 AI 生成）
+    const data = _menuData ? _menuData.data : null;
+    const isAdmin = data && (data.admin_items || []).some(i => i.tab_key === tabKey);
+    const isDynamic = data && (data.dynamic_items || []).some(i => i.tab_key === tabKey);
+
+    if (isAdmin || isDynamic) {
+        await loadAndInjectPage(tabKey);
+    }
+}
+
+async function loadAndInjectPage(tabKey) {
+    const dynamicContainer = document.getElementById('dynamicContentContainer');
+    if (!dynamicContainer) return;
+
+    dynamicContainer.innerHTML = '<p class="loading-text">加载中...</p>';
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/user/dynamic-page/${tabKey}`, {
+            headers: { 'Authorization': `Bearer ${AuthGuard.getToken()}` }
+        });
+        if (!res.ok) throw new Error('Failed to load page');
+        const r = await res.json();
+        if (r.code === 200 && r.data) {
+            const d = r.data;
+            let html = d.html_content || '';
+
+            if (d.is_builtin) {
+                html = `<div class="admin-builtin-panel" data-tab="${tabKey}"></div>`;
+            }
+
+            dynamicContainer.innerHTML = html;
+
+            // 注入 CSS
+            if (d.css_content) {
+                const style = document.createElement('style');
+                style.textContent = d.css_content;
+                document.head.appendChild(style);
+            }
+
+            // 注入 JS
+            if (d.js_content) {
+                try { eval(d.js_content); } catch(e) { console.error(e); }
+            }
+
+            // 触发事件让对应 JS 模块初始化
+            document.dispatchEvent(new CustomEvent('dashboard:tab-switched', { detail: { tabKey } }));
+        }
+    } catch (e) {
+        console.error('[MENU] 加载页面失败:', e);
+        dynamicContainer.innerHTML = '<p class="empty-state__text">加载失败</p>';
+    }
+}
+
+function getCurrentMenuData() {
+    return _menuData ? _menuData.data : null;
+}
+
+// 暴露到 window
+window.DashboardMenu = { loadMenu, renderMenu, switchTab, getCurrentMenuData };
