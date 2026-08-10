@@ -191,16 +191,53 @@
 
                 <!-- 权限节点（未来） -->
                 <section class="tab-panel" id="panel-permission-nodes" style="display: none;">
-                    <h2 class="panel-title">🔐 权限节点</h2>
-                    <div id="permNodesExplain" class="perm-nodes-explain">
-                        <p class="loading-text">加载中...</p>
+                    <h2 class="panel-title">🔐 权限节点编辑</h2>
+
+                    <!-- 选择器区域 -->
+                    <div class="perm-editor-toolbar">
+                        <div class="perm-editor-row">
+                            <label class="perm-editor-label">对象类型</label>
+                            <select id="permScopeType" class="perm-editor-select">
+                                <option value="level">等级 (level)</option>
+                                <option value="user">用户 (user)</option>
+                                <option value="group">组 (group)</option>
+                            </select>
+                        </div>
+                        <div class="perm-editor-row" id="permLevelRow">
+                            <label class="perm-editor-label">等级</label>
+                            <select id="permLevel" class="perm-editor-select">
+                                <option value="1">Level 1 (普通用户)</option>
+                                <option value="2">Level 2 (认证用户)</option>
+                                <option value="3">Level 3 (高级用户)</option>
+                                <option value="4">Level 4 (管理员)</option>
+                                <option value="5">Level 5 (超级管理员)</option>
+                            </select>
+                        </div>
+                        <div class="perm-editor-row" id="permUserIdRow" style="display:none;">
+                            <label class="perm-editor-label">用户 ID</label>
+                            <input type="number" id="permUserId" class="perm-editor-input" placeholder="输入用户 ID" min="1">
+                        </div>
+                        <div class="perm-editor-row" id="permGroupRow" style="display:none;">
+                            <label class="perm-editor-label">组名称</label>
+                            <select id="permGroup" class="perm-editor-select">
+                                <option value="">加载中...</option>
+                            </select>
+                        </div>
+                        <div class="perm-editor-row">
+                            <button class="pdocs-btn pdocs-btn--secondary" id="permLoadBtn">🔍 加载权限</button>
+                        </div>
                     </div>
-                    <div class="empty-state empty-state--placeholder">
-                        <div class="empty-state__icon">🔐</div>
-                        <p class="empty-state__text">
-                            权限节点式权限管理功能规划中。<br>
-                            支持细粒度节点分配：用户管理 / 文档管理 / 通知管理 / 邀请码 / 系统设置 / 权限节点。
-                        </p>
+
+                    <!-- 操作按钮 -->
+                    <div class="perm-editor-actions">
+                        <button class="pdocs-btn pdocs-btn--primary" id="permSaveBtn" disabled>💾 保存修改</button>
+                        <button class="pdocs-btn pdocs-btn--ghost" id="permResetBtn">↩️ 重置为继承</button>
+                        <span id="permDirtyHint" class="perm-dirty-hint" style="display:none;">⚠️ 有未保存的修改</span>
+                    </div>
+
+                    <!-- 权限表格 -->
+                    <div class="perm-table-wrap" id="permTableWrap">
+                        <p class="loading-text">请选择对象后点击"加载权限"</p>
                     </div>
                 </section>
             </div>
