@@ -3,17 +3,14 @@
  * 用户认证、权限按钮、主题切换、邮箱验证
  */
 
-// 角色名映射
-if (!window.ROLE_NAMES) {
-    window.ROLE_NAMES = {
-        0: '未登录',
-        1: '普通用户',
-        2: '一级管理员',
-        3: '二级管理员',
-        4: '三级管理员',
-        5: '超级管理员'
-    };
-}
+const ROLE_NAMES = {
+    0: '未登录',
+    1: '普通用户',
+    2: '认证用户',
+    3: '高级用户',
+    4: '管理员',
+    5: '超级管理员'
+};
 
 /** 侧边栏切换 */
 function initSidebarToggle() {
@@ -67,7 +64,9 @@ function renderUserProfile(user, DEFAULT_AVATAR, DEFAULT_BANNER) {
     const profile = user.profile || {};
     const avatar = profile.avatar || DEFAULT_AVATAR;
     const banner = profile.banner || DEFAULT_BANNER;
-    const roleName = window.ROLE_NAMES[user.permission_level] || '未知';
+    const curLevel = user.current_level || 1;
+    const maxLevel = user.max_level || 1;
+    const roleName = ROLE_NAMES[curLevel] || '未知';
 
     const sidebarAvatar = $('sidebarAvatar');
     if (sidebarAvatar) {
@@ -91,7 +90,11 @@ function renderUserProfile(user, DEFAULT_AVATAR, DEFAULT_BANNER) {
     if (profileUsername) profileUsername.textContent = user.username;
 
     const profileBadge = $('profileBadge');
-    if (profileBadge) profileBadge.textContent = `Lv.${user.permission_level} ${roleName}`;
+    if (profileBadge) {
+        profileBadge.textContent = maxLevel > curLevel
+            ? `Lv.${curLevel} ${roleName} (最高 Lv.${maxLevel})`
+            : `Lv.${curLevel} ${roleName}`;
+    }
 
     const profileIntro = $('profileIntro');
     if (profileIntro) {
@@ -157,67 +160,31 @@ function renderTopNavAuth(user) {
     }
 }
 
-/** 权限按钮渲染 - 基于 user_info.nodes */
-window.renderPermissionButtons = window.renderPermissionButtons || function(userInfo) {
+/** 权限等级按钮渲染 - 显示 1~max_level 的等级切换按钮 */
+window.renderPermissionButtons = function(userInfo) {
     const container = $('permissionButtons');
     if (!container) return;
 
     container.innerHTML = '';
 
-    // 从 userInfo.nodes 提取权限类别
-    const nodes = userInfo.nodes || [];
-    if (nodes.length === 0) return;
+    const curLevel = userInfo.current_level || 1;
+    const maxLevel = userInfo.max_level || 1;
 
-    // 按类别分组节点
-    const categories = {};
-    nodes.forEach(node => {
-        // node 可能是字符串 "admin.notify.view" 或带 category 的对象
-        const code = typeof node === 'string' ? node : (node.node_code || node.code || '');
-        const parts = code.split('.');
-        if (parts.length >= 2) {
-            const cat = parts[0];
-            if (!categories[cat]) categories[cat] = [];
-            categories[cat].push(code);
-        }
-    });
-
-    // 为每个有权限的类别创建按钮
-    const categoryLabels = {
-        'admin': '管理',
-        'doc': '文档',
-        'notify': '通知',
-        'user': '用户',
-        'invite': '邀请码',
-        'system': '系统',
-        'permission': '权限',
-        'menu': '页面',
-        'stats': '统计'
-    };
-
-    Object.keys(categories).forEach(cat => {
+    for (let lv = 1; lv <= maxLevel; lv++) {
         const btn = document.createElement('button');
         btn.className = 'perm-btn';
-        const label = categoryLabels[cat] || cat;
-        btn.textContent = label;
-        btn.title = `查看 ${label} 相关内容`;
-        on(btn, 'click', () => handlePermissionCategoryClick(cat));
+        if (lv === curLevel) btn.classList.add('perm-btn--active');
+        btn.textContent = lv;
+        btn.title = `${ROLE_NAMES[lv]}`;
+        if (lv !== curLevel) {
+            on(btn, 'click', () => switchLevel(lv));
+        }
         container.appendChild(btn);
-    });
+    }
 };
 
-/** 按类别点击 - 重新加载菜单 */
-async function handlePermissionCategoryClick(category) {
-    // 重新加载菜单以获取该类别的完整视图
-    if (window.DashboardMenu) {
-        const data = await window.DashboardMenu.loadMenu();
-        if (data) {
-            showToast(`已加载 ${category} 相关功能`, 'success');
-        }
-    }
-}
-
-/** 兼容旧版 handlePermissionClick */
-window.handlePermissionClick = window.handlePermissionClick || async function(level) {
+/** 切换等级 - 调用后端 switch-permission 接口 */
+async function switchLevel(targetLevel) {
     try {
         const res = await fetch(`${API_BASE_URL}/api/v1/auth/switch-permission`, {
             method: 'POST',
@@ -225,26 +192,33 @@ window.handlePermissionClick = window.handlePermissionClick || async function(le
                 'Authorization': `Bearer ${AuthGuard.getToken()}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ target_level: level })
+            body: JSON.stringify({ target_level: targetLevel })
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            console.warn('切换权限失败:', err.msg || res.status);
+            if (typeof Toast !== 'undefined') Toast.show(err.msg || '切换权限失败');
             return;
         }
         const data = await res.json();
-        const np = (data.data || {});
+        const np = data.data || {};
         AuthGuard.setToken(np.access_token, np.expires_in);
-        window.__nowPermission = np.now_permission || { level, context: null, nodes: [] };
+        window.__nowPermission = np.now_permission || { level: targetLevel, nodes: [] };
 
-        // 重新加载菜单
+        if (typeof Toast !== 'undefined') Toast.show(`已切换到 Lv.${targetLevel} ${ROLE_NAMES[targetLevel]}`, 'success');
+
+        // 重新加载菜单和用户信息
+        if (typeof renderUserInfo === 'function') {
+            const token = AuthGuard.getToken();
+            if (token) await renderUserInfo(token);
+        }
         if (window.DashboardMenu) {
             await window.DashboardMenu.loadMenu();
         }
     } catch (e) {
-        console.warn('切换权限请求异常:', e);
+        console.warn('切换权限异常:', e);
+        if (typeof Toast !== 'undefined') Toast.show('网络错误');
     }
-};
+}
 
 /** 初始化主题切换 */
 function initThemeOptions(token) {

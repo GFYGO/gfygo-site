@@ -382,13 +382,15 @@
     box-shadow: var(--shadow-sm);
 }
 
-.perm-btn--current {
+.perm-btn--current,
+.perm-btn--active {
     background: var(--color-primary);
     border-color: var(--color-primary);
     color: #fff;
 }
 
-.perm-btn--current:hover {
+.perm-btn--current:hover,
+.perm-btn--active:hover {
     background: var(--color-primary-hover);
     border-color: var(--color-primary-hover);
     color: #fff;
