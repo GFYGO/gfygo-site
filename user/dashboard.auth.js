@@ -171,6 +171,9 @@ window.renderPermissionButtons = function(userInfo) {
     const curLevel = userInfo.current_level || 1;
     const maxLevel = userInfo.max_level || 1;
 
+    // 最高等级为 1 的用户不显示等级切换按钮
+    if (maxLevel <= 1) return;
+
     for (let lv = 1; lv <= maxLevel; lv++) {
         const btn = document.createElement('button');
         btn.className = 'perm-btn';

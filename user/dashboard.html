@@ -20,30 +20,9 @@
             </div>
 
             <nav class="sidebar__nav">
-                <!-- 静态项（前端写死） -->
-                <a href="#" class="sidebar__nav-item" data-tab="workspace">
-                    <span class="sidebar__nav-icon">🏠</span>
-                    <span class="sidebar__nav-text">工作台</span>
-                </a>
-                <a href="#" class="sidebar__nav-item" data-tab="notifications">
-                    <span class="sidebar__nav-icon">🔔</span>
-                    <span class="sidebar__nav-text">通知</span>
-                </a>
-                <a href="#" class="sidebar__nav-item" data-tab="docs">
-                    <span class="sidebar__nav-icon">📚</span>
-                    <span class="sidebar__nav-text">个人文档</span>
-                </a>
-                <a href="#" class="sidebar__nav-item" data-tab="tools">
-                    <span class="sidebar__nav-icon">🔧</span>
-                    <span class="sidebar__nav-text">第三方工具</span>
-                </a>
-                <a href="#" class="sidebar__nav-item" data-tab="public-docs" id="publicDocsNavItem" style="display:none;">
-                    <span class="sidebar__nav-icon">🌐</span>
-                    <span class="sidebar__nav-text">公有文档</span>
-                </a>
-                <!-- 动态项挂载点 -->
-                <div class="sidebar__nav-divider" id="dynamicMenuDivider" style="display:none;"></div>
+                <!-- 动态项挂载点（基础页面 + 动态页面） -->
                 <div id="dynamicMenuContainer"></div>
+                <div class="sidebar__nav-divider" id="dynamicMenuDivider" style="display:none;"></div>
                 <!-- Admin 专属菜单挂载点 -->
                 <div class="sidebar__nav-divider" id="adminMenuDivider" style="display:none;"></div>
                 <div id="adminMenuContainer"></div>
@@ -98,22 +77,6 @@
             </header>
 
             <div class="dashboard-content">
-                <!-- 工作台 -->
-                <section class="tab-panel" id="panel-workspace" style="display: none;">
-                    <div class="empty-state">
-                        <div class="empty-state__icon">🛠️</div>
-                        <p class="empty-state__text">工作台功能开发中，敬请期待</p>
-                    </div>
-                </section>
-
-                <!-- 通知 -->
-                <section class="tab-panel" id="panel-notifications" style="display: none;">
-                    <h2 class="panel-title">通知</h2>
-                    <div id="notifyList" class="notify-list">
-                        <p class="loading-text">加载中...</p>
-                    </div>
-                </section>
-
                 <!-- 设置 -->
                 <section class="tab-panel" id="panel-settings" style="display: none;">
                     <h2 class="panel-title">设置</h2>
@@ -139,84 +102,7 @@
                     </div>
                 </section>
 
-                <!-- 个人文档 -->
-                <section class="tab-panel" id="panel-docs" style="display: none;">
-                    <!-- 面包屑路径（section 顶部）-->
-                    <div class="pdocs-breadcrumb" id="pdocsPathBreadcrumb"></div>
-
-                    <!-- 文档列表视图（资源管理器平铺风格） -->
-                    <div class="pdocs-view" id="pdocs-view-list">
-                        <div class="pdocs-toolbar">
-                            <h2 class="panel-title">个人文档</h2>
-                            <div class="pdocs-toolbar-actions">
-                                <button class="pdocs-btn pdocs-btn--secondary" id="pdocsUpBtn" title="返回上一级">↑ 返回上一级</button>
-                                <button class="pdocs-btn pdocs-btn--secondary" id="pdocsFolderAddBtn" title="新建文件夹">📁 新建文件夹</button>
-                                <button class="pdocs-btn pdocs-btn--primary" id="pdocsNewBtn">+ 新建文档</button>
-                                <button class="pdocs-btn pdocs-btn--secondary" id="pdocsTrashBtn">🗑 回收站</button>
-                            </div>
-                        </div>
-                        <div class="pdocs-explorer-grid" id="pdocsListContainer">
-                            <p class="loading-text">加载中...</p>
-                        </div>
-                    </div>
-
-                    <!-- 浏览视图（只读 Markdown 预览） -->
-                    <div class="pdocs-view" id="pdocs-view-browse" style="display: none;">
-                        <div class="pdocs-browser-toolbar">
-                            <button class="pdocs-btn pdocs-btn--secondary" id="pdocsBrowserBackBtn">← 返回列表</button>
-                            <div class="pdocs-browser-titlebar" id="pdocsBrowserTitlebar">
-                                <span class="pdocs-browser-icon" id="pdocsBrowserIcon">📄</span>
-                                <span class="pdocs-browser-title" id="pdocsBrowserTitle">加载中...</span>
-                            </div>
-                            <div class="pdocs-browser-actions">
-                                <button class="pdocs-btn pdocs-btn--ghost" id="pdocsBrowserOpenInDocBtn" title="在文档中心打开">🔗 外部打开</button>
-                                <button class="pdocs-btn pdocs-btn--secondary" id="pdocsBrowserEditBtn">✏️ 编辑</button>
-                                <button class="pdocs-btn pdocs-btn--danger" id="pdocsBrowserDeleteBtn">🗑 删除</button>
-                            </div>
-                        </div>
-                        <div class="pdocs-browser-meta" id="pdocsBrowserMeta"></div>
-                        <div class="pdocs-browser-body">
-                            <div id="pdocsBrowserContent" class="pdocs-browser-content markdown-body"></div>
-                        </div>
-                    </div>
-
-                    <!-- 编辑器视图 -->
-                    <div class="pdocs-view" id="pdocs-view-editor" style="display: none;">
-                        <div class="pdocs-editor-toolbar">
-                            <button class="pdocs-btn pdocs-btn--secondary" id="pdocsBackBtn">← 返回</button>
-                            <input type="text" class="pdocs-title-input" id="pdocsTitleInput" placeholder="文档标题" maxlength="200">
-                            <button class="pdocs-btn pdocs-btn--ghost" id="pdocsPreviewToggleBtn">👁 预览</button>
-                            <button class="pdocs-btn pdocs-btn--primary" id="pdocsSaveBtn">💾 保存</button>
-                        </div>
-                        <div class="pdocs-editor-body">
-                            <textarea class="pdocs-content-input" id="pdocsContentInput" placeholder="使用 Markdown 编写文档..."></textarea>
-                            <div class="pdocs-preview" id="pdocsPreview" style="display: none;"></div>
-                        </div>
-                    </div>
-
-                    <!-- 回收站视图 -->
-                    <div class="pdocs-view" id="pdocs-view-trash" style="display: none;">
-                        <div class="pdocs-toolbar">
-                            <h2 class="panel-title">回收站</h2>
-                            <div class="pdocs-toolbar-actions">
-                                <button class="pdocs-btn pdocs-btn--secondary" id="pdocsTrashBackBtn">← 返回文档列表</button>
-                            </div>
-                        </div>
-                        <div class="pdocs-trash-list" id="pdocsTrashContainer">
-                            <p class="loading-text">加载中...</p>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- 第三方工具 -->
-                <section class="tab-panel" id="panel-tools" style="display: none;">
-                    <div class="empty-state">
-                        <div class="empty-state__icon">🔧</div>
-                        <p class="empty-state__text">第三方工具功能开发中，敬请期待</p>
-                    </div>
-                </section>
-
-                <!-- 动态内容容器：JS 动态注入 admin 页面 -->
+                <!-- 动态内容容器：JS 动态注入所有动态页面 -->
                 <div id="dynamicContentContainer"></div>
 
                 <!-- 主页（个人资料） -->

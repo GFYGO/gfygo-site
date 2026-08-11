@@ -23,6 +23,38 @@ async function loadMenu() {
 }
 
 function renderMenu(data) {
+    // 渲染基础菜单（workspace/notifications/docs/tools）
+    const baseContainer = document.getElementById('dynamicMenuContainer');
+    const baseDivider = document.getElementById('dynamicMenuDivider');
+    if (baseContainer && data.base_items && data.base_items.length > 0) {
+        baseContainer.innerHTML = data.base_items.map(item => `
+            <a href="#" class="sidebar__nav-item" data-tab="${item.tab_key}">
+                <span class="sidebar__nav-icon">${item.icon}</span>
+                <span class="sidebar__nav-text">${item.label}</span>
+            </a>
+        `).join('');
+        baseContainer.querySelectorAll('.sidebar__nav-item').forEach(bindTabClick);
+    }
+
+    // 渲染动态菜单
+    const dynamicContainer = document.getElementById('dynamicMenuContainer');
+    const dynamicDivider = document.getElementById('dynamicMenuDivider');
+    if (dynamicContainer && data.dynamic_items && data.dynamic_items.length > 0) {
+        if (data.base_items && data.base_items.length > 0) {
+            dynamicDivider.style.display = '';
+        }
+        dynamicContainer.innerHTML += data.dynamic_items.map(item => `
+            <a href="#" class="sidebar__nav-item dynamic-only" data-tab="${item.tab_key}">
+                <span class="sidebar__nav-icon">${item.icon || '📄'}</span>
+                <span class="sidebar__nav-text">${item.label}</span>
+            </a>
+        `).join('');
+        dynamicContainer.querySelectorAll('.sidebar__nav-item.dynamic-only').forEach(bindTabClick);
+    } else if (dynamicContainer && (!data.base_items || data.base_items.length === 0)) {
+        dynamicContainer.innerHTML = '';
+        dynamicDivider.style.display = 'none';
+    }
+
     // 渲染 admin 专属菜单
     const adminContainer = document.getElementById('adminMenuContainer');
     const adminDivider = document.getElementById('adminMenuDivider');
@@ -38,23 +70,6 @@ function renderMenu(data) {
     } else if (adminContainer) {
         adminContainer.innerHTML = '';
         adminDivider.style.display = 'none';
-    }
-
-    // 渲染动态菜单
-    const dynamicContainer = document.getElementById('dynamicMenuContainer');
-    const dynamicDivider = document.getElementById('dynamicMenuDivider');
-    if (dynamicContainer && data.dynamic_items && data.dynamic_items.length > 0) {
-        dynamicDivider.style.display = '';
-        dynamicContainer.innerHTML = data.dynamic_items.map(item => `
-            <a href="#" class="sidebar__nav-item dynamic-only" data-tab="${item.tab_key}">
-                <span class="sidebar__nav-icon">${item.icon || '📄'}</span>
-                <span class="sidebar__nav-text">${item.label}</span>
-            </a>
-        `).join('');
-        dynamicContainer.querySelectorAll('.sidebar__nav-item').forEach(bindTabClick);
-    } else if (dynamicContainer) {
-        dynamicContainer.innerHTML = '';
-        dynamicDivider.style.display = 'none';
     }
 }
 
@@ -79,33 +94,18 @@ async function switchTab(tabKey) {
         item.classList.toggle('active', item.dataset.tab === tabKey);
     });
 
-    // 静态面板
+    // 静态面板（settings, home 保持原生 DOM）
     const panel = document.getElementById(`panel-${tabKey}`);
     if (panel) {
         panel.style.display = '';
-        if (tabKey === 'workspace' && window.initCheckinModule) {
-            window.initCheckinModule();
-        }
-        if (tabKey === 'notifications' && typeof window.loadNotifyList === 'function') {
-            window.loadNotifyList();
-        }
-        if (tabKey === 'docs' && typeof window.initPersonalDocs === 'function') {
-            window.initPersonalDocs();
-        }
         if (tabKey === 'settings' && typeof window.renderDeletionStatus === 'function') {
             window.renderDeletionStatus();
         }
         return;
     }
 
-    // 动态面板（admin 专属或 AI 生成）
-    const data = _menuData ? _menuData.data : null;
-    const isAdmin = data && (data.admin_items || []).some(i => i.tab_key === tabKey);
-    const isDynamic = data && (data.dynamic_items || []).some(i => i.tab_key === tabKey);
-
-    if (isAdmin || isDynamic) {
-        await loadAndInjectPage(tabKey);
-    }
+    // 所有其他页面（base / dynamic / admin）走动态加载
+    await loadAndInjectPage(tabKey);
 }
 
 async function loadAndInjectPage(tabKey) {
@@ -139,8 +139,7 @@ async function loadAndInjectPage(tabKey) {
                 }
                 document.head.appendChild(newScript);
                 if (!s.src) {
-                    // 内联脚本：立即执行一次后移除
-                    try { eval(s.textContent); } catch(e) { console.error('[ADMIN SCRIPT]', e); }
+                    try { eval(s.textContent); } catch(e) { console.error('[SCRIPT]', e); }
                     document.head.removeChild(newScript);
                 }
             });
@@ -169,14 +168,9 @@ function getCurrentMenuData() {
     return _menuData ? _menuData.data : null;
 }
 
-// ====== Admin 页面初始化 ======
-// 注：admin 页面的所有逻辑已内联在各 HTML 文件的 <script> 中，
-// dashboard:tab-switched 事件仅用于必要的全局联动。
 document.addEventListener('dashboard:tab-switched', (e) => {
     const tabKey = e.detail?.tabKey;
     if (!tabKey) return;
-    // 如需全局联动（如刷新菜单），可在此添加
 });
 
-// 暴露到 window
 window.DashboardMenu = { loadMenu, renderMenu, switchTab, getCurrentMenuData };

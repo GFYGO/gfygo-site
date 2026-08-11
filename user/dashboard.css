@@ -900,6 +900,15 @@ body.theme-dark_green .calendar-day--checked {
     line-height: 1.5;
 }
 
+.notify-card__meta {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+}
+
 /* 设置 */
 .settings-section h3 {
     margin: 0 0 12px;

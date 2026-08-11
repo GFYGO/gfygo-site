@@ -87,15 +87,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
-    // 初始化打卡模块全局引用
+    // 初始化打卡模块全局引用（供 workspace.html / home panel 调用）
     if (typeof window.initCheckinModule !== 'function') {
         window.initCheckinModule = function() {
             if (typeof initCheckinButtons === 'function') initCheckinButtons();
         };
     }
-
-    // 绑定打卡相关按钮
-    if (typeof initCheckinButtons === 'function') initCheckinButtons();
 
     // 绑定验证码按钮
     let verifyEmailBtnEl = $('verifyEmailBtn');
@@ -153,29 +150,3 @@ function initSidebar() {
         });
     }
 }
-
-/** 兼容旧调用：loadNotifyList 暴露到 window */
-window.loadNotifyList = async function() {
-    const list = $('notifyList');
-    if (!list) return;
-    const token = AuthGuard.getToken();
-    try {
-        const headers = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        const res = await fetch(`${API_BASE_URL}/api/v1/notify/global`, { headers });
-        const data = await res.json();
-        if (data.code !== 200 || !Array.isArray(data.data) || data.data.length === 0) {
-            list.innerHTML = '<p class="loading-text">暂无通知</p>';
-            return;
-        }
-        list.innerHTML = data.data.map(n => `
-            <div class="notify-card">
-                <h4 class="notify-card__title">${escapeHtml(n.title)}</h4>
-                <p class="notify-card__content">${escapeHtml(n.content)}</p>
-            </div>
-        `).join('');
-    } catch (e) {
-        console.error('加载通知失败', e);
-        list.innerHTML = '<p class="loading-text">通知加载失败</p>';
-    }
-};
