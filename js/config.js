@@ -116,5 +116,6 @@ function initPermissionVisibility() {
 }
 
 // 全局暴露
+window.AuthGuard = AuthGuard;
 window.hasPermission = hasPermission;
 window.initPermissionVisibility = initPermissionVisibility;
