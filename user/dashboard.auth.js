@@ -155,7 +155,8 @@ function renderTopNavAuth(user) {
             e.preventDefault();
             AuthGuard.clearToken();
             localStorage.removeItem('guest_view_mode');
-            window.location.href = `${BASE_PATH}/index.html`;
+            // 跳转到登录页（带时间戳防缓存）
+            window.location.replace(`${BASE_PATH}/login.html?_t=${Date.now()}`);
         });
     }
 }

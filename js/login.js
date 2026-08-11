@@ -1,26 +1,50 @@
 /**
  * login.js - 登录页交互逻辑
- * 简洁版：render → getResponse → submit
+ * 使用 onTurnstileReady 回调确保 SDK 加载完成后再渲染 widget
  */
 
 const SITEKEY = '0x4AAAAAAECyOCbL7qIJUOgg';
 let widgetId = null;
+let formEl = null;
 
+// SDK 加载完成回调（由 login.html 的 script onload 参数触发）
+window.onTurnstileReady = function() {
+    renderWidget();
+    bindForm();
+};
+
+// DOMContentLoaded 时若 SDK 已就绪则直接渲染，否则等 onload
 document.addEventListener('DOMContentLoaded', () => {
-    const container = document.getElementById('turnstile-widget-login');
-    if (container && window.turnstile) {
-        widgetId = window.turnstile.render(container, {
-            sitekey: SITEKEY,
-            theme: 'auto'
-        });
+    formEl = document.getElementById('loginForm');
+    if (window.turnstile) {
+        renderWidget();
+        bindForm();
     }
+});
 
-    const loginForm = document.getElementById('loginForm');
-    if (!loginForm) return;
+function renderWidget() {
+    const container = document.getElementById('turnstile-widget-login');
+    if (!container) return;
+    // 清空容器（防止缓存页面中残留旧 widget DOM）
+    container.innerHTML = '';
+    if (widgetId) {
+        try { window.turnstile.remove(widgetId); } catch (_) {}
+        widgetId = null;
+    }
+    widgetId = window.turnstile.render(container, {
+        sitekey: SITEKEY,
+        theme: 'auto'
+    });
+}
 
-    loginForm.addEventListener('submit', async (e) => {
+function bindForm() {
+    if (!formEl) formEl = document.getElementById('loginForm');
+    if (!formEl || formEl.dataset.bound === 'true') return;
+    formEl.dataset.bound = 'true';
+
+    formEl.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const formData = new FormData(loginForm);
+        const formData = new FormData(formEl);
         const username = (formData.get('username') || '').toString().trim();
         const password = (formData.get('password') || '').toString();
 
@@ -55,4 +79,4 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof Toast !== 'undefined') Toast.show('网络错误');
         }
     });
-});
+}

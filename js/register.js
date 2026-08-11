@@ -1,6 +1,6 @@
 /**
  * register.js - 注册页交互逻辑
- * 简洁版：render → getResponse → submit
+ * 使用 onTurnstileReady 回调确保 SDK 加载完成后再渲染 widget
  */
 
 const SITEKEY = '0x4AAAAAAECyOCbL7qIJUOgg';
@@ -8,10 +8,31 @@ const TABS = ['email', 'phone', 'temp'];
 let currentTab = 'email';
 const widgetIds = {};
 
+// SDK 加载完成回调
+window.onTurnstileReady = function() {
+    initRegisterPage();
+};
+
+// DOMContentLoaded 时若 SDK 已就绪则直接初始化
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.turnstile) {
+        initRegisterPage();
+    }
+});
+
+function initRegisterPage() {
+    document.querySelectorAll('.register-tab').forEach(tab => {
+        tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+    });
+    bindForms();
+    renderTurnstile('email');
+}
+
 // ====== Turnstile ======
 function renderTurnstile(tabName) {
     const container = document.getElementById('turnstile-widget-' + tabName);
     if (!container || !window.turnstile) return;
+    container.innerHTML = '';
     if (widgetIds[tabName]) {
         try { window.turnstile.remove(widgetIds[tabName]); } catch (_) {}
     }
@@ -87,12 +108,18 @@ async function submitRegister(path, payload, successMsg, redirectUrl) {
 
 // ====== 表单绑定 ======
 function bindForms() {
-    const ef = document.getElementById('emailForm');
-    const pf = document.getElementById('phoneForm');
-    const tf = document.getElementById('tempForm');
-    if (ef) ef.addEventListener('submit', handleEmail);
-    if (pf) pf.addEventListener('submit', handlePhone);
-    if (tf) tf.addEventListener('submit', handleTemp);
+    const forms = [
+        ['emailForm', handleEmail],
+        ['phoneForm', handlePhone],
+        ['tempForm', handleTemp]
+    ];
+    for (const [id, fn] of forms) {
+        const el = document.getElementById(id);
+        if (el && el.dataset.bound !== 'true') {
+            el.dataset.bound = 'true';
+            el.addEventListener('submit', fn);
+        }
+    }
 }
 
 function checkCfOrReturn() {
@@ -168,12 +195,3 @@ async function handleTemp(e) {
         if (typeof Toast !== 'undefined') Toast.show('网络错误');
     }
 }
-
-// ====== 初始化 ======
-document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.register-tab').forEach(tab => {
-        tab.addEventListener('click', () => switchTab(tab.dataset.tab));
-    });
-    bindForms();
-    renderTurnstile('email');
-});

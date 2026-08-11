@@ -117,7 +117,7 @@ function bindGlobalEvents() {
             AuthGuard.clearToken();
             showToast('已退出登录', 'success');
             setTimeout(() => {
-                window.location.href = `${BASE_PATH || './'}index.html`;
+                window.location.replace(`${BASE_PATH || './'}login.html?_t=${Date.now()}`);
             }, 800);
         });
     }

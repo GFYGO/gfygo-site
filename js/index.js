@@ -227,7 +227,7 @@ function renderAuthStatus(userInfo) {
       logoutBtn.addEventListener('click', (e) => {
         e.preventDefault();
         AuthGuard.clearToken();
-        window.location.href = `${BASE_PATH}/index.html`;
+        window.location.replace(`${BASE_PATH}/login.html?_t=${Date.now()}`);
       });
     }
 
