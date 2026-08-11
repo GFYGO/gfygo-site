@@ -190,12 +190,12 @@ window.renderPermissionButtons = function(userInfo) {
 /** 切换等级 - 调用后端 switch-permission 接口 */
 async function switchLevel(targetLevel) {
     try {
+        const token = AuthGuard.getToken();
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = 'Bearer ' + token;
         const res = await fetch(`${API_BASE_URL}/api/v1/auth/switch-permission`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${AuthGuard.getToken()}`,
-                'Content-Type': 'application/json'
-            },
+            headers: headers,
             body: JSON.stringify({ target_level: targetLevel })
         });
         if (!res.ok) {

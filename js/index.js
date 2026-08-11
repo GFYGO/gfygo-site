@@ -298,12 +298,12 @@ window.renderPermissionButtons = window.renderPermissionButtons || function (rea
 window.handlePermissionClick = window.handlePermissionClick || async function (level) {
   // 调用切换 API（真实切换 now_permission.level，可升可降）
   try {
+    const token = AuthGuard.getToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
     const res = await fetch(`${API_BASE_URL}/api/v1/auth/switch-permission`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${AuthGuard.getToken()}`,
-        'Content-Type': 'application/json'
-      },
+      headers: headers,
       body: JSON.stringify({ target_level: level })
     });
     if (!res.ok) {

@@ -2527,3 +2527,325 @@ input:checked + .slider:before { transform: translateX(18px); }
     padding: 40px;
     color: var(--color-text-muted, #6b7280);
 }
+
+/* ====== Admin Permissions 页面 (LuckPerms 风格) ====== */
+.perm-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 20px;
+    min-height: 500px;
+}
+
+.perm-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--color-bg-white, #fff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.perm-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--color-border, #e5e7eb);
+    margin-bottom: 0;
+}
+
+.perm-tab {
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    border-bottom: 2px solid transparent;
+    flex: 1;
+}
+
+.perm-tab.active {
+    color: #6366f1;
+    border-bottom-color: #6366f1;
+}
+
+.perm-scope-section {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.perm-scope-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.perm-scope-desc {
+    font-size: 0.8rem;
+    color: var(--color-text-muted, #6b7280);
+    line-height: 1.4;
+    padding: 8px 10px;
+    background: var(--color-bg-secondary, #f9fafb);
+    border-radius: 6px;
+}
+
+.perm-level-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.perm-level-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border, #e5e7eb);
+    background: var(--color-bg-white, #fff);
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s;
+}
+
+.perm-level-card:hover {
+    border-color: #6366f1;
+    background: #f5f3ff;
+}
+
+.perm-level-card.active {
+    border-color: #6366f1;
+    background: #ede9fe;
+}
+
+.perm-level-num {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #6366f1;
+    min-width: 36px;
+}
+
+.perm-level-name {
+    font-size: 0.85rem;
+    color: var(--color-text-main);
+}
+
+.perm-user-search input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.perm-user-search input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.perm-user-list, .perm-group-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 6px;
+}
+
+.perm-user-item, .perm-group-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid var(--color-border, #f3f4f6);
+}
+
+.perm-user-item:last-child, .perm-group-item:last-child {
+    border-bottom: none;
+}
+
+.perm-user-item:hover, .perm-group-item:hover {
+    background: var(--color-bg-secondary, #f9fafb);
+}
+
+.perm-user-item.active, .perm-group-item.active {
+    background: #ede9fe;
+    border-left: 3px solid #6366f1;
+}
+
+.perm-user-name, .perm-group-name {
+    font-weight: 500;
+    font-size: 0.85rem;
+    color: var(--color-text-main);
+}
+
+.perm-user-level, .perm-group-id {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #6b7280);
+    background: var(--color-bg-secondary, #f3f4f6);
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.perm-empty-hint {
+    padding: 20px;
+    text-align: center;
+    color: var(--color-text-muted, #6b7280);
+    font-size: 0.85rem;
+}
+
+.perm-current-scope {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 12px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 0.8rem;
+}
+
+.perm-current-label {
+    opacity: 0.85;
+}
+
+.perm-current-value {
+    font-weight: 600;
+}
+
+.perm-main {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--color-bg-white, #fff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.perm-editor-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--color-bg-secondary, #f9fafb);
+    border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.perm-editor-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-main);
+}
+
+.perm-toolbar-right {
+    display: flex;
+    gap: 8px;
+}
+
+.perm-picker-container {
+    flex: 1;
+    min-height: 300px;
+    overflow: hidden;
+}
+
+.perm-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    color: var(--color-text-muted, #6b7280);
+    font-size: 0.9rem;
+}
+
+.perm-summary {
+    padding: 12px 16px;
+    background: var(--color-bg-secondary, #f9fafb);
+    border-top: 1px solid var(--color-border, #e5e7eb);
+}
+
+.perm-summary h4 {
+    margin: 0 0 10px;
+    font-size: 0.9rem;
+    color: var(--color-text-main);
+}
+
+.perm-summary-stats {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.perm-stat-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px;
+    background: var(--color-bg-white, #fff);
+    border-radius: 6px;
+    border: 1px solid var(--color-border, #e5e7eb);
+}
+
+.perm-stat-num {
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+.perm-stat--allow .perm-stat-num { color: #22c55e; }
+.perm-stat--deny .perm-stat-num { color: #ef4444; }
+.perm-stat--inherit .perm-stat-num { color: #6b7280; }
+
+.perm-stat-label {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #6b7280);
+}
+
+.perm-summary-list {
+    max-height: 120px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.perm-summary-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: var(--color-bg-white, #fff);
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+.perm-code-inline {
+    background: var(--color-bg-secondary, #f3f4f6);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'SF Mono', Consolas, Monaco, monospace;
+    font-size: 0.75rem;
+}
+
+/* ====== Permission Picker Modal (admin-menu.html 用) ====== */
+#permPickerModal {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+#permPickerModal > div {
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+}
+
+/* ====== 响应式 ====== */
+@media (max-width: 768px) {
+    .perm-layout {
+        grid-template-columns: 1fr;
+    }
+    .perm-sidebar {
+        max-height: 300px;
+    }
+}

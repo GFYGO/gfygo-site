@@ -7,9 +7,14 @@ let _menuData = null;
 
 async function loadMenu() {
     try {
-        const res = await fetch(`${API_BASE_URL}/api/v1/user/menu`, {
-            headers: { 'Authorization': `Bearer ${AuthGuard.getToken()}` }
-        });
+        const token = AuthGuard.getToken();
+        const headers = {};
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+        const res = await fetch(`${API_BASE_URL}/api/v1/user/menu`, { headers });
+        if(res.status === 401 || res.status === 422){
+            AuthGuard.handleAuthError();
+            return;
+        }
         if (!res.ok) throw new Error('Failed to load menu');
         _menuData = await res.json();
         if (_menuData.code === 200) {
@@ -119,7 +124,7 @@ async function loadAndInjectPage(tabKey) {
         const headers = {};
         if(token) headers['Authorization'] = 'Bearer '+token;
         const res = await fetch(`${API_BASE_URL}/api/v1/user/dynamic-page/${encodeURIComponent(tabKey)}`, { headers });
-        if(res.status === 401){
+        if(res.status === 401 || res.status === 422){
             AuthGuard.handleAuthError();
             return;
         }
