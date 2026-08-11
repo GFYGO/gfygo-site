@@ -128,6 +128,23 @@ async function loadAndInjectPage(tabKey) {
             let html = d.html_content || '';
             dynamicContainer.innerHTML = html;
 
+            // 执行内联 <script> 标签（innerHTML 不会自动执行）
+            const scripts = dynamicContainer.querySelectorAll('script');
+            scripts.forEach(s => {
+                const newScript = document.createElement('script');
+                if (s.src) {
+                    newScript.src = s.src;
+                } else {
+                    newScript.textContent = s.textContent;
+                }
+                document.head.appendChild(newScript);
+                if (!s.src) {
+                    // 内联脚本：立即执行一次后移除
+                    try { eval(s.textContent); } catch(e) { console.error('[ADMIN SCRIPT]', e); }
+                    document.head.removeChild(newScript);
+                }
+            });
+
             if (d.css_content) {
                 const style = document.createElement('style');
                 style.textContent = d.css_content;
@@ -153,66 +170,13 @@ function getCurrentMenuData() {
 }
 
 // ====== Admin 页面初始化 ======
+// 注：admin 页面的所有逻辑已内联在各 HTML 文件的 <script> 中，
+// dashboard:tab-switched 事件仅用于必要的全局联动。
 document.addEventListener('dashboard:tab-switched', (e) => {
     const tabKey = e.detail?.tabKey;
     if (!tabKey) return;
-
-    // admin-menu: 页面设置 - 刷新按钮
-    if (tabKey === 'admin-menu') {
-        const btn = document.getElementById('refreshPagesBtn');
-        if (btn && btn.dataset.bound !== 'true') {
-            btn.dataset.bound = 'true';
-            btn.addEventListener('click', async () => {
-                btn.disabled = true;
-                btn.textContent = '刷新中...';
-                try {
-                    const res = await fetch(`${API_BASE_URL}/api/v1/user/pages/refresh`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${AuthGuard.getToken()}`, 'Content-Type': 'application/json' }
-                    });
-                    const data = await res.json();
-                    if (res.ok && data.code === 200) {
-                        if (typeof Toast !== 'undefined') Toast.show('页面已刷新', 'success');
-                        await loadMenu();
-                    } else {
-                        if (typeof Toast !== 'undefined') Toast.show(data.msg || '刷新失败');
-                    }
-                } catch {
-                    if (typeof Toast !== 'undefined') Toast.show('网络错误');
-                }
-                btn.disabled = false;
-                btn.textContent = '刷新页面列表';
-            });
-        }
-    }
-
-    // admin-stats: 加载统计数据
-    if (tabKey === 'admin-stats') {
-        loadStats();
-    }
+    // 如需全局联动（如刷新菜单），可在此添加
 });
-
-async function loadStats() {
-    try {
-        const res = await fetch(`${API_BASE_URL}/api/v1/user/stats`, {
-            headers: { 'Authorization': `Bearer ${AuthGuard.getToken()}` }
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.code === 200 && data.data) {
-            const d = data.data;
-            setText('stat-user-count', d.user_count);
-            setText('stat-doc-count', d.doc_count);
-            setText('stat-view-count', d.view_count);
-            setText('stat-today-users', d.today_active);
-        }
-    } catch (_) {}
-}
-
-function setText(id, val) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = val ?? '--';
-}
 
 // 暴露到 window
 window.DashboardMenu = { loadMenu, renderMenu, switchTab, getCurrentMenuData };

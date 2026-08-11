@@ -2309,3 +2309,212 @@ body.theme-dark_green .calendar-day--checked {
 .charts-area {
     min-height: 200px;
 }
+
+/* ====== Admin 表格 ====== */
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin-top: 12px;
+}
+.admin-table th, .admin-table td {
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+.admin-table th {
+    background: var(--color-bg-secondary, #f9fafb);
+    font-weight: 600;
+    color: var(--color-text-muted, #6b7280);
+    font-size: 0.8rem;
+}
+.admin-table tbody tr:hover {
+    background: var(--color-bg-hover, #f3f4f6);
+}
+.admin-table code {
+    background: var(--color-bg-secondary, #f3f4f6);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+/* ====== Admin 列表头 ====== */
+.admin-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 20px 0 8px;
+}
+.admin-list-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--color-text-main);
+}
+
+/* ====== Tag 标签 ====== */
+.tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+.tag-green { background: #d1fae5; color: #065f46; }
+.tag-gray { background: #f3f4f6; color: #6b7280; }
+.tag-red { background: #fee2e2; color: #991b1b; }
+.tag-blue { background: #dbeafe; color: #1e40af; }
+.tag-yellow { background: #fef3c7; color: #92400e; }
+
+/* ====== 按钮 ====== */
+.btn.btn-sm {
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    border-radius: 4px;
+    border: 1px solid var(--color-border, #e5e7eb);
+    background: var(--color-bg-white, #fff);
+    cursor: pointer;
+    color: var(--color-text-main);
+}
+.btn.btn-sm:hover { background: var(--color-bg-hover, #f3f4f6); }
+.btn.btn-danger {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #fca5a5;
+}
+.btn.btn-danger:hover { background: #fecaca; }
+
+/* ====== Toggle Switch ====== */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 38px;
+    height: 20px;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background-color: #ccc;
+    border-radius: 20px;
+    transition: 0.2s;
+}
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    border-radius: 50%;
+    transition: 0.2s;
+}
+input:checked + .slider { background-color: var(--color-primary, #2ea043); }
+input:checked + .slider:before { transform: translateX(18px); }
+
+/* ====== Admin Dashboard 布局 ====== */
+.stats-layout {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+.stats-left {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    flex: 0 0 340px;
+}
+.stats-right {
+    flex: 1;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.chart-box {
+    background: var(--color-bg-white, #fff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: var(--radius-md, 8px);
+    padding: 16px;
+}
+.chart-box h3 {
+    margin: 0 0 12px;
+    font-size: 0.95rem;
+    color: var(--color-text-main);
+}
+.chart-box canvas {
+    max-width: 100%;
+    height: auto;
+}
+
+/* ====== Admin Perm 页面 ====== */
+.perm-editor { display: flex; flex-direction: column; gap: 16px; }
+.perm-controls {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 12px;
+    background: var(--color-bg-secondary, #f9fafb);
+    border-radius: 8px;
+}
+.perm-controls label { font-size: 0.85rem; color: var(--color-text-muted); margin-right: 6px; }
+.perm-controls select, .perm-controls input {
+    padding: 6px 10px;
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 6px;
+    font-size: 0.85rem;
+}
+.perm-selector { display: flex; align-items: center; gap: 8px; }
+.perm-available h4, .perm-assigned h4 {
+    margin: 0 0 8px;
+    font-size: 0.9rem;
+    color: var(--color-text-main);
+}
+.perm-node-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 10px;
+    background: var(--color-bg-secondary, #f9fafb);
+    border-radius: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+.perm-node-group { width: 100%; margin-bottom: 6px; }
+.perm-node-group strong { font-size: 0.75rem; color: var(--color-text-muted); text-transform: uppercase; }
+.perm-node-item {
+    display: inline-block;
+    padding: 3px 10px;
+    background: var(--color-bg-white, #fff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.perm-node-item:hover {
+    background: var(--color-primary, #2ea043);
+    color: #fff;
+    border-color: var(--color-primary, #2ea043);
+}
+
+/* ====== Checkbox 组 ====== */
+.perm-checks { display: flex; gap: 12px; flex-wrap: wrap; }
+.perm-checks label { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; cursor: pointer; }
+
+/* ====== 空状态 ====== */
+.empty-state__text {
+    text-align: center;
+    color: var(--color-text-muted, #6b7280);
+    padding: 40px 0;
+    font-size: 0.9rem;
+}
+
+/* ====== loading ====== */
+.loading-text {
+    text-align: center;
+    padding: 40px;
+    color: var(--color-text-muted, #6b7280);
+}
