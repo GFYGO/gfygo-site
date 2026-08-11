@@ -206,7 +206,7 @@ async function switchLevel(targetLevel) {
         const data = await res.json();
         const np = data.data || {};
         AuthGuard.setToken(np.access_token, np.expires_in);
-        window.__nowPermission = np.now_permission || { level: targetLevel, nodes: [] };
+        window.__nowPermission = np.now_permission || { level: targetLevel, context: targetLevel >= 4 ? 'admin' : null, nodes: [] };
 
         if (typeof Toast !== 'undefined') Toast.show(`已切换到 Lv.${targetLevel} ${ROLE_NAMES[targetLevel]}`, 'success');
 

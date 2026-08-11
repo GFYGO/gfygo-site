@@ -314,7 +314,7 @@ window.handlePermissionClick = window.handlePermissionClick || async function (l
     const data = await res.json();
     const np = (data.data || {});
     AuthGuard.setToken(np.access_token, np.expires_in);
-    window.__nowPermission = np.now_permission || { level, context: null, nodes: [] };
+    window.__nowPermission = np.now_permission || { level, context: level >= 4 ? 'admin' : null, nodes: [] };
   } catch (e) {
     console.warn('切换权限请求异常:', e);
     return;

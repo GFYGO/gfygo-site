@@ -115,9 +115,14 @@ async function loadAndInjectPage(tabKey) {
     dynamicContainer.innerHTML = '<p class="loading-text">加载中...</p>';
 
     try {
-        const res = await fetch(`${API_BASE_URL}/api/v1/user/dynamic-page/${encodeURIComponent(tabKey)}`, {
-            headers: { 'Authorization': `Bearer ${AuthGuard.getToken()}` }
-        });
+        const token = AuthGuard.getToken();
+        const headers = {};
+        if(token) headers['Authorization'] = 'Bearer '+token;
+        const res = await fetch(`${API_BASE_URL}/api/v1/user/dynamic-page/${encodeURIComponent(tabKey)}`, { headers });
+        if(res.status === 401){
+            AuthGuard.handleAuthError();
+            return;
+        }
         if (!res.ok) {
             dynamicContainer.innerHTML = '<p class="empty-state__text">加载失败</p>';
             return;
