@@ -6,6 +6,7 @@
 // ✅ 任务 FE-JS-01: 定义 API 基地址
 // 修正：使用完整的 HTTPS 地址，避免在 GitHub Pages 等环境下出现相对路径请求错误
 const API_BASE_URL = "https://back.gwl.net.cn";
+window.API_BASE_URL = API_BASE_URL;
 
 // 路径前缀：子目录页面用 '..'，根目录页面用 '.'
 // 支持 /user/, /model/ 等子目录
