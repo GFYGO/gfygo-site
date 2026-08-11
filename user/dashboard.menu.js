@@ -115,35 +115,32 @@ async function loadAndInjectPage(tabKey) {
     dynamicContainer.innerHTML = '<p class="loading-text">加载中...</p>';
 
     try {
-        const res = await fetch(`${API_BASE_URL}/api/v1/user/dynamic-page/${tabKey}`, {
+        const res = await fetch(`${API_BASE_URL}/api/v1/user/dynamic-page/${encodeURIComponent(tabKey)}`, {
             headers: { 'Authorization': `Bearer ${AuthGuard.getToken()}` }
         });
-        if (!res.ok) throw new Error('Failed to load page');
+        if (!res.ok) {
+            dynamicContainer.innerHTML = '<p class="empty-state__text">加载失败</p>';
+            return;
+        }
         const r = await res.json();
         if (r.code === 200 && r.data) {
             const d = r.data;
             let html = d.html_content || '';
-
-            if (d.is_builtin) {
-                html = `<div class="admin-builtin-panel" data-tab="${tabKey}"></div>`;
-            }
-
             dynamicContainer.innerHTML = html;
 
-            // 注入 CSS
             if (d.css_content) {
                 const style = document.createElement('style');
                 style.textContent = d.css_content;
                 document.head.appendChild(style);
             }
 
-            // 注入 JS
             if (d.js_content) {
                 try { eval(d.js_content); } catch(e) { console.error(e); }
             }
 
-            // 触发事件让对应 JS 模块初始化
             document.dispatchEvent(new CustomEvent('dashboard:tab-switched', { detail: { tabKey } }));
+        } else {
+            dynamicContainer.innerHTML = '<p class="empty-state__text">' + (r.msg || '加载失败') + '</p>';
         }
     } catch (e) {
         console.error('[MENU] 加载页面失败:', e);
@@ -153,6 +150,68 @@ async function loadAndInjectPage(tabKey) {
 
 function getCurrentMenuData() {
     return _menuData ? _menuData.data : null;
+}
+
+// ====== Admin 页面初始化 ======
+document.addEventListener('dashboard:tab-switched', (e) => {
+    const tabKey = e.detail?.tabKey;
+    if (!tabKey) return;
+
+    // admin-menu: 页面设置 - 刷新按钮
+    if (tabKey === 'admin-menu') {
+        const btn = document.getElementById('refreshPagesBtn');
+        if (btn && btn.dataset.bound !== 'true') {
+            btn.dataset.bound = 'true';
+            btn.addEventListener('click', async () => {
+                btn.disabled = true;
+                btn.textContent = '刷新中...';
+                try {
+                    const res = await fetch(`${API_BASE_URL}/api/v1/user/pages/refresh`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${AuthGuard.getToken()}`, 'Content-Type': 'application/json' }
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.code === 200) {
+                        if (typeof Toast !== 'undefined') Toast.show('页面已刷新', 'success');
+                        await loadMenu();
+                    } else {
+                        if (typeof Toast !== 'undefined') Toast.show(data.msg || '刷新失败');
+                    }
+                } catch {
+                    if (typeof Toast !== 'undefined') Toast.show('网络错误');
+                }
+                btn.disabled = false;
+                btn.textContent = '刷新页面列表';
+            });
+        }
+    }
+
+    // admin-stats: 加载统计数据
+    if (tabKey === 'admin-stats') {
+        loadStats();
+    }
+});
+
+async function loadStats() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/user/stats`, {
+            headers: { 'Authorization': `Bearer ${AuthGuard.getToken()}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.code === 200 && data.data) {
+            const d = data.data;
+            setText('stat-user-count', d.user_count);
+            setText('stat-doc-count', d.doc_count);
+            setText('stat-view-count', d.view_count);
+            setText('stat-today-users', d.today_active);
+        }
+    } catch (_) {}
+}
+
+function setText(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val ?? '--';
 }
 
 // 暴露到 window
