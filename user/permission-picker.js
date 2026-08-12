@@ -3,6 +3,12 @@
  * Phase 2: ES Module — 共享资源通过 window 访问
  */
 
+// 防止重复加载
+if (window.__PermissionPickerLoaded) {
+    return;
+}
+window.__PermissionPickerLoaded = true;
+
 var AuthGuard = window.AuthGuard;
 var API_BASE_URL = window.API_BASE_URL;
 
