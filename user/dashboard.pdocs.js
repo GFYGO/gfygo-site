@@ -1,10 +1,17 @@
 /**
  * dashboard.pdocs.js
  * 个人文档管理（CRUD、文件夹、编辑器、面包屑）
- * Phase 2: 改为 ES Module
+ * Phase 2: ES Module — 共享资源通过 window 访问
  */
-import { AuthGuard, API_BASE_URL } from '../js/config.js';
-import { $, $$, on, showToast, escapeHtml, setBtnState } from '../js/utils.js';
+
+var AuthGuard = window.AuthGuard;
+var API_BASE_URL = window.API_BASE_URL;
+var $ = window.$;
+var $$ = window.$$;
+var on = window.on;
+var showToast = window.showToast;
+var escapeHtml = window.escapeHtml;
+var setBtnState = window.setBtnState;
 
 const PDocsState = {
     editingId: null,

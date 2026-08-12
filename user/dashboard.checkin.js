@@ -1,10 +1,13 @@
 /**
  * dashboard.checkin.js
  * 日历打卡系统
- * Phase 2: 改为 ES Module
+ * Phase 2: ES Module — 共享资源通过 window 访问
  */
-import { AuthGuard } from '../js/config.js';
-import { $, on, showToast } from '../js/utils.js';
+
+var AuthGuard = window.AuthGuard;
+var $ = window.$;
+var on = window.on;
+var showToast = window.showToast;
 
 const CHECKIN_KEY_PREFIX = 'checkin_record_';
 let calendarState = null;

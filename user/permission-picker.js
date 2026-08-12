@@ -1,8 +1,10 @@
 /**
  * permission-picker.js - LuckPerms 风格图形化权限节点编辑器
- * Phase 2: 改为 ES Module
+ * Phase 2: ES Module — 共享资源通过 window 访问
  */
-import { AuthGuard, API_BASE_URL } from '../js/config.js';
+
+var AuthGuard = window.AuthGuard;
+var API_BASE_URL = window.API_BASE_URL;
 
 class PermissionPicker {
     constructor(container, options) {

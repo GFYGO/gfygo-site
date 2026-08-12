@@ -1,10 +1,15 @@
 /**
  * dashboard.deletion.js
  * 账号注销功能
- * Phase 2: 改为 ES Module
+ * Phase 2: ES Module — 共享资源通过 window 访问
  */
-import { AuthGuard, API_BASE_URL } from '../js/config.js';
-import { $, on, showToast, setBtnState } from '../js/utils.js';
+
+var AuthGuard = window.AuthGuard;
+var API_BASE_URL = window.API_BASE_URL;
+var $ = window.$;
+var on = window.on;
+var showToast = window.showToast;
+var setBtnState = window.setBtnState;
 
 /** 初始化注销功能 */
 function initDeletion() {
