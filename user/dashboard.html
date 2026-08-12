@@ -232,12 +232,13 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.js"></script>
-    <!-- ES Module 加载：按依赖顺序 -->
-    <script type="module" src="./../js/config.js"></script>
-    <script type="module" src="./../js/utils.js"></script>
-    <script type="module" src="./../js/toast.js"></script>
-    <script type="module" src="./../js/theme.js"></script>
-    <script type="module" src="./../js/modal.js"></script>
+    <!-- 共享脚本：普通 <script> 加载，暴露到 window -->
+    <script src="./../js/config.js"></script>
+    <script src="./../js/utils.js"></script>
+    <script src="./../js/toast.js"></script>
+    <script src="./../js/theme.js"></script>
+    <script src="./../js/modal.js"></script>
+    <!-- Dashboard 模块：ES Module 加载 -->
     <script type="module" src="./dashboard.permission.js"></script>
     <script type="module" src="./dashboard.auth.js"></script>
     <script type="module" src="./dashboard.checkin.js"></script>

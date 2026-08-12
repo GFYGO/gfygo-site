@@ -1,10 +1,10 @@
 /**
  * toast.js
  * 轻量级通知组件
- * Phase 1: 改为 ES Module，保留 window 兼容层
+ * 共享模块：所有页面以普通 <script> 加载
  */
 
-const Toast = {
+var Toast = {
     container: null,
     maxToasts: 3,
 
@@ -16,58 +16,58 @@ const Toast = {
         }
     },
 
-    show: function(message, type = 'error') {
+    show: function(message, type) {
+        type = type || 'error';
         this.init();
 
-        const toasts = this.container.querySelectorAll('.toast');
+        var toasts = this.container.querySelectorAll('.toast');
         if (toasts.length >= this.maxToasts) {
             this.container.removeChild(toasts[0]);
         }
 
-        const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
+        var toast = document.createElement('div');
+        toast.className = 'toast toast-' + type;
 
-        const messageSpan = document.createElement('span');
+        var messageSpan = document.createElement('span');
         messageSpan.className = 'toast-message';
         messageSpan.textContent = message;
         toast.appendChild(messageSpan);
 
-        const closeBtn = document.createElement('button');
+        var closeBtn = document.createElement('button');
         closeBtn.className = 'toast-close';
         closeBtn.setAttribute('aria-label', '关闭');
         closeBtn.innerHTML = '&times;';
         toast.appendChild(closeBtn);
 
-        closeBtn.onclick = () => this.remove(toast);
+        var self = this;
+        closeBtn.onclick = function() { self.remove(toast); };
 
         this.container.appendChild(toast);
 
-        requestAnimationFrame(() => {
+        requestAnimationFrame(function() {
             toast.classList.add('toast-show');
         });
 
-        setTimeout(() => {
-            this.remove(toast);
+        setTimeout(function() {
+            self.remove(toast);
         }, 3000);
     },
 
     remove: function(toast) {
+        var self = this;
         toast.classList.remove('toast-show');
-        toast.addEventListener('transitionend', () => {
-            if (toast.parentNode === this.container) {
-                this.container.removeChild(toast);
+        toast.addEventListener('transitionend', function() {
+            if (toast.parentNode === self.container) {
+                self.container.removeChild(toast);
             }
         }, { once: true });
-        setTimeout(() => {
-            if (toast.parentNode === this.container) {
-                this.container.removeChild(toast);
+        setTimeout(function() {
+            if (toast.parentNode === self.container) {
+                self.container.removeChild(toast);
             }
         }, 500);
     }
 };
 
-export default Toast;
-export { Toast };
-
-// ===== 兼容层：迁移期保留 window 挂载 =====
+// ===== 全局挂载 =====
 window.Toast = Toast;

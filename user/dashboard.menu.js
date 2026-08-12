@@ -1,11 +1,13 @@
 /**
  * dashboard.menu.js
  * 动态菜单与 Tab 切换
- * Phase 2: 改为 ES Module
+ * Phase 2: ES Module — 共享资源通过 window 访问
  */
-import { AuthGuard, API_BASE_URL } from '../js/config.js';
-import { $ } from '../js/utils.js';
 import { renderDeletionStatus } from './dashboard.deletion.js';
+
+var AuthGuard = window.AuthGuard;
+var API_BASE_URL = window.API_BASE_URL;
+var $ = window.$;
 
 let _menuData = null;
 

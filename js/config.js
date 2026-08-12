@@ -1,23 +1,15 @@
 /**
  * config.js
  * 全局配置与路由守卫
- * Phase 1: 改为 ES Module，同时保留 window 兼容层
+ * 共享模块：所有页面以普通 <script> 加载
  */
 
-// ✅ 任务 FE-JS-01: 定义 API 基地址
 const API_BASE_URL = "https://back.gwl.net.cn";
-
-// 路径前缀：子目录页面用 '..'，根目录页面用 '.'
 const BASE_PATH = (window.location.pathname.match(/\/(user|model)\//) ? '..' : '.');
-
-// Token 相关常量
 const TOKEN_KEY = 'auth_token';
 
-/**
- * Token 读取与过期拦截逻辑
- */
 const AuthGuard = {
-  getToken() {
+  getToken: function() {
     try {
       const tokenData = JSON.parse(localStorage.getItem(TOKEN_KEY));
       if (!tokenData) return null;
@@ -31,31 +23,28 @@ const AuthGuard = {
       return null;
     }
   },
-  setToken(token, expiresInSec) {
+  setToken: function(token, expiresInSec) {
     const expiresInMs = expiresInSec * 1000;
     localStorage.setItem(TOKEN_KEY, JSON.stringify({
-      token,
+      token: token,
       timestamp: Date.now(),
       expiresIn: expiresInMs
     }));
   },
-  clearToken() {
+  clearToken: function() {
     localStorage.removeItem(TOKEN_KEY);
   },
-  requireAuth() {
+  requireAuth: function() {
     if (!this.getToken()) {
-      window.location.href = `${BASE_PATH}/login.html`;
+      window.location.href = BASE_PATH + '/login.html';
     }
   },
-  handleAuthError() {
+  handleAuthError: function() {
     this.clearToken();
-    window.location.href = `${BASE_PATH}/login.html`;
+    window.location.href = BASE_PATH + '/login.html';
   }
 };
 
-/**
- * 从 JWT claims 解析 now_permission
- */
 function getNowPermission() {
   const raw = AuthGuard.getToken();
   if (!raw) return { level: 0, context: null, nodes: [] };
@@ -71,22 +60,15 @@ function getNowPermission() {
   }
 }
 
-// 全局运行时权限状态
 const nowPermission = getNowPermission();
 
-/**
- * 检查当前用户是否拥有指定权限节点
- */
 function hasPermission(nodeCode) {
   const np = window.__nowPermission || nowPermission;
   return (np.nodes || []).includes(nodeCode);
 }
 
-/**
- * 根据 data-permission 属性自动显隐元素
- */
 function initPermissionVisibility() {
-  document.querySelectorAll('[data-permission]').forEach(el => {
+  document.querySelectorAll('[data-permission]').forEach(function(el) {
     const node = el.dataset.permission;
     if (!node) return;
     if (!hasPermission(node)) {
@@ -99,12 +81,12 @@ function initPermissionVisibility() {
   });
 }
 
-// ===== ES Module exports =====
-export { API_BASE_URL, BASE_PATH, TOKEN_KEY, AuthGuard, getNowPermission, hasPermission, initPermissionVisibility };
-
-// ===== 兼容层：迁移期保留 window 挂载 =====
+// ===== 全局挂载 =====
 window.API_BASE_URL = API_BASE_URL;
+window.BASE_PATH = BASE_PATH;
+window.TOKEN_KEY = TOKEN_KEY;
 window.AuthGuard = AuthGuard;
+window.getNowPermission = getNowPermission;
 window.hasPermission = hasPermission;
 window.initPermissionVisibility = initPermissionVisibility;
 window.__nowPermission = nowPermission;

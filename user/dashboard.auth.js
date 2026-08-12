@@ -1,13 +1,22 @@
 /**
  * dashboard.auth.js
  * 用户认证、权限按钮、主题切换、邮箱验证
- * Phase 2: 改为 ES Module
+ * Phase 2: ES Module — 共享资源通过 window 访问
  */
-import { AuthGuard, API_BASE_URL, BASE_PATH } from '../js/config.js';
-import { $, $$, on, showToast, setBtnState, fallbackCopy } from '../js/utils.js';
-import { Toast } from '../js/toast.js';
-import { ThemeEngine } from '../js/theme.js';
 import DashboardMenu from './dashboard.menu.js';
+
+// ===== 从 window 获取共享资源 =====
+var AuthGuard = window.AuthGuard;
+var API_BASE_URL = window.API_BASE_URL;
+var BASE_PATH = window.BASE_PATH;
+var $ = window.$;
+var $$ = window.$$;
+var on = window.on;
+var showToast = window.showToast;
+var setBtnState = window.setBtnState;
+var fallbackCopy = window.fallbackCopy;
+var Toast = window.Toast;
+var ThemeEngine = window.ThemeEngine;
 
 const ROLE_NAMES = {
     0: '未登录',

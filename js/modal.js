@@ -1,92 +1,86 @@
 /**
  * modal.js
  * 自定义弹窗组件
- * Phase 1: 改为 ES Module，保留 window 兼容层
+ * 共享模块：所有页面以普通 <script> 加载
  */
 
-const Modal = {
-    confirm: function(message, options = {}) {
-        return new Promise((resolve) => {
-            const {
-                title = '确认',
-                confirmText = '确认',
-                cancelText = '取消'
-            } = options;
+var Modal = {
+    confirm: function(message, options) {
+        options = options || {};
+        var self = this;
+        return new Promise(function(resolve) {
+            var title = options.title || '确认';
+            var confirmText = options.confirmText || '确认';
+            var cancelText = options.cancelText || '取消';
 
-            const modal = this._createModal({
-                title,
-                content: `<p class="modal-message">${this._escapeHtml(message)}</p>`,
+            var modal = self._createModal({
+                title: title,
+                content: '<p class="modal-message">' + self._escapeHtml(message) + '</p>',
                 buttons: [
                     {
                         text: cancelText,
-                        class: 'modal-btn-cancel',
-                        onClick: () => {
-                            this._closeModal(modal);
+                        cls: 'modal-btn-cancel',
+                        onClick: function() {
+                            self._closeModal(modal);
                             resolve(false);
                         }
                     },
                     {
                         text: confirmText,
-                        class: 'modal-btn-confirm',
-                        onClick: () => {
-                            this._closeModal(modal);
+                        cls: 'modal-btn-confirm',
+                        onClick: function() {
+                            self._closeModal(modal);
                             resolve(true);
                         }
                     }
                 ]
             });
 
-            this._showModal(modal);
+            self._showModal(modal);
         });
     },
 
-    prompt: function(message, defaultValue = '', options = {}) {
-        return new Promise((resolve) => {
-            const {
-                title = '请输入',
-                confirmText = '确认',
-                cancelText = '取消',
-                placeholder = '',
-                inputType = 'text'
-            } = options;
+    prompt: function(message, defaultValue, options) {
+        defaultValue = defaultValue || '';
+        options = options || {};
+        var self = this;
+        return new Promise(function(resolve) {
+            var title = options.title || '请输入';
+            var confirmText = options.confirmText || '确认';
+            var cancelText = options.cancelText || '取消';
+            var placeholder = options.placeholder || '';
+            var inputType = options.inputType || 'text';
 
-            const escapedMessage = this._escapeHtml(message);
-            const escapedDefault = this._escapeHtml(defaultValue);
-            const escapedPlaceholder = this._escapeHtml(placeholder);
+            var escapedMessage = self._escapeHtml(message);
+            var escapedDefault = self._escapeHtml(defaultValue);
+            var escapedPlaceholder = self._escapeHtml(placeholder);
 
-            const modal = this._createModal({
-                title,
-                content: `
-                    <p class="modal-message">${escapedMessage}</p>
-                    <input 
-                        type="${inputType}" 
-                        class="modal-input" 
-                        value="${escapedDefault}" 
-                        placeholder="${escapedPlaceholder}"
-                    >
-                `,
+            var modal = self._createModal({
+                title: title,
+                content: '<p class="modal-message">' + escapedMessage + '</p>' +
+                    '<input type="' + inputType + '" class="modal-input" value="' + escapedDefault + '" placeholder="' + escapedPlaceholder + '">',
                 buttons: [
                     {
                         text: cancelText,
-                        class: 'modal-btn-cancel',
-                        onClick: () => {
-                            this._closeModal(modal);
+                        cls: 'modal-btn-cancel',
+                        onClick: function() {
+                            self._closeModal(modal);
                             resolve(null);
                         }
                     },
                     {
                         text: confirmText,
-                        class: 'modal-btn-confirm',
-                        onClick: () => {
-                            const input = modal.querySelector('.modal-input');
-                            const value = input ? input.value : '';
-                            this._closeModal(modal);
+                        cls: 'modal-btn-confirm',
+                        onClick: function() {
+                            var input = modal.querySelector('.modal-input');
+                            var value = input ? input.value : '';
+                            self._closeModal(modal);
                             resolve(value);
                         }
                     }
                 ],
-                onShow: (modalEl) => {
-                    const input = modalEl.querySelector('.modal-input');
+                onShow: function(modalEl) {
+                    var input = modalEl.querySelector('.modal-input');
                     if (input) {
                         input.focus();
                         input.select();
@@ -94,81 +88,73 @@ const Modal = {
                 }
             });
 
-            this._showModal(modal);
+            self._showModal(modal);
         });
     },
 
-    alert: function(message, options = {}) {
-        return new Promise((resolve) => {
-            const {
-                title = '提示',
-                confirmText = '确定'
-            } = options;
+    alert: function(message, options) {
+        options = options || {};
+        var self = this;
+        return new Promise(function(resolve) {
+            var title = options.title || '提示';
+            var confirmText = options.confirmText || '确定';
 
-            const modal = this._createModal({
-                title,
-                content: `<p class="modal-message">${this._escapeHtml(message)}</p>`,
+            var modal = self._createModal({
+                title: title,
+                content: '<p class="modal-message">' + self._escapeHtml(message) + '</p>',
                 buttons: [
                     {
                         text: confirmText,
-                        class: 'modal-btn-confirm',
-                        onClick: () => {
-                            this._closeModal(modal);
+                        cls: 'modal-btn-confirm',
+                        onClick: function() {
+                            self._closeModal(modal);
                             resolve();
                         }
                     }
                 ]
             });
 
-            this._showModal(modal);
+            self._showModal(modal);
         });
     },
 
-    _createModal: function({ title, content, buttons, onShow }) {
-        const modalHtml = `
-            <div class="modal-overlay">
-                <div class="modal-container" role="dialog" aria-modal="true">
-                    <div class="modal-header">
-                        <h3 class="modal-title">${this._escapeHtml(title)}</h3>
-                    </div>
-                    <div class="modal-body">
-                        ${content}
-                    </div>
-                    <div class="modal-footer">
-                        ${buttons.map((btn, index) => `
-                            <button 
-                                type="button" 
-                                class="modal-btn ${btn.class}" 
-                                data-index="${index}"
-                            >
-                                ${this._escapeHtml(btn.text)}
-                            </button>
-                        `).join('')}
-                    </div>
-                </div>
-            </div>
-        `;
+    _createModal: function(cfg) {
+        var self = this;
+        var title = this._escapeHtml(cfg.title);
 
-        const container = document.createElement('div');
+        var buttonsHtml = cfg.buttons.map(function(btn, index) {
+            return '<button type="button" class="modal-btn ' + btn.cls + '" data-index="' + index + '">' + self._escapeHtml(btn.text) + '</button>';
+        }).join('');
+
+        var modalHtml =
+            '<div class="modal-overlay">' +
+                '<div class="modal-container" role="dialog" aria-modal="true">' +
+                    '<div class="modal-header"><h3 class="modal-title">' + title + '</h3></div>' +
+                    '<div class="modal-body">' + cfg.content + '</div>' +
+                    '<div class="modal-footer">' + buttonsHtml + '</div>' +
+                '</div>' +
+            '</div>';
+
+        var container = document.createElement('div');
         container.className = 'modal-wrapper';
         container.innerHTML = modalHtml;
 
-        buttons.forEach((btn, index) => {
-            const btnEl = container.querySelector(`button[data-index="${index}"]`);
+        cfg.buttons.forEach(function(btn, index) {
+            var btnEl = container.querySelector('button[data-index="' + index + '"]');
             if (btnEl && btn.onClick) {
                 btnEl.addEventListener('click', btn.onClick);
             }
         });
 
-        const overlay = container.querySelector('.modal-overlay');
+        var overlay = container.querySelector('.modal-overlay');
         if (overlay) {
-            overlay.addEventListener('click', (e) => {
+            overlay.addEventListener('click', function(e) {
                 if (e.target === overlay) {
-                    const cancelBtn = buttons.find(b => b.class === 'modal-btn-cancel');
+                    var cancelBtn = cfg.buttons.find(function(b) { return b.cls === 'modal-btn-cancel'; });
                     if (cancelBtn && cancelBtn.onClick) {
                         cancelBtn.onClick();
                     } else {
-                        const confirmBtn = buttons.find(b => b.class === 'modal-btn-confirm');
+                        var confirmBtn = cfg.buttons.find(function(b) { return b.cls === 'modal-btn-confirm'; });
                         if (confirmBtn && confirmBtn.onClick) {
                             confirmBtn.onClick();
                         }
@@ -177,22 +163,18 @@ const Modal = {
             });
         }
 
-        const handleKeydown = (e) => {
+        var handleKeydown = function(e) {
             if (e.key === 'Escape') {
-                const cancelBtn = buttons.find(b => b.class === 'modal-btn-cancel');
-                if (cancelBtn && cancelBtn.onClick) {
-                    cancelBtn.onClick();
-                }
+                var cancelBtn = cfg.buttons.find(function(b) { return b.cls === 'modal-btn-cancel'; });
+                if (cancelBtn && cancelBtn.onClick) cancelBtn.onClick();
             } else if (e.key === 'Enter') {
-                const confirmBtn = buttons.find(b => b.class === 'modal-btn-confirm');
-                if (confirmBtn && confirmBtn.onClick) {
-                    confirmBtn.onClick();
-                }
+                var confirmBtn = cfg.buttons.find(function(b) { return b.cls === 'modal-btn-confirm'; });
+                if (confirmBtn && confirmBtn.onClick) confirmBtn.onClick();
             }
         };
 
         container._handleKeydown = handleKeydown;
-        container._onShow = onShow;
+        container._onShow = cfg.onShow;
 
         return container;
     },
@@ -203,7 +185,7 @@ const Modal = {
 
         document.addEventListener('keydown', modal._handleKeydown);
 
-        requestAnimationFrame(() => {
+        requestAnimationFrame(function() {
             modal.querySelector('.modal-overlay').classList.add('modal-show');
         });
 
@@ -215,17 +197,17 @@ const Modal = {
     _closeModal: function(modal) {
         document.removeEventListener('keydown', modal._handleKeydown);
 
-        const overlay = modal.querySelector('.modal-overlay');
+        var overlay = modal.querySelector('.modal-overlay');
         if (overlay) {
             overlay.classList.remove('modal-show');
             overlay.classList.add('modal-hide');
         }
 
-        setTimeout(() => {
+        setTimeout(function() {
             if (modal && modal.parentNode) {
                 modal.parentNode.removeChild(modal);
             }
-            const modals = document.querySelectorAll('.modal-wrapper');
+            var modals = document.querySelectorAll('.modal-wrapper');
             if (modals.length === 0) {
                 document.body.style.overflow = '';
             }
@@ -243,8 +225,5 @@ const Modal = {
     }
 };
 
-export default Modal;
-export { Modal };
-
-// ===== 兼容层：迁移期保留 window 挂载 =====
+// ===== 全局挂载 =====
 window.Modal = Modal;

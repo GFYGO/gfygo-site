@@ -1,28 +1,27 @@
 /**
  * utils.js
  * 通用工具函数：DOM 操作、Toast 封装、HTML 转义等
- * Phase 1: 从 dashboard.utils.js 迁移，改为 ES Module
+ * 共享模块：所有页面以普通 <script> 加载
  */
 
-/** 简化 document.getElementById */
-export function $(id) {
+function $(id) {
     return document.getElementById(id);
 }
 
-/** 简化 querySelectorAll */
-export function $$(selector, container = document) {
-    return container.querySelectorAll(selector);
+function $$(selector, container) {
+    return (container || document).querySelectorAll(selector);
 }
 
-/** 简化 addEventListener */
-export function on(el, event, handler, opts) {
+function on(el, event, handler, opts) {
     if (el) el.addEventListener(event, handler, opts);
 }
 
-/** 创建 DOM 元素并设置属性/事件 */
-export function createEl(tag, props = {}) {
+function createEl(tag, props) {
+    props = props || {};
     const el = document.createElement(tag);
-    for (const [key, val] of Object.entries(props)) {
+    for (const key in props) {
+        if (!Object.prototype.hasOwnProperty.call(props, key)) continue;
+        const val = props[key];
         if (key === 'class') el.className = val;
         else if (key === 'html') el.innerHTML = val;
         else if (key === 'text') el.textContent = val;
@@ -35,8 +34,7 @@ export function createEl(tag, props = {}) {
     return el;
 }
 
-/** 统一按钮 loading 状态管理 */
-export function setBtnState(btn, loading, originalText) {
+function setBtnState(btn, loading, originalText) {
     if (!btn) return;
     if (loading) {
         btn.disabled = true;
@@ -46,22 +44,19 @@ export function setBtnState(btn, loading, originalText) {
     }
 }
 
-/** 封装 Toast 调用（兼容 undefined，Phase 2 后改为 import Toast from './toast.js'） */
-export function showToast(msg, type) {
+function showToast(msg, type) {
     if (typeof Toast !== 'undefined' && Toast.show) {
         Toast.show(msg, type || 'info');
     }
 }
 
-/** HTML 转义 */
-export function escapeHtml(str) {
-    return String(str || '').replace(/[&<>"']/g, c => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[c]));
+function escapeHtml(str) {
+    return String(str || '').replace(/[&<>"']/g, function(c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
 }
 
-/** 兼容旧浏览器的复制方案 */
-export function fallbackCopy(text) {
+function fallbackCopy(text) {
     try {
         const textarea = document.createElement('textarea');
         textarea.value = text;
@@ -77,7 +72,7 @@ export function fallbackCopy(text) {
     }
 }
 
-// ===== 兼容层：迁移期保留全局挂载 =====
+// ===== 全局挂载 =====
 window.$ = $;
 window.$$ = $$;
 window.on = on;

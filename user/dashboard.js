@@ -1,24 +1,31 @@
 /**
  * dashboard.js
  * 精简入口：全局初始化、用户信息、侧边栏、退出
- * Phase 2: 改为 ES Module
+ * Phase 2: ES Module — 共享资源通过 window 访问
  */
-import { AuthGuard, API_BASE_URL, BASE_PATH, initPermissionVisibility } from '../js/config.js';
-import { $, on, showToast } from '../js/utils.js';
-import { Toast } from '../js/toast.js';
-import { ThemeEngine } from '../js/theme.js';
-import { Modal } from '../js/modal.js';
 import { initAuthModules, sendVerificationEmail } from './dashboard.auth.js';
-import DashboardMenu, { loadMenu, switchTab } from './dashboard.menu.js';
+import DashboardMenu from './dashboard.menu.js';
 import { initCheckinButtons } from './dashboard.checkin.js';
 import { initDeletion, renderDeletionStatus } from './dashboard.deletion.js';
 import { loadPersonalDocs } from './dashboard.pdocs.js';
 
+// ===== 从 window 获取共享资源（config.js / toast.js / theme.js / utils.js 以普通 <script> 加载）=====
+var AuthGuard = window.AuthGuard;
+var API_BASE_URL = window.API_BASE_URL;
+var BASE_PATH = window.BASE_PATH;
+var initPermissionVisibility = window.initPermissionVisibility;
+var $ = window.$;
+var on = window.on;
+var showToast = window.showToast;
+var Toast = window.Toast;
+var ThemeEngine = window.ThemeEngine;
+var Modal = window.Modal;
+
 /** 获取并渲染用户信息（从 /api/v1/user/menu 获取 user_info） */
 async function renderUserInfo(token) {
     try {
-        const res = await fetch(`${API_BASE_URL}/api/v1/user/menu`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+        const res = await fetch(API_BASE_URL + '/api/v1/user/menu', {
+            headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await res.json();
         if (res.ok && data.code === 200) {
@@ -36,7 +43,7 @@ async function renderUserInfo(token) {
 }
 
 // DOMContentLoaded 后初始化
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', async function() {
     // 初始化基础模块
     Toast.init();
     ThemeEngine.init();
@@ -49,7 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // 1. 渲染用户信息 + 加载菜单
-    const menuData = await renderUserInfo(token);
+    await renderUserInfo(token);
 
     // 2. 加载并渲染菜单
     await DashboardMenu.loadMenu();
@@ -69,7 +76,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 初始化设置按钮
     const settingsBtn = $('settingsBtn');
     if (settingsBtn) {
-        on(settingsBtn, 'click', () => {
+        on(settingsBtn, 'click', function() {
             DashboardMenu.switchTab('settings');
         });
     }
@@ -80,24 +87,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 初始化个人文档全局引用
     if (typeof window.initPersonalDocs !== 'function') {
-        window.initPersonalDocs = function() {
-            loadPersonalDocs();
-        };
+        window.initPersonalDocs = function() { loadPersonalDocs(); };
     }
 
     // 初始化打卡模块全局引用
     if (typeof window.initCheckinModule !== 'function') {
-        window.initCheckinModule = function() {
-            initCheckinButtons();
-        };
+        window.initCheckinModule = function() { initCheckinButtons(); };
     }
 
     // 绑定验证码按钮
     const verifyEmailBtnEl = $('verifyEmailBtn');
     if (verifyEmailBtnEl) {
-        on(verifyEmailBtnEl, 'click', () => {
-            sendVerificationEmail();
-        });
+        on(verifyEmailBtnEl, 'click', function() { sendVerificationEmail(); });
     }
 });
 
@@ -105,18 +106,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 function bindGlobalEvents() {
     const logoutBtn = $('logoutBtn');
     if (logoutBtn) {
-        on(logoutBtn, 'click', () => {
+        on(logoutBtn, 'click', function() {
             AuthGuard.clearToken();
             showToast('已退出登录', 'success');
-            setTimeout(() => {
-                window.location.replace(`${BASE_PATH || './'}login.html?_t=${Date.now()}`);
+            setTimeout(function() {
+                window.location.replace((BASE_PATH || './') + '/login.html?_t=' + Date.now());
             }, 800);
         });
     }
 
     const toggleBtn = $('sidebarToggleBtn');
     if (toggleBtn) {
-        on(toggleBtn, 'click', () => {
+        on(toggleBtn, 'click', function() {
             const sidebar = $('dashboardSidebar');
             const overlay = $('sidebarOverlay');
             if (sidebar) sidebar.classList.toggle('dashboard-sidebar--open');
@@ -126,7 +127,7 @@ function bindGlobalEvents() {
 
     const userTrigger = $('sidebarUserTrigger');
     if (userTrigger) {
-        on(userTrigger, 'click', () => {
+        on(userTrigger, 'click', function() {
             DashboardMenu.switchTab('home');
         });
     }
@@ -136,7 +137,7 @@ function bindGlobalEvents() {
 function initSidebar() {
     const overlay = $('sidebarOverlay');
     if (overlay) {
-        on(overlay, 'click', () => {
+        on(overlay, 'click', function() {
             const sidebar = $('dashboardSidebar');
             if (sidebar) sidebar.classList.remove('dashboard-sidebar--open');
             overlay.classList.remove('sidebar-overlay--visible');
@@ -146,6 +147,4 @@ function initSidebar() {
 
 // ===== ES Module exports =====
 export { renderUserInfo, initSidebar, bindGlobalEvents };
-
-// ===== 兼容层：供 dashboard.auth.js 的 switchLevel 调用 =====
 window.renderUserInfo = renderUserInfo;
