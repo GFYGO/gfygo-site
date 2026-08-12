@@ -76,6 +76,24 @@ body.theme-dark_green {
   --color-border: #334155;
 }
 
+/* 深色主题全局文字颜色修复 */
+body.theme-dark_green input,
+body.theme-dark_green textarea,
+body.theme-dark_green select,
+body.theme-dark_green button,
+body.theme-gray input,
+body.theme-gray textarea,
+body.theme-gray select,
+body.theme-gray button {
+  color: var(--color-text-main);
+}
+
+body.theme-dark_green select option,
+body.theme-gray select option {
+  background: var(--color-bg-white);
+  color: var(--color-text-main);
+}
+
 /* =========================================
    2. Reset & Base
    ========================================= */
@@ -527,25 +545,62 @@ a.feature-tile:hover .feature-tile__desc {
 /* --- FE-CSS-02: 通知弹窗样式 --- */
 .notification-toast {
   position: fixed;
-  top: 20px;
+  top: 70px;
   right: 20px;
-  z-index: 1000; /* 确保层级最高，悬浮在所有元素之上 */
+  z-index: 999;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-width: 320px;
-  pointer-events: none; /* 允许点击穿透到下层元素（如果通知本身不可交互） */
+  max-width: 360px;
+  pointer-events: auto;
 }
 
 .notification-item {
+  position: relative;
   background-color: var(--color-bg-white);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 16px;
+  padding-right: 36px;
   box-shadow: var(--shadow-lg);
-  pointer-events: auto; /* 恢复通知自身的交互能力 */
+  pointer-events: auto;
   animation: slideIn 0.3s ease-out forwards;
-  border-left: 4px solid var(--color-primary); /* 左侧高亮条，增强视觉 */
+  border-left: 4px solid var(--color-primary);
+}
+
+.notification-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.notification-close:hover {
+  background: var(--color-border);
+  color: var(--color-text-main);
+}
+
+body.theme-dark_green .notification-close,
+body.theme-gray .notification-close {
+  color: var(--color-text-muted);
+}
+
+body.theme-dark_green .notification-close:hover,
+body.theme-gray .notification-close:hover {
+  background: var(--color-border);
+  color: var(--color-text-main);
 }
 
 .notification-item h3 {
@@ -580,7 +635,7 @@ a.feature-tile:hover .feature-tile__desc {
   }
   
   .notification-toast {
-    top: 10px;
+    top: 60px;
     right: 10px;
     left: 10px;
     max-width: none;

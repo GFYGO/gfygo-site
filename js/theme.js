@@ -23,12 +23,15 @@ var ThemeEngine = {
     },
 
     bindSwitchEvent: function() {
+        if (this._switchBound) return;
+        this._switchBound = true;
         var switcherBtn = document.getElementById('theme-selector');
         if (switcherBtn) {
             var self = this;
             switcherBtn.addEventListener('click', function() {
                 var currentTheme = localStorage.getItem(THEME_KEY) || 'green';
                 var currentIndex = THEME_LIST.indexOf(currentTheme);
+                if (currentIndex < 0) currentIndex = 0;
                 var nextIndex = (currentIndex + 1) % THEME_LIST.length;
                 var nextTheme = THEME_LIST[nextIndex];
                 self.applyTheme(nextTheme);

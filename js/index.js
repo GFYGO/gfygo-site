@@ -157,14 +157,34 @@ function renderGlobalNotifications(notifications) {
     return;
   }
 
+  container.style.display = 'flex';
+  
   notifications.forEach(notification => {
     const notificationEl = document.createElement('div');
     notificationEl.className = 'notification-item';
-    const h3 = document.createElement('h3');
-    h3.textContent = notification.title;
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'notification-close';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.setAttribute('aria-label', '关闭通知');
+    closeBtn.addEventListener('click', function() {
+      notificationEl.style.transition = 'opacity 0.2s';
+      notificationEl.style.opacity = '0';
+      setTimeout(function() {
+        notificationEl.remove();
+        if (container.children.length === 0) {
+          container.style.display = 'none';
+        }
+      }, 200);
+    });
+    
+    const titleEl = document.createElement('h3');
+    titleEl.textContent = notification.title;
     const p = document.createElement('p');
     p.textContent = notification.content;
-    notificationEl.appendChild(h3);
+    
+    notificationEl.appendChild(closeBtn);
+    notificationEl.appendChild(titleEl);
     notificationEl.appendChild(p);
     container.appendChild(notificationEl);
   });
@@ -322,19 +342,10 @@ window.handlePermissionClick = window.handlePermissionClick || async function (l
 
   // 判断当前页面是否是 dashboard 类页面（需要跳转）
   const isDashboardPage = /\/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname);
-  const adminPaths = { 2: 'admin1', 3: 'admin2', 4: 'admin3', 5: 'superadmin' };
 
   if (isDashboardPage) {
-    if (level === 1) {
-      localStorage.removeItem('guest_view_mode');
-      window.location.href = `${BASE_PATH}/user/dashboard.html`;
-      return;
-    }
-    const folder = adminPaths[level];
-    if (folder) {
-      localStorage.removeItem('guest_view_mode');
-      window.location.href = `${BASE_PATH}/${folder}/dashboard.html`;
-    }
+    localStorage.removeItem('guest_view_mode');
+    window.location.href = `${BASE_PATH}/user/dashboard.html`;
     return;
   }
 

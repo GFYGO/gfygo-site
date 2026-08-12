@@ -25,6 +25,7 @@ const PDocsState = {
     browserDocId: null,
     browserDocSlug: null
 };
+window.PDocsState = PDocsState;
 
 function ensureMarkedLoaded() {
     if (PDocsState.markedReady) return Promise.resolve();

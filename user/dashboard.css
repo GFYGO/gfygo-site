@@ -2432,7 +2432,20 @@ input:checked + .slider:before { transform: translateX(18px); }
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
-    flex: 0 0 340px;
+    flex: 1;
+    min-width: 280px;
+    align-content: start;
+}
+.stats-card {
+    background: var(--color-bg-white, #fff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: var(--radius-md, 8px);
+    padding: 16px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-self: start;
 }
 .stats-right {
     flex: 1;

@@ -47,6 +47,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     Toast.init();
     ThemeEngine.init();
     ThemeEngine.bindSwitchEvent();
+    bindThemeOptButtons();
 
     const token = AuthGuard.getToken();
     if (!token) {
@@ -55,7 +56,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     // 1. 渲染用户信息 + 加载菜单
-    await renderUserInfo(token);
+    const menuData = await renderUserInfo(token);
 
     // 2. 加载并渲染菜单
     await DashboardMenu.loadMenu();
@@ -79,7 +80,24 @@ document.addEventListener('DOMContentLoaded', async function() {
     initDeletion();
     renderDeletionStatus();
 
-    // 初始化个人文档全局引用
+    // 初始化个人文档全局引用 & 设置 currentUserId
+    if (menuData && menuData.user_info) {
+        const ui = menuData.user_info;
+        const userObj = ui.id || ui.user_id || null;
+        if (userObj) {
+            try {
+                const { initPersonalDocs, PDocsState: pds } = await import('./dashboard.pdocs.js');
+                if (pds) pds.currentUserId = userObj;
+                if (initPersonalDocs) initPersonalDocs();
+            } catch(e) {
+                console.warn('[pdocs] 加载个人文档模块失败:', e);
+                if (window.PDocsState) window.PDocsState.currentUserId = userObj;
+                if (typeof window.initPersonalDocs === 'function') {
+                    window.initPersonalDocs();
+                }
+            }
+        }
+    }
     if (typeof window.initPersonalDocs !== 'function') {
         window.initPersonalDocs = function() { loadPersonalDocs(); };
     }
@@ -89,6 +107,23 @@ document.addEventListener('DOMContentLoaded', async function() {
         window.initCheckinModule = function() { initCheckinButtons(); };
     }
 });
+
+/** 绑定设置面板中的主题选择按钮 */
+function bindThemeOptButtons() {
+    const buttons = document.querySelectorAll('.theme-opt');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const theme = btn.dataset.theme;
+            if (theme && ThemeEngine) {
+                ThemeEngine.applyTheme(theme);
+                const token = AuthGuard.getToken();
+                if (token) {
+                    ThemeEngine.syncThemeToServer(theme, token);
+                }
+            }
+        });
+    });
+}
 
 /** 绑定全局事件（退出按钮已由 renderTopNavAuth 处理，userTrigger 已由 initSidebarToggle 处理） */
 function bindGlobalEvents() {

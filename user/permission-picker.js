@@ -474,9 +474,5 @@ class PermissionPicker {
     }
 }
 
-// ===== ES Module exports =====
-export { PermissionPicker };
-export default PermissionPicker;
-
-// ===== 兼容层 =====
+// ===== 全局挂载 =====
 window.PermissionPicker = PermissionPicker;
