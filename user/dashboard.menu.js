@@ -16,7 +16,7 @@ async function loadMenu() {
         const token = AuthGuard.getToken();
         const headers = {};
         if (token) headers['Authorization'] = 'Bearer ' + token;
-        const res = await fetch(`${API_BASE_URL}/api/v1/user/menu`, { headers });
+        const res = await fetch(`${API_BASE_URL}/api/v0/user/menu`, { headers });
         if(res.status === 401 || res.status === 422){
             AuthGuard.handleAuthError();
             return;
@@ -121,7 +121,7 @@ async function loadAndInjectPage(tabKey) {
         const token = AuthGuard.getToken();
         const headers = {};
         if(token) headers['Authorization'] = 'Bearer '+token;
-        const res = await fetch(`${API_BASE_URL}/api/v1/user/dynamic-page/${encodeURIComponent(tabKey)}`, { headers });
+        const res = await fetch(`${API_BASE_URL}/api/v0/user/dynamic-page/${encodeURIComponent(tabKey)}`, { headers });
         if(res.status === 401 || res.status === 422){
             AuthGuard.handleAuthError();
             return;

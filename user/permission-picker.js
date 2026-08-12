@@ -19,7 +19,7 @@ class PermissionPicker {
             allowSingleSelect: false,
             showBulkOps: true,
             title: '权限节点',
-            apiUrl: API_BASE_URL + '/api/v1/user/admin/permission-nodes',
+            apiUrl: API_BASE_URL + '/api/v0/user/admin/permission-nodes',
             onChange: null,
         }, options || {});
 

@@ -74,7 +74,7 @@ function initMobileSidebar() {
 
 /**
  * 获取全局通知
- * 任务 FE-JS-03: 处理 /api/v1/notify/global 的响应并渲染
+ * 任务 FE-JS-03: 处理 /api/v0/notify/global 的响应并渲染
  */
 async function fetchGlobalNotifications() {
   // dashboard 页面有自己的通知加载逻辑，此处跳过
@@ -82,7 +82,7 @@ async function fetchGlobalNotifications() {
     return;
   }
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/notify/global`);
+    const response = await fetch(`${API_BASE_URL}/api/v0/notify/global`);
     const data = await response.json();
     if (response.ok && data.code === 200) {
       renderGlobalNotifications(data.data);
@@ -96,7 +96,7 @@ async function fetchGlobalNotifications() {
 
 /**
  * 检查登录状态
- * 任务 FE-JS-02: 处理 /api/v1/auth/status 的响应并渲染用户信息
+ * 任务 FE-JS-02: 处理 /api/v0/auth/status 的响应并渲染用户信息
  */
 async function fetchAuthStatus() {
   // 所有 dashboard 类页面由 dashboard.js 独立处理认证状态，避免重复渲染冲突
@@ -117,7 +117,7 @@ async function fetchAuthStatus() {
     return;
   }
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/auth/status`, {
+    const response = await fetch(`${API_BASE_URL}/api/v0/auth/status`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -301,7 +301,7 @@ window.handlePermissionClick = window.handlePermissionClick || async function (l
     const token = AuthGuard.getToken();
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = 'Bearer ' + token;
-    const res = await fetch(`${API_BASE_URL}/api/v1/auth/switch-permission`, {
+    const res = await fetch(`${API_BASE_URL}/api/v0/auth/switch-permission`, {
       method: 'POST',
       headers: headers,
       body: JSON.stringify({ target_level: level })

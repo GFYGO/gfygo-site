@@ -69,7 +69,7 @@ async function pdocsRequest(path, options = {}) {
             'Authorization': `Bearer ${token}`,
         };
         if (hasBody) baseHeaders['Content-Type'] = 'application/json';
-        const res = await fetch(`${API_BASE_URL}/api/v1/document${path}`, {
+        const res = await fetch(`${API_BASE_URL}/api/v0/document${path}`, {
             ...options,
             method,
             headers: { ...baseHeaders, ...(options.headers || {}) }

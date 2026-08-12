@@ -229,7 +229,7 @@
             try {
                 const token = AuthGuard.getToken();
                 const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-                const r = await fetch(API_BASE_URL + '/api/v1/auth/status', { headers });
+                const r = await fetch(API_BASE_URL + '/api/v0/auth/status', { headers });
                 const d = await r.json();
                 appendApiOutput('✅ GET /auth/status', d);
             } catch (e) { showError(e.message); }
@@ -240,7 +240,7 @@
             try {
                 const token = AuthGuard.getToken();
                 if (!token) { showError('未登录，无 token'); return; }
-                const r = await fetch(API_BASE_URL + '/api/v1/user/profile', {
+                const r = await fetch(API_BASE_URL + '/api/v0/user/profile', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const d = await r.json();
@@ -253,7 +253,7 @@
             try {
                 const token = AuthGuard.getToken();
                 const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-                const r = await fetch(API_BASE_URL + '/api/v1/notify/global', { headers });
+                const r = await fetch(API_BASE_URL + '/api/v0/notify/global', { headers });
                 const d = await r.json();
                 appendApiOutput('✅ GET /notify/global', d);
             } catch (e) { showError(e.message); }
@@ -264,7 +264,7 @@
             try {
                 const token = AuthGuard.getToken();
                 const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-                const r = await fetch(API_BASE_URL + '/api/v1/document/list?scope=public', { headers });
+                const r = await fetch(API_BASE_URL + '/api/v0/document/list?scope=public', { headers });
                 const d = await r.json();
                 appendApiOutput('✅ GET /document/list', d);
             } catch (e) { showError(e.message); }
@@ -275,7 +275,7 @@
             try {
                 const token = AuthGuard.getToken();
                 const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-                const r = await fetch(API_BASE_URL + '/api/v1/document/folders?scope=public', { headers });
+                const r = await fetch(API_BASE_URL + '/api/v0/document/folders?scope=public', { headers });
                 const d = await r.json();
                 appendApiOutput('✅ GET /document/folders', d);
             } catch (e) { showError(e.message); }
@@ -288,7 +288,7 @@
             try {
                 const token = AuthGuard.getToken();
                 const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-                const r = await fetch(API_BASE_URL + '/api/v1/document/' + encodeURIComponent(slug), { headers });
+                const r = await fetch(API_BASE_URL + '/api/v0/document/' + encodeURIComponent(slug), { headers });
                 const d = await r.json();
                 appendApiOutput('✅ GET /document/' + slug, d);
             } catch (e) { showError(e.message); }

@@ -87,7 +87,7 @@ function switchTab(tab) {
 // ====== 提交 ======
 async function submitRegister(path, payload, successMsg, redirectUrl) {
     try {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/auth/${path}`, {
+        const resp = await fetch(`${API_BASE_URL}/api/v0/auth/${path}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -177,7 +177,7 @@ async function handleTemp(e) {
     const cf = checkCfOrReturn();
     if (cf === null) return;
     try {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/auth/temp-access`, {
+        const resp = await fetch(`${API_BASE_URL}/api/v0/auth/temp-access`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, invite_code: inviteCode, cf_turnstile_token: cf || '' })

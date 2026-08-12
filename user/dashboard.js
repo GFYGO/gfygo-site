@@ -21,10 +21,10 @@ var Toast = window.Toast;
 var ThemeEngine = window.ThemeEngine;
 var Modal = window.Modal;
 
-/** 获取并渲染用户信息（从 /api/v1/user/menu 获取 user_info） */
+/** 获取并渲染用户信息（从 /api/v0/user/menu 获取 user_info） */
 async function renderUserInfo(token) {
     try {
-        const res = await fetch(API_BASE_URL + '/api/v1/user/menu', {
+        const res = await fetch(API_BASE_URL + '/api/v0/user/menu', {
             headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await res.json();

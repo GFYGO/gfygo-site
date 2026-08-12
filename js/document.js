@@ -212,7 +212,7 @@ async function fetchDocList() {
       const f = __DOC.folders.find(x => x.id === __DOC.currentFolderId);
       if (f && f.scope) actualScope = f.scope;
     }
-    let url = `${API_BASE_URL}/api/v1/document/list`;
+    let url = `${API_BASE_URL}/api/v0/document/list`;
     const qp = [];
     qp.push(`scope=${encodeURIComponent(actualScope)}`);
     if (__DOC.currentFolderId !== null && __DOC.currentFolderId !== undefined) {
@@ -243,7 +243,7 @@ async function fetchDocAuthState() {
     return;
   }
   try {
-    const r = await fetch(`${API_BASE_URL}/api/v1/auth/status`, {
+    const r = await fetch(`${API_BASE_URL}/api/v0/auth/status`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const d = await r.json();
@@ -290,8 +290,8 @@ async function fetchDocFolders() {
     }
     const _scope = encodeURIComponent(actualScope);
     const url = token
-      ? `${API_BASE_URL}/api/v1/document/folders?scope=${_scope}`
-      : `${API_BASE_URL}/api/v1/document/folders/public?scope=${_scope}`;
+      ? `${API_BASE_URL}/api/v0/document/folders?scope=${_scope}`
+      : `${API_BASE_URL}/api/v0/document/folders/public?scope=${_scope}`;
     const r = await fetch(url, { headers });
     const d = await r.json();
     if (r.ok && d.code === 200) {
@@ -299,7 +299,7 @@ async function fetchDocFolders() {
     } else if (r.status === 401) {
       // 401：token 无效，尝试匿名 fallback
       try {
-        const r2 = await fetch(`${API_BASE_URL}/api/v1/document/folders/public`);
+        const r2 = await fetch(`${API_BASE_URL}/api/v0/document/folders/public`);
         const d2 = await r2.json();
         if (r2.ok && d2.code === 200) {
           __DOC.folders = d2.data || [];
@@ -549,7 +549,7 @@ async function __buildDocBreadcrumbHTML(folderId) {
   let chain = [];
   const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
   try {
-    const r = await fetch(`${API_BASE_URL}/api/v1/document/folders/${folderId}/path`, {
+    const r = await fetch(`${API_BASE_URL}/api/v0/document/folders/${folderId}/path`, {
       headers: token ? { 'Authorization': `Bearer ${token}` } : {}
     });
     const d = await r.json();
@@ -774,7 +774,7 @@ async function renameDocFolder(id, oldName) {
     return;
   }
   try {
-    const r = await fetch(`${API_BASE_URL}/api/v1/document/folders/${id}`, {
+    const r = await fetch(`${API_BASE_URL}/api/v0/document/folders/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -813,7 +813,7 @@ async function deleteDocFolder(id) {
     return;
   }
   try {
-    const r = await fetch(`${API_BASE_URL}/api/v1/document/folders/${id}`, {
+    const r = await fetch(`${API_BASE_URL}/api/v0/document/folders/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -884,7 +884,7 @@ async function showDocDetail(slug) {
   try {
     const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-    const detailRsp = await fetch(`${API_BASE_URL}/api/v1/document/${encodeURIComponent(slug)}`, { headers });
+    const detailRsp = await fetch(`${API_BASE_URL}/api/v0/document/${encodeURIComponent(slug)}`, { headers });
     const d = await detailRsp.json();
 
     if (detailRsp.status === 404 || (d.code === 404)) {
@@ -1102,7 +1102,7 @@ async function fetchAndRenderRevisions(docId) {
 
   const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
   const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-  const r = await fetch(`${API_BASE_URL}/api/v1/document/${docId}/revisions`, { headers });
+  const r = await fetch(`${API_BASE_URL}/api/v0/document/${docId}/revisions`, { headers });
   const d = await r.json();
   if (!r.ok || d.code !== 200) {
     $wrap.style.display = 'none';

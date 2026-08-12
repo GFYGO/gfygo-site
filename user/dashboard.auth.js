@@ -205,7 +205,7 @@ async function switchLevel(targetLevel) {
         const token = AuthGuard.getToken();
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = 'Bearer ' + token;
-        const res = await fetch(`${API_BASE_URL}/api/v1/auth/switch-permission`, {
+        const res = await fetch(`${API_BASE_URL}/api/v0/auth/switch-permission`, {
             method: 'POST',
             headers: headers,
             body: JSON.stringify({ target_level: targetLevel })
@@ -252,7 +252,7 @@ async function checkEmailVerificationStatus(token, email) {
     if (!email) return;
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/auth/email-status`, {
+        const response = await fetch(`${API_BASE_URL}/api/v0/auth/email-status`, {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -343,7 +343,7 @@ async function handleVerifyEmail(code) {
     try {
         setBtnState(verifyBtn, true, '验证中...');
 
-        const response = await fetch(`${API_BASE_URL}/api/v1/auth/verify-email`, {
+        const response = await fetch(`${API_BASE_URL}/api/v0/auth/verify-email`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -382,7 +382,7 @@ async function handleResendCode() {
     try {
         setBtnState(resendBtn, true, '发送中...');
 
-        const response = await fetch(`${API_BASE_URL}/api/v1/auth/resend-verification`, {
+        const response = await fetch(`${API_BASE_URL}/api/v0/auth/resend-verification`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`

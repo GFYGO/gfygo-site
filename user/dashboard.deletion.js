@@ -99,7 +99,7 @@ async function sendDeletionCode() {
     sendCodeBtn.textContent = '发送中...';
 
     try {
-        const r = await fetch(API_BASE_URL + '/api/v1/user/send-deletion-code', {
+        const r = await fetch(API_BASE_URL + '/api/v0/user/send-deletion-code', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -151,7 +151,7 @@ async function submitDeletionRequest() {
     confirmBtn.textContent = '提交中...';
 
     try {
-        const r = await fetch(API_BASE_URL + '/api/v1/user/request-deletion', {
+        const r = await fetch(API_BASE_URL + '/api/v0/user/request-deletion', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -183,7 +183,7 @@ async function cancelDeletion() {
     }
 
     try {
-        const r = await fetch(API_BASE_URL + '/api/v1/user/cancel-deletion', {
+        const r = await fetch(API_BASE_URL + '/api/v0/user/cancel-deletion', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -216,7 +216,7 @@ async function renderDeletionStatus() {
     }
 
     try {
-        const r = await fetch(API_BASE_URL + '/api/v1/user/deletion-status', {
+        const r = await fetch(API_BASE_URL + '/api/v0/user/deletion-status', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const d = await r.json();

@@ -42,7 +42,7 @@ var ThemeEngine = {
 
     syncThemeToServer: function(theme, token) {
         try {
-            fetch(API_BASE_URL + '/api/v1/user/theme', {
+            fetch(API_BASE_URL + '/api/v0/user/theme', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
