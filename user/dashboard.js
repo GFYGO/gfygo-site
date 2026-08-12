@@ -3,7 +3,7 @@
  * 精简入口：全局初始化、用户信息、侧边栏、退出
  * Phase 2: ES Module — 共享资源通过 window 访问
  */
-import { initAuthModules, sendVerificationEmail } from './dashboard.auth.js';
+import { initAuthModules, sendVerificationEmail, initSidebarToggle, initSettingsButton } from './dashboard.auth.js';
 import DashboardMenu from './dashboard.menu.js';
 import { initCheckinButtons } from './dashboard.checkin.js';
 import { initDeletion, renderDeletionStatus } from './dashboard.deletion.js';
@@ -44,7 +44,6 @@ async function renderUserInfo(token) {
 
 // DOMContentLoaded 后初始化
 document.addEventListener('DOMContentLoaded', async function() {
-    // 初始化基础模块
     Toast.init();
     ThemeEngine.init();
     ThemeEngine.bindSwitchEvent();
@@ -61,25 +60,20 @@ document.addEventListener('DOMContentLoaded', async function() {
     // 2. 加载并渲染菜单
     await DashboardMenu.loadMenu();
 
-    // 3. 初始化侧边栏
-    initSidebar();
+    // 3. 统一初始化侧边栏（含 toggle、overlay、userTrigger）
+    initSidebarToggle();
 
-    // 4. 根据权限节点自动显隐元素
+    // 4. 初始化设置按钮（含侧边栏关闭）
+    initSettingsButton();
+
+    // 5. 根据权限节点自动显隐元素
     initPermissionVisibility();
 
-    // 5. 绑定事件
+    // 6. 绑定退出/验证码等全局事件
     bindGlobalEvents();
 
-    // 6. 切换到默认 Tab (workspace)
+    // 7. 切换到默认 Tab (workspace)
     DashboardMenu.switchTab('workspace');
-
-    // 初始化设置按钮
-    const settingsBtn = $('settingsBtn');
-    if (settingsBtn) {
-        on(settingsBtn, 'click', function() {
-            DashboardMenu.switchTab('settings');
-        });
-    }
 
     // 初始化注销相关
     initDeletion();
@@ -94,57 +88,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (typeof window.initCheckinModule !== 'function') {
         window.initCheckinModule = function() { initCheckinButtons(); };
     }
+});
 
-    // 绑定验证码按钮
+/** 绑定全局事件（退出按钮已由 renderTopNavAuth 处理，userTrigger 已由 initSidebarToggle 处理） */
+function bindGlobalEvents() {
     const verifyEmailBtnEl = $('verifyEmailBtn');
     if (verifyEmailBtnEl) {
         on(verifyEmailBtnEl, 'click', function() { sendVerificationEmail(); });
     }
-});
-
-/** 绑定全局事件 */
-function bindGlobalEvents() {
-    const logoutBtn = $('logoutBtn');
-    if (logoutBtn) {
-        on(logoutBtn, 'click', function() {
-            AuthGuard.clearToken();
-            showToast('已退出登录', 'success');
-            setTimeout(function() {
-                window.location.replace((BASE_PATH || './') + '/login.html?_t=' + Date.now());
-            }, 800);
-        });
-    }
-
-    const toggleBtn = $('sidebarToggleBtn');
-    if (toggleBtn) {
-        on(toggleBtn, 'click', function() {
-            const sidebar = $('dashboardSidebar');
-            const overlay = $('sidebarOverlay');
-            if (sidebar) sidebar.classList.toggle('dashboard-sidebar--open');
-            if (overlay) overlay.classList.toggle('sidebar-overlay--visible');
-        });
-    }
-
-    const userTrigger = $('sidebarUserTrigger');
-    if (userTrigger) {
-        on(userTrigger, 'click', function() {
-            DashboardMenu.switchTab('home');
-        });
-    }
-}
-
-/** 侧边栏初始化 */
-function initSidebar() {
-    const overlay = $('sidebarOverlay');
-    if (overlay) {
-        on(overlay, 'click', function() {
-            const sidebar = $('dashboardSidebar');
-            if (sidebar) sidebar.classList.remove('dashboard-sidebar--open');
-            overlay.classList.remove('sidebar-overlay--visible');
-        });
-    }
 }
 
 // ===== ES Module exports =====
-export { renderUserInfo, initSidebar, bindGlobalEvents };
+export { renderUserInfo, bindGlobalEvents };
 window.renderUserInfo = renderUserInfo;

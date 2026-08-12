@@ -34,51 +34,45 @@ async function loadMenu() {
 }
 
 function renderMenu(data) {
+    // 渲染基础菜单
     const baseContainer = document.getElementById('dynamicMenuContainer');
     const baseDivider = document.getElementById('dynamicMenuDivider');
-    if (baseContainer && data.base_items && data.base_items.length > 0) {
-        baseContainer.innerHTML = data.base_items.map(item => `
-            <a href="#" class="sidebar__nav-item" data-tab="${item.tab_key}">
-                <span class="sidebar__nav-icon">${item.icon}</span>
-                <span class="sidebar__nav-text">${item.label}</span>
-            </a>
-        `).join('');
-        baseContainer.querySelectorAll('.sidebar__nav-item').forEach(bindTabClick);
+    let hasBase = renderMenuItems(baseContainer, data.base_items, '', baseDivider);
+
+    // 渲染动态菜单
+    let hasDynamic = false;
+    if (baseContainer && data.dynamic_items && data.dynamic_items.length > 0) {
+        hasDynamic = renderMenuItems(baseContainer, data.dynamic_items, 'dynamic-only', baseDivider, hasBase);
+    } else if (baseContainer && !hasBase) {
+        baseContainer.innerHTML = '';
+        if (baseDivider) baseDivider.style.display = 'none';
     }
 
-    const dynamicContainer = document.getElementById('dynamicMenuContainer');
-    const dynamicDivider = document.getElementById('dynamicMenuDivider');
-    if (dynamicContainer && data.dynamic_items && data.dynamic_items.length > 0) {
-        if (data.base_items && data.base_items.length > 0) {
-            dynamicDivider.style.display = '';
-        }
-        dynamicContainer.innerHTML += data.dynamic_items.map(item => `
-            <a href="#" class="sidebar__nav-item dynamic-only" data-tab="${item.tab_key}">
-                <span class="sidebar__nav-icon">${item.icon || '📄'}</span>
-                <span class="sidebar__nav-text">${item.label}</span>
-            </a>
-        `).join('');
-        dynamicContainer.querySelectorAll('.sidebar__nav-item.dynamic-only').forEach(bindTabClick);
-    } else if (dynamicContainer && (!data.base_items || data.base_items.length === 0)) {
-        dynamicContainer.innerHTML = '';
-        dynamicDivider.style.display = 'none';
-    }
-
+    // 渲染管理员菜单
     const adminContainer = document.getElementById('adminMenuContainer');
     const adminDivider = document.getElementById('adminMenuDivider');
-    if (adminContainer && data.admin_items && data.admin_items.length > 0) {
-        adminDivider.style.display = '';
-        adminContainer.innerHTML = data.admin_items.map(item => `
-            <a href="#" class="sidebar__nav-item admin-only" data-tab="${item.tab_key}">
-                <span class="sidebar__nav-icon">${item.icon}</span>
-                <span class="sidebar__nav-text">${item.label}</span>
-            </a>
-        `).join('');
-        adminContainer.querySelectorAll('.sidebar__nav-item').forEach(bindTabClick);
-    } else if (adminContainer) {
-        adminContainer.innerHTML = '';
-        adminDivider.style.display = 'none';
+    if (adminContainer) {
+        if (data.admin_items && data.admin_items.length > 0) {
+            renderMenuItems(adminContainer, data.admin_items, 'admin-only', adminDivider);
+        } else {
+            adminContainer.innerHTML = '';
+            if (adminDivider) adminDivider.style.display = 'none';
+        }
     }
+}
+
+function renderMenuItems(container, items, extraClass, divider, showDivider) {
+    if (!container || !items || items.length === 0) return showDivider || false;
+    const cls = extraClass ? `sidebar__nav-item ${extraClass}` : 'sidebar__nav-item';
+    container.innerHTML = items.map(item => `
+        <a href="#" class="${cls}" data-tab="${item.tab_key}">
+            <span class="sidebar__nav-icon">${item.icon || '📄'}</span>
+            <span class="sidebar__nav-text">${item.label}</span>
+        </a>
+    `).join('');
+    container.querySelectorAll('.sidebar__nav-item').forEach(bindTabClick);
+    if (divider && showDivider !== undefined) divider.style.display = showDivider ? '' : 'none';
+    return true;
 }
 
 function bindTabClick(item) {
