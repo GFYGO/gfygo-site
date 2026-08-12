@@ -1,6 +1,8 @@
 /**
- * dashboard.permission.js - 权限解析器（前端版）
+ * dashboard.permission.js
+ * 权限解析器（前端版）
  * 对应后端 utils/permission.py 中的解析函数
+ * Phase 2: 改为 ES Module
  */
 
 function parseScope(scopeId) {
@@ -68,4 +70,10 @@ function resolveNodeName(nodeCode) {
     return nodeMap[nodeCode] || nodeCode;
 }
 
-window.DashboardPermission = { parseScope, parseFullPermissionId, resolveScopeDisplay, resolveNodeName };
+// ===== ES Module exports =====
+const DashboardPermission = { parseScope, parseFullPermissionId, resolveScopeDisplay, resolveNodeName };
+export default DashboardPermission;
+export { parseScope, parseFullPermissionId, resolveScopeDisplay, resolveNodeName, DashboardPermission };
+
+// ===== 兼容层 =====
+window.DashboardPermission = DashboardPermission;

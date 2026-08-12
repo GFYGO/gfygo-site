@@ -1,25 +1,8 @@
 /**
  * permission-picker.js - LuckPerms 风格图形化权限节点编辑器
- *
- * Features:
- *   - 树形权限节点浏览器（按模块/命名空间分组）
- *   - 搜索过滤
- *   - 三态切换（允许/继承/禁止）
- *   - 等级选择器（Lv1-Lv5）
- *   - 批量操作（全选、清除、复制等级）
- *   - 实时状态可视化
- *
- * Usage:
- *   const picker = new PermissionPicker(container, {
- *     value: { 'admin.notify.view': 'allow' },
- *     level: 5,
- *     showLevelSelector: true,
- *     showSearch: true,
- *     allowSingleSelect: false,
- *     onChange: (state) => { ... }
- *   });
- *   picker.load();
+ * Phase 2: 改为 ES Module
  */
+import { AuthGuard, API_BASE_URL } from '../js/config.js';
 
 class PermissionPicker {
     constructor(container, options) {
@@ -34,7 +17,7 @@ class PermissionPicker {
             allowSingleSelect: false,
             showBulkOps: true,
             title: '权限节点',
-            apiUrl: (window.API_BASE_URL || '') + '/api/v1/user/admin/permission-nodes',
+            apiUrl: API_BASE_URL + '/api/v1/user/admin/permission-nodes',
             onChange: null,
         }, options || {});
 
@@ -51,13 +34,10 @@ class PermissionPicker {
     async load() {
         this.container.innerHTML = '<div class="pp-loading"><div class="pp-spinner"></div><span>加载权限节点...</span></div>';
         try {
-            const token = (window.AuthGuard && window.AuthGuard.getToken)
-                ? (window.AuthGuard.getToken() || '')
-                : '';
-
+            const token = AuthGuard.getToken();
             if (!token) {
                 this.container.innerHTML = '<div class="pp-error">未登录，请先登录系统</div>';
-                if (window.AuthGuard) window.AuthGuard.handleAuthError();
+                AuthGuard.handleAuthError();
                 return this;
             }
 
@@ -65,7 +45,7 @@ class PermissionPicker {
             const res = await fetch(this.options.apiUrl, { headers });
 
             if (res.status === 401 || res.status === 422) {
-                if (window.AuthGuard) window.AuthGuard.handleAuthError();
+                AuthGuard.handleAuthError();
                 this.container.innerHTML = '<div class="pp-error">登录状态已失效，请重新登录</div>';
                 return this;
             }
@@ -122,7 +102,6 @@ class PermissionPicker {
 
     render() {
         this.container.innerHTML = '';
-
         const wrapper = document.createElement('div');
         wrapper.className = 'pp-root';
 
@@ -213,7 +192,6 @@ class PermissionPicker {
         wrapper.appendChild(treeContainer);
 
         this._renderTreeInto(treeContainer);
-
         this.container.appendChild(wrapper);
         this._updateCount();
     }
@@ -271,14 +249,11 @@ class PermissionPicker {
 
                 const body = document.createElement('div');
                 body.className = 'pp-group-body';
-
                 this._renderTreeNode(child, childPath, body);
-
                 groupEl.appendChild(header);
                 groupEl.appendChild(body);
                 container.appendChild(groupEl);
 
-                // Auto-expand root groups
                 if (path === '') {
                     groupEl.classList.add('pp-group--open');
                 }
@@ -296,7 +271,6 @@ class PermissionPicker {
         row.dataset.nodeCode = nodeCode;
 
         const displayName = nodeData.display_name || nodeCode;
-        const moduleLabel = nodeData.module || '';
 
         row.innerHTML =
             '<span class="pp-node-icon">' + this._getStateIcon(currentState) + '</span>' +
@@ -311,7 +285,6 @@ class PermissionPicker {
             '<button class="pp-state-btn pp-state-btn--deny" data-state="deny" title="禁止">✗</button>' +
             '</span>';
 
-        // Highlight current state button
         row.querySelectorAll('.pp-state-btn').forEach(btn => {
             if (btn.dataset.state === currentState) {
                 btn.classList.add('pp-state-btn--active');
@@ -330,11 +303,9 @@ class PermissionPicker {
             });
         });
 
-        // Click row cycle: inherit -> allow -> deny -> inherit
         row.addEventListener('click', (e) => {
             if (e.target.closest('.pp-state-btn')) return;
             if (this.options.allowSingleSelect) {
-                // Single select mode: only allow/inherit
                 const cycle = { 'inherit': 'allow', 'allow': 'inherit', 'deny': 'inherit' };
                 const next = cycle[currentState] || 'allow';
                 this._setNodeState(nodeCode, next);
@@ -501,4 +472,9 @@ class PermissionPicker {
     }
 }
 
+// ===== ES Module exports =====
+export { PermissionPicker };
+export default PermissionPicker;
+
+// ===== 兼容层 =====
 window.PermissionPicker = PermissionPicker;

@@ -1,7 +1,11 @@
 /**
- * dashboard.menu.js - 动态菜单与 Tab 切换
- * 由 dashboard.js 调用初始化
+ * dashboard.menu.js
+ * 动态菜单与 Tab 切换
+ * Phase 2: 改为 ES Module
  */
+import { AuthGuard, API_BASE_URL } from '../js/config.js';
+import { $ } from '../js/utils.js';
+import { renderDeletionStatus } from './dashboard.deletion.js';
 
 let _menuData = null;
 
@@ -28,7 +32,6 @@ async function loadMenu() {
 }
 
 function renderMenu(data) {
-    // 渲染基础菜单（workspace/notifications/docs/tools）
     const baseContainer = document.getElementById('dynamicMenuContainer');
     const baseDivider = document.getElementById('dynamicMenuDivider');
     if (baseContainer && data.base_items && data.base_items.length > 0) {
@@ -41,7 +44,6 @@ function renderMenu(data) {
         baseContainer.querySelectorAll('.sidebar__nav-item').forEach(bindTabClick);
     }
 
-    // 渲染动态菜单
     const dynamicContainer = document.getElementById('dynamicMenuContainer');
     const dynamicDivider = document.getElementById('dynamicMenuDivider');
     if (dynamicContainer && data.dynamic_items && data.dynamic_items.length > 0) {
@@ -60,7 +62,6 @@ function renderMenu(data) {
         dynamicDivider.style.display = 'none';
     }
 
-    // 渲染 admin 专属菜单
     const adminContainer = document.getElementById('adminMenuContainer');
     const adminDivider = document.getElementById('adminMenuDivider');
     if (adminContainer && data.admin_items && data.admin_items.length > 0) {
@@ -87,29 +88,24 @@ function bindTabClick(item) {
 }
 
 async function switchTab(tabKey) {
-    // 隐藏所有静态 panel
     document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
 
-    // 清空动态内容
     const dynamicContainer = document.getElementById('dynamicContentContainer');
     if (dynamicContainer) dynamicContainer.innerHTML = '';
 
-    // 高亮导航项
     document.querySelectorAll('.sidebar__nav-item').forEach(item => {
         item.classList.toggle('active', item.dataset.tab === tabKey);
     });
 
-    // 静态面板（settings, home 保持原生 DOM）
     const panel = document.getElementById(`panel-${tabKey}`);
     if (panel) {
         panel.style.display = '';
-        if (tabKey === 'settings' && typeof window.renderDeletionStatus === 'function') {
-            window.renderDeletionStatus();
+        if (tabKey === 'settings') {
+            renderDeletionStatus();
         }
         return;
     }
 
-    // 所有其他页面（base / dynamic / admin）走动态加载
     await loadAndInjectPage(tabKey);
 }
 
@@ -138,7 +134,6 @@ async function loadAndInjectPage(tabKey) {
             let html = d.html_content || '';
             dynamicContainer.innerHTML = html;
 
-            // 执行内联 <script> 标签（innerHTML 不会自动执行）
             const scripts = dynamicContainer.querySelectorAll('script');
             scripts.forEach(s => {
                 const newScript = document.createElement('script');
@@ -178,9 +173,10 @@ function getCurrentMenuData() {
     return _menuData ? _menuData.data : null;
 }
 
-document.addEventListener('dashboard:tab-switched', (e) => {
-    const tabKey = e.detail?.tabKey;
-    if (!tabKey) return;
-});
+// ===== ES Module exports =====
+const DashboardMenu = { loadMenu, renderMenu, switchTab, getCurrentMenuData };
+export default DashboardMenu;
+export { loadMenu, renderMenu, switchTab, getCurrentMenuData, DashboardMenu };
 
-window.DashboardMenu = { loadMenu, renderMenu, switchTab, getCurrentMenuData };
+// ===== 兼容层 =====
+window.DashboardMenu = DashboardMenu;

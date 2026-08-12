@@ -1,7 +1,13 @@
 /**
  * dashboard.auth.js
  * 用户认证、权限按钮、主题切换、邮箱验证
+ * Phase 2: 改为 ES Module
  */
+import { AuthGuard, API_BASE_URL, BASE_PATH } from '../js/config.js';
+import { $, $$, on, showToast, setBtnState, fallbackCopy } from '../js/utils.js';
+import { Toast } from '../js/toast.js';
+import { ThemeEngine } from '../js/theme.js';
+import DashboardMenu from './dashboard.menu.js';
 
 const ROLE_NAMES = {
     0: '未登录',
@@ -34,12 +40,11 @@ function initSidebarToggle() {
     on(closeBtn, 'click', closeSidebar);
     on(overlay, 'click', (e) => { if (e.target === overlay) closeSidebar(); });
 
-    // 侧边栏用户头像点击回到主页
     const userTrigger = $('sidebarUserTrigger');
     if (userTrigger) {
         userTrigger.style.cursor = 'pointer';
         on(userTrigger, 'click', () => {
-            if (window.DashboardMenu) window.DashboardMenu.switchTab('home');
+            if (DashboardMenu) DashboardMenu.switchTab('home');
             closeSidebar();
         });
     }
@@ -50,7 +55,7 @@ function initSettingsButton() {
     const settingsBtn = $('settingsBtn');
     if (settingsBtn) {
         on(settingsBtn, 'click', () => {
-            if (window.DashboardMenu) window.DashboardMenu.switchTab('settings');
+            if (DashboardMenu) DashboardMenu.switchTab('settings');
             const overlay = $('sidebarOverlay');
             const sidebar = $('dashboardSidebar');
             if (sidebar) sidebar.classList.remove('dashboard-sidebar--open');
@@ -155,14 +160,13 @@ function renderTopNavAuth(user) {
             e.preventDefault();
             AuthGuard.clearToken();
             localStorage.removeItem('guest_view_mode');
-            // 跳转到登录页（带时间戳防缓存）
             window.location.replace(`${BASE_PATH}/login.html?_t=${Date.now()}`);
         });
     }
 }
 
-/** 权限等级按钮渲染 - 显示 1~max_level 的等级切换按钮 */
-window.renderPermissionButtons = function(userInfo) {
+/** 权限等级按钮渲染 */
+function renderPermissionButtons(userInfo) {
     const container = $('permissionButtons');
     if (!container) return;
 
@@ -171,7 +175,6 @@ window.renderPermissionButtons = function(userInfo) {
     const curLevel = userInfo.current_level || 1;
     const maxLevel = userInfo.max_level || 1;
 
-    // 最高等级为 1 的用户不显示等级切换按钮
     if (maxLevel <= 1) return;
 
     for (let lv = 1; lv <= maxLevel; lv++) {
@@ -185,9 +188,9 @@ window.renderPermissionButtons = function(userInfo) {
         }
         container.appendChild(btn);
     }
-};
+}
 
-/** 切换等级 - 调用后端 switch-permission 接口 */
+/** 切换等级 */
 async function switchLevel(targetLevel) {
     try {
         const token = AuthGuard.getToken();
@@ -200,7 +203,7 @@ async function switchLevel(targetLevel) {
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            if (typeof Toast !== 'undefined') Toast.show(err.msg || '切换权限失败');
+            Toast.show(err.msg || '切换权限失败');
             return;
         }
         const data = await res.json();
@@ -208,19 +211,16 @@ async function switchLevel(targetLevel) {
         AuthGuard.setToken(np.access_token, np.expires_in);
         window.__nowPermission = np.now_permission || { level: targetLevel, context: targetLevel >= 4 ? 'admin' : null, nodes: [] };
 
-        if (typeof Toast !== 'undefined') Toast.show(`已切换到 Lv.${targetLevel} ${ROLE_NAMES[targetLevel]}`, 'success');
+        Toast.show(`已切换到 Lv.${targetLevel} ${ROLE_NAMES[targetLevel]}`, 'success');
 
-        // 重新加载菜单和用户信息
-        if (typeof renderUserInfo === 'function') {
+        if (typeof window.renderUserInfo === 'function') {
             const token = AuthGuard.getToken();
-            if (token) await renderUserInfo(token);
+            if (token) await window.renderUserInfo(token);
         }
-        if (window.DashboardMenu) {
-            await window.DashboardMenu.loadMenu();
-        }
+        await DashboardMenu.loadMenu();
     } catch (e) {
         console.warn('切换权限异常:', e);
-        if (typeof Toast !== 'undefined') Toast.show('网络错误');
+        Toast.show('网络错误');
     }
 }
 
@@ -232,11 +232,9 @@ function initThemeOptions(token) {
         const btn = e.target.closest('.theme-opt');
         if (!btn) return;
         const theme = btn.dataset.theme;
-        if (typeof ThemeEngine !== 'undefined') {
-            ThemeEngine.applyTheme(theme);
-            if (token) ThemeEngine.syncThemeToServer(theme, token);
-            showToast('主题已切换', 'success');
-        }
+        ThemeEngine.applyTheme(theme);
+        if (token) ThemeEngine.syncThemeToServer(theme, token);
+        showToast('主题已切换', 'success');
     });
 }
 
@@ -416,15 +414,19 @@ function initAuthModules(token, user) {
     const defaultAvatar = window.DEFAULT_AVATAR || `${BASE_PATH}/favicon.png`;
     const defaultBanner = window.DEFAULT_BANNER || '';
     renderUserProfile(user, defaultAvatar, defaultBanner);
-    if (typeof window.renderPermissionButtons === 'function') {
-        window.renderPermissionButtons(user);
-    }
+    renderPermissionButtons(user);
     renderTopNavAuth(user);
     checkEmailVerificationStatus(token, user.email);
     initThemeOptions(token);
 }
 
-/** 发送邮箱验证码（供 dashboard.js 的 verifyEmailBtn 调用） */
+/** 发送邮箱验证码 */
 async function sendVerificationEmail() {
     await handleResendCode();
 }
+
+// ===== ES Module exports =====
+export { initAuthModules, renderUserProfile, renderTopNavAuth, renderPermissionButtons, switchLevel, initSidebarToggle, initSettingsButton, sendVerificationEmail, ROLE_NAMES };
+
+// ===== 兼容层 =====
+window.renderPermissionButtons = renderPermissionButtons;

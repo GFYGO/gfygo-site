@@ -1,9 +1,18 @@
 /**
  * dashboard.js
  * 精简入口：全局初始化、用户信息、侧边栏、退出
- *
- * 注意：API_BASE_URL 已由 config.js 定义，此处不重复声明。
+ * Phase 2: 改为 ES Module
  */
+import { AuthGuard, API_BASE_URL, BASE_PATH, initPermissionVisibility } from '../js/config.js';
+import { $, on, showToast } from '../js/utils.js';
+import { Toast } from '../js/toast.js';
+import { ThemeEngine } from '../js/theme.js';
+import { Modal } from '../js/modal.js';
+import { initAuthModules, sendVerificationEmail } from './dashboard.auth.js';
+import DashboardMenu, { loadMenu, switchTab } from './dashboard.menu.js';
+import { initCheckinButtons } from './dashboard.checkin.js';
+import { initDeletion, renderDeletionStatus } from './dashboard.deletion.js';
+import { loadPersonalDocs } from './dashboard.pdocs.js';
 
 /** 获取并渲染用户信息（从 /api/v1/user/menu 获取 user_info） */
 async function renderUserInfo(token) {
@@ -14,9 +23,7 @@ async function renderUserInfo(token) {
         const data = await res.json();
         if (res.ok && data.code === 200) {
             const userInfo = data.data.user_info || data.data;
-            if (typeof initAuthModules === 'function') {
-                initAuthModules(token, userInfo);
-            }
+            initAuthModules(token, userInfo);
             return data.data;
         } else {
             console.warn('加载用户信息失败:', data.msg);
@@ -30,12 +37,11 @@ async function renderUserInfo(token) {
 
 // DOMContentLoaded 后初始化
 document.addEventListener('DOMContentLoaded', async () => {
-    // 初始化 Toast
-    if (typeof initToast === 'function') initToast();
-    // 初始化 Modal
-    if (typeof initModal === 'function') initModal();
+    // 初始化基础模块
+    Toast.init();
+    ThemeEngine.init();
+    ThemeEngine.bindSwitchEvent();
 
-    // 鉴权检查
     const token = AuthGuard.getToken();
     if (!token) {
         AuthGuard.handleAuthError();
@@ -45,69 +51,58 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 1. 渲染用户信息 + 加载菜单
     const menuData = await renderUserInfo(token);
 
-    // 2. 加载并渲染菜单（动态 + admin）
-    if (window.DashboardMenu) {
-        await window.DashboardMenu.loadMenu();
-    }
+    // 2. 加载并渲染菜单
+    await DashboardMenu.loadMenu();
 
     // 3. 初始化侧边栏
     initSidebar();
 
     // 4. 根据权限节点自动显隐元素
-    if (typeof initPermissionVisibility === 'function') {
-        initPermissionVisibility();
-    }
+    initPermissionVisibility();
 
     // 5. 绑定事件
     bindGlobalEvents();
 
     // 6. 切换到默认 Tab (workspace)
-    if (window.DashboardMenu) {
-        window.DashboardMenu.switchTab('workspace');
-    }
+    DashboardMenu.switchTab('workspace');
 
     // 初始化设置按钮
     const settingsBtn = $('settingsBtn');
     if (settingsBtn) {
         on(settingsBtn, 'click', () => {
-            if (window.DashboardMenu) window.DashboardMenu.switchTab('settings');
+            DashboardMenu.switchTab('settings');
         });
     }
 
     // 初始化注销相关
-    if (typeof initDeletion === 'function') {
-        initDeletion();
-        renderDeletionStatus();
-    }
+    initDeletion();
+    renderDeletionStatus();
 
     // 初始化个人文档全局引用
     if (typeof window.initPersonalDocs !== 'function') {
         window.initPersonalDocs = function() {
-            if (typeof loadPersonalDocs === 'function') loadPersonalDocs();
+            loadPersonalDocs();
         };
     }
 
-    // 初始化打卡模块全局引用（供 workspace.html / home panel 调用）
+    // 初始化打卡模块全局引用
     if (typeof window.initCheckinModule !== 'function') {
         window.initCheckinModule = function() {
-            if (typeof initCheckinButtons === 'function') initCheckinButtons();
+            initCheckinButtons();
         };
     }
 
     // 绑定验证码按钮
-    let verifyEmailBtnEl = $('verifyEmailBtn');
+    const verifyEmailBtnEl = $('verifyEmailBtn');
     if (verifyEmailBtnEl) {
         on(verifyEmailBtnEl, 'click', () => {
-            if (typeof sendVerificationEmail === 'function') {
-                sendVerificationEmail();
-            }
+            sendVerificationEmail();
         });
     }
 });
 
 /** 绑定全局事件 */
 function bindGlobalEvents() {
-    // 绑定退出按钮
     const logoutBtn = $('logoutBtn');
     if (logoutBtn) {
         on(logoutBtn, 'click', () => {
@@ -119,7 +114,6 @@ function bindGlobalEvents() {
         });
     }
 
-    // 绑定侧边栏切换
     const toggleBtn = $('sidebarToggleBtn');
     if (toggleBtn) {
         on(toggleBtn, 'click', () => {
@@ -130,11 +124,10 @@ function bindGlobalEvents() {
         });
     }
 
-    // 绑定侧边栏用户头像点击（回到主页 home）
     const userTrigger = $('sidebarUserTrigger');
     if (userTrigger) {
         on(userTrigger, 'click', () => {
-            if (window.DashboardMenu) window.DashboardMenu.switchTab('home');
+            DashboardMenu.switchTab('home');
         });
     }
 }
@@ -150,3 +143,9 @@ function initSidebar() {
         });
     }
 }
+
+// ===== ES Module exports =====
+export { renderUserInfo, initSidebar, bindGlobalEvents };
+
+// ===== 兼容层：供 dashboard.auth.js 的 switchLevel 调用 =====
+window.renderUserInfo = renderUserInfo;

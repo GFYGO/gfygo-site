@@ -1,7 +1,10 @@
 /**
  * dashboard.checkin.js
  * 日历打卡系统
+ * Phase 2: 改为 ES Module
  */
+import { AuthGuard } from '../js/config.js';
+import { $, on, showToast } from '../js/utils.js';
 
 const CHECKIN_KEY_PREFIX = 'checkin_record_';
 let calendarState = null;
@@ -96,7 +99,6 @@ function renderCalendar() {
 
     calEl.innerHTML = '';
 
-    // 上个月的补充日期
     for (let i = startWeekday - 1; i >= 0; i--) {
         const dayNum = prevMonthLastDay - i;
         const span = document.createElement('span');
@@ -108,7 +110,6 @@ function renderCalendar() {
     const todayKey = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
     let alreadyCheckedToday = false;
 
-    // 本月日期
     for (let d = 1; d <= daysInMonth; d++) {
         const span = document.createElement('span');
         span.className = 'calendar-day';
@@ -128,7 +129,6 @@ function renderCalendar() {
         calEl.appendChild(span);
     }
 
-    // 下个月的补充日期
     const totalCells = startWeekday + daysInMonth;
     const trailing = (7 - (totalCells % 7)) % 7;
     for (let i = 1; i <= trailing; i++) {
@@ -138,7 +138,6 @@ function renderCalendar() {
         calEl.appendChild(span);
     }
 
-    // 更新打卡按钮状态
     if (alreadyCheckedToday) {
         checkinBtn.disabled = true;
         checkinBtn.textContent = '✓ 今日已打卡';
@@ -167,12 +166,11 @@ function handleCheckin() {
     showToast('打卡成功！继续加油 💪', 'success');
 }
 
-/** 初始化打卡功能入口（供 dashboard.js 调用） */
+/** 初始化打卡功能入口 */
 function initCheckinButtons() {
     const token = AuthGuard.getToken();
     if (!token) return;
 
-    // 解析 user_id
     try {
         const parts = token.split('.');
         if (parts.length >= 2) {
@@ -188,3 +186,6 @@ function initCheckinButtons() {
         console.warn('初始化打卡失败', e);
     }
 }
+
+// ===== ES Module exports =====
+export { initCheckinButtons, initCheckinCalendar };

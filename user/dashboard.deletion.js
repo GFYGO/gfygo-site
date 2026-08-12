@@ -1,7 +1,10 @@
 /**
  * dashboard.deletion.js
  * 账号注销功能
+ * Phase 2: 改为 ES Module
  */
+import { AuthGuard, API_BASE_URL } from '../js/config.js';
+import { $, on, showToast, setBtnState } from '../js/utils.js';
 
 /** 初始化注销功能 */
 function initDeletion() {
@@ -20,7 +23,7 @@ function initDeletion() {
     on(confirmBtn, 'click', submitDeletionRequest);
 }
 
-/** 打开注销警告弹窗（5秒倒计时） */
+/** 打开注销警告弹窗 */
 function openDeletionModal() {
     const overlay = $('deletionOverlay');
     const countdown = $('deletionCountdown');
@@ -268,7 +271,5 @@ async function renderDeletionStatus() {
     }
 }
 
-// 暴露到全局供 HTML 内联事件使用
-window.openDeletionModal = openDeletionModal;
-window.cancelDeletion = cancelDeletion;
-window.renderDeletionStatus = renderDeletionStatus;
+// ===== ES Module exports =====
+export { initDeletion, openDeletionModal, cancelDeletion, renderDeletionStatus };

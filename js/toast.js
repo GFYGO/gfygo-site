@@ -1,12 +1,13 @@
 /**
  * toast.js
  * 轻量级通知组件
+ * Phase 1: 改为 ES Module，保留 window 兼容层
  */
+
 const Toast = {
     container: null,
     maxToasts: 3,
 
-    // 初始化容器
     init: function() {
         if (!this.container) {
             this.container = document.createElement('div');
@@ -15,7 +16,6 @@ const Toast = {
         }
     },
 
-    // 显示通知
     show: function(message, type = 'error') {
         this.init();
 
@@ -51,7 +51,6 @@ const Toast = {
         }, 3000);
     },
 
-    // 移除通知
     remove: function(toast) {
         toast.classList.remove('toast-show');
         toast.addEventListener('transitionend', () => {
@@ -59,7 +58,6 @@ const Toast = {
                 this.container.removeChild(toast);
             }
         }, { once: true });
-        // 兜底：如果 transitionend 未触发，500ms 后强制移除
         setTimeout(() => {
             if (toast.parentNode === this.container) {
                 this.container.removeChild(toast);
@@ -67,3 +65,9 @@ const Toast = {
         }, 500);
     }
 };
+
+export default Toast;
+export { Toast };
+
+// ===== 兼容层：迁移期保留 window 挂载 =====
+window.Toast = Toast;

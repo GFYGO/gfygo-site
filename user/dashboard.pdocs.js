@@ -1,9 +1,11 @@
 /**
  * dashboard.pdocs.js
  * 个人文档管理（CRUD、文件夹、编辑器、面包屑）
+ * Phase 2: 改为 ES Module
  */
+import { AuthGuard, API_BASE_URL } from '../js/config.js';
+import { $, $$, on, showToast, escapeHtml, setBtnState } from '../js/utils.js';
 
-// 集中状态管理
 const PDocsState = {
     editingId: null,
     markedReady: false,
@@ -13,12 +15,10 @@ const PDocsState = {
     currentUserId: null,
     currentDocs: null,
     editorInstance: null,
-    // 浏览视图临时数据
     browserDocId: null,
     browserDocSlug: null
 };
 
-/** Marked.js 懒加载 */
 function ensureMarkedLoaded() {
     if (PDocsState.markedReady) return Promise.resolve();
     if (PDocsState.markedLoading) return PDocsState.markedLoading;
@@ -32,7 +32,6 @@ function ensureMarkedLoaded() {
     return PDocsState.markedLoading;
 }
 
-/** 格式化时间 */
 function pdocsFmtTime(iso) {
     if (!iso) return '';
     const d = new Date(iso);
@@ -46,7 +45,6 @@ function pdocsFmtTime(iso) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** 从 Markdown 提取摘要 */
 function pdocsExtractSummary(content) {
     if (!content) return '';
     const text = content.replace(/^#+\s.*$/gm, '').replace(/[*`>~_\-\[\]\(\)]/g, '').trim();
@@ -54,17 +52,14 @@ function pdocsExtractSummary(content) {
     return firstLine.slice(0, 100);
 }
 
-/** 个人文档统一请求封装 */
 async function pdocsRequest(path, options = {}) {
     const token = AuthGuard.getToken();
     if (!token) { AuthGuard.handleAuthError(); return null; }
-    const pathCtx = window.location.pathname.match(/\/(admin1|admin2|admin3|superadmin)\//) ? 'admin' : 'dashboard';
     try {
         const method = (options.method || 'GET').toUpperCase();
         const hasBody = options.body !== undefined && options.body !== null;
         const baseHeaders = {
             'Authorization': `Bearer ${token}`,
-            'X-Permission-Context': pathCtx,
         };
         if (hasBody) baseHeaders['Content-Type'] = 'application/json';
         const res = await fetch(`${API_BASE_URL}/api/v1/document${path}`, {
@@ -81,7 +76,6 @@ async function pdocsRequest(path, options = {}) {
     }
 }
 
-/** 初始化 EasyMDE 编辑器 */
 function initPdocsEasyMDE() {
     const textarea = $('pdocsContentInput');
     if (!textarea || PDocsState.editorInstance) return;
@@ -114,8 +108,7 @@ function initPdocsEasyMDE() {
     }
 }
 
-/** 初始化个人文档（暴露到 window 供 menu.js 调用） */
-window.initPersonalDocs = function() {
+function initPersonalDocs() {
     const bind = (id, handler) => {
         const el = $(id);
         if (el && !el.dataset.pdocsBound) {
@@ -141,18 +134,17 @@ window.initPersonalDocs = function() {
     bind('pdocsBrowserOpenInDocBtn', () => {
         const { browserDocId: docId, browserDocSlug: slug } = PDocsState;
         if (slug) {
-            window.open(`${BASE_PATH}/document.html?slug=${encodeURIComponent(slug)}`, '_blank');
+            window.open(`${window.BASE_PATH || '.'}/document.html?slug=${encodeURIComponent(slug)}`, '_blank');
         } else if (docId) {
-            window.open(`${BASE_PATH}/document.html`, '_blank');
+            window.open(`${window.BASE_PATH || '.'}/document.html`, '_blank');
         }
     });
 
     initPdocsEasyMDE();
     loadPersonalDocs();
     loadPersonalFolders();
-};
+}
 
-/** 切换子视图 */
 function showPdocsView(viewName) {
     ['list', 'browse', 'editor', 'trash'].forEach(v => {
         const el = $('pdocs-view-' + v);
@@ -162,7 +154,6 @@ function showPdocsView(viewName) {
     if (viewName === 'trash') loadPersonalTrash();
 }
 
-/** 加载当前层级文档 */
 async function loadPersonalDocs() {
     const folderQuery = (typeof PDocsState.currentFolderId === 'number' && PDocsState.currentFolderId > 0)
         ? `folder_id=${PDocsState.currentFolderId}`
@@ -172,7 +163,6 @@ async function loadPersonalDocs() {
     renderExplorerGrid();
 }
 
-/** 加载回收站 */
 async function loadPersonalTrash() {
     const container = $('pdocsTrashContainer');
     if (!container) return;
@@ -185,7 +175,6 @@ async function loadPersonalTrash() {
     renderPdocsTrash(data.data || []);
 }
 
-/** 渲染资源管理器网格 */
 function renderExplorerGrid() {
     const container = $('pdocsListContainer');
     if (!container) return;
@@ -258,7 +247,6 @@ function renderExplorerGrid() {
 
     container.innerHTML = items.join('');
 
-    // 文件夹项点击
     $$('.pdocs-explorer-item--folder', container).forEach(el => {
         on(el, 'click', (e) => {
             if (e.target.closest('.pdocs-explorer-item__btn')) return;
@@ -267,11 +255,9 @@ function renderExplorerGrid() {
         });
     });
 
-    // 返回上一级
     const upEl = container.querySelector('.pdocs-explorer-item--up');
     if (upEl) on(upEl, 'click', () => goUpOneLevel());
 
-    // 文档项点击浏览
     $$('.pdocs-explorer-item--doc', container).forEach(el => {
         on(el, 'click', (e) => {
             if (e.target.closest('.pdocs-explorer-item__btn') || e.target.closest('.pdocs-explorer-move')) return;
@@ -280,7 +266,6 @@ function renderExplorerGrid() {
         });
     });
 
-    // 操作按钮
     $$('.pdocs-explorer-item__btn', container).forEach(btn => {
         on(btn, 'click', (e) => {
             e.stopPropagation();
@@ -300,7 +285,6 @@ function renderExplorerGrid() {
         });
     });
 
-    // 移动 select
     $$('.pdocs-explorer-move', container).forEach(sel => {
         on(sel, 'change', (e) => {
             e.stopPropagation();
@@ -312,7 +296,6 @@ function renderExplorerGrid() {
     });
 }
 
-/** 资源管理器导航 */
 function navigateToFolder(folderId) {
     PDocsState.currentFolderId = (typeof folderId === 'number' && folderId > 0) ? folderId : null;
     PDocsState.currentDocs = null;
@@ -321,7 +304,6 @@ function navigateToFolder(folderId) {
     loadPersonalDocs();
 }
 
-/** 返回上一级 */
 function goUpOneLevel() {
     if (typeof PDocsState.currentFolderId !== 'number' || PDocsState.currentFolderId <= 0) return;
     const parent = PDocsState.folders.find(f => f.id === PDocsState.currentFolderId);
@@ -329,7 +311,6 @@ function goUpOneLevel() {
     navigateToFolder(parentId);
 }
 
-/** 打开浏览视图 */
 async function openPdocsBrowser(docId) {
     if (!docId) return;
     PDocsState.browserDocId = docId;
@@ -380,7 +361,6 @@ async function openPdocsBrowser(docId) {
     }
 }
 
-/** 渲染回收站列表 */
 function renderPdocsTrash(docs) {
     const container = $('pdocsTrashContainer');
     if (!container) return;
@@ -420,7 +400,6 @@ function renderPdocsTrash(docs) {
     });
 }
 
-/** 打开编辑器 */
 async function openPdocsEditor(docId) {
     PDocsState.editingId = docId || null;
     showPdocsView('editor');
@@ -453,7 +432,6 @@ async function openPdocsEditor(docId) {
     preview.innerHTML = '';
 }
 
-/** 保存文档 */
 async function savePersonalDoc() {
     const title = $('pdocsTitleInput').value.trim();
     const content = PDocsState.editorInstance
@@ -502,7 +480,6 @@ async function savePersonalDoc() {
     if (preview && preview.style.display !== 'none') renderPdocsPreview();
 }
 
-/** 软删除 */
 async function softDeletePersonalDoc(docId) {
     const confirmed = await Modal.confirm('确认将此文档移入回收站？', { title: '删除文档' });
     if (!confirmed) return;
@@ -515,7 +492,6 @@ async function softDeletePersonalDoc(docId) {
     loadPersonalDocs();
 }
 
-/** 恢复文档 */
 async function restorePersonalDoc(docId) {
     const data = await pdocsRequest('/' + docId + '/restore', { method: 'POST' });
     if (!data || data.code !== 200) {
@@ -526,7 +502,6 @@ async function restorePersonalDoc(docId) {
     loadPersonalTrash();
 }
 
-/** 彻底删除 */
 async function permanentDeletePersonalDoc(docId) {
     const confirmed = await Modal.confirm('彻底删除后无法恢复，确认删除？', { title: '彻底删除' });
     if (!confirmed) return;
@@ -539,7 +514,6 @@ async function permanentDeletePersonalDoc(docId) {
     loadPersonalTrash();
 }
 
-/** 切换预览 */
 function togglePdocsPreview() {
     const preview = $('pdocsPreview');
     const isHidden = preview.style.display === 'none';
@@ -555,7 +529,6 @@ function togglePdocsPreview() {
     }
 }
 
-/** 渲染 Markdown 预览 */
 async function renderPdocsPreview() {
     const content = PDocsState.editorInstance
         ? PDocsState.editorInstance.value()
@@ -574,7 +547,6 @@ async function renderPdocsPreview() {
     }
 }
 
-/** 加载文件夹列表 */
 async function loadPersonalFolders() {
     if (PDocsState.currentUserId === null || PDocsState.currentUserId === undefined) {
         console.warn('[pdocs] loadPersonalFolders 跳过：currentUserId 未就绪');
@@ -591,7 +563,6 @@ async function loadPersonalFolders() {
     renderPdocsBreadcrumb();
 }
 
-/** 渲染面包屑 */
 async function renderPdocsBreadcrumb() {
     const container = $('pdocsPathBreadcrumb');
     if (!container) return;
@@ -642,7 +613,6 @@ async function renderPdocsBreadcrumb() {
     });
 }
 
-/** 新建文件夹 */
 async function addPersonalFolder() {
     const name = await Modal.prompt('请输入文件夹名称:', '', { title: '新建文件夹' });
     if (name === null || !name.trim()) return;
@@ -667,7 +637,6 @@ async function addPersonalFolder() {
     loadPersonalFolders();
 }
 
-/** 重命名文件夹 */
 async function renamePersonalFolder(id, newName) {
     const data = await pdocsRequest('/folders/' + id, {
         method: 'PUT',
@@ -681,7 +650,6 @@ async function renamePersonalFolder(id, newName) {
     loadPersonalFolders();
 }
 
-/** 删除文件夹 */
 async function deletePersonalFolder(id) {
     const confirmed = await Modal.confirm('删除文件夹后，文件夹内的文档将移至根目录，确认删除？', { title: '删除文件夹' });
     if (!confirmed) return;
@@ -696,7 +664,6 @@ async function deletePersonalFolder(id) {
     loadPersonalDocs();
 }
 
-/** 移动文档 */
 async function movePersonalDoc(docId, folderId) {
     const body = JSON.stringify({ folder_id: folderId === 0 ? null : folderId });
     const data = await pdocsRequest('/' + docId, { method: 'PUT', body });
@@ -707,3 +674,6 @@ async function movePersonalDoc(docId, folderId) {
     showToast('已移动', 'success');
     loadPersonalDocs();
 }
+
+// ===== ES Module exports =====
+export { initPersonalDocs, loadPersonalDocs, PDocsState };

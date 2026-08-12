@@ -1,22 +1,20 @@
 /**
  * config.js
  * 全局配置与路由守卫
+ * Phase 1: 改为 ES Module，同时保留 window 兼容层
  */
 
 // ✅ 任务 FE-JS-01: 定义 API 基地址
-// 修正：使用完整的 HTTPS 地址，避免在 GitHub Pages 等环境下出现相对路径请求错误
 const API_BASE_URL = "https://back.gwl.net.cn";
-window.API_BASE_URL = API_BASE_URL;
 
 // 路径前缀：子目录页面用 '..'，根目录页面用 '.'
-// 支持 /user/, /model/ 等子目录
 const BASE_PATH = (window.location.pathname.match(/\/(user|model)\//) ? '..' : '.');
 
 // Token 相关常量
 const TOKEN_KEY = 'auth_token';
 
 /**
- * 任务 FE-JS-01: Token 读取与过期拦截逻辑
+ * Token 读取与过期拦截逻辑
  */
 const AuthGuard = {
   getToken() {
@@ -33,11 +31,6 @@ const AuthGuard = {
       return null;
     }
   },
-  /**
-   * 存储 Token
-   * @param {string} token JWT Token
-   * @param {number} expiresInSec 有效期，单位：秒
-   */
   setToken(token, expiresInSec) {
     const expiresInMs = expiresInSec * 1000;
     localStorage.setItem(TOKEN_KEY, JSON.stringify({
@@ -54,9 +47,6 @@ const AuthGuard = {
       window.location.href = `${BASE_PATH}/login.html`;
     }
   },
-  /**
-   * 处理全局鉴权异常 (如 401, 422)
-   */
   handleAuthError() {
     this.clearToken();
     window.location.href = `${BASE_PATH}/login.html`;
@@ -64,9 +54,7 @@ const AuthGuard = {
 };
 
 /**
- * 从 JWT claims 解析 now_permission（运行时权限对象）。
- * 旧 token 无 now_permission claims 时返回 level=0（访客语义，触发降级路径）。
- * @returns {{level:number, context:string|null, nodes:Array}}
+ * 从 JWT claims 解析 now_permission
  */
 function getNowPermission() {
   const raw = AuthGuard.getToken();
@@ -74,7 +62,6 @@ function getNowPermission() {
   try {
     const parts = raw.split('.');
     if (parts.length < 2) return { level: 0, context: null, nodes: [] };
-    // base64url → base64 + padding
     let payloadB64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
     while (payloadB64.length % 4) payloadB64 += '=';
     const payload = JSON.parse(atob(payloadB64));
@@ -84,22 +71,19 @@ function getNowPermission() {
   }
 }
 
-// 全局运行时权限状态（页面加载时初始化，权限切换后由 handlePermissionClick 更新）
-window.__nowPermission = getNowPermission();
+// 全局运行时权限状态
+const nowPermission = getNowPermission();
 
 /**
  * 检查当前用户是否拥有指定权限节点
- * @param {string} nodeCode 权限节点代码，如 'admin.notify.view'
- * @returns {boolean}
  */
 function hasPermission(nodeCode) {
-  const np = window.__nowPermission || getNowPermission();
+  const np = window.__nowPermission || nowPermission;
   return (np.nodes || []).includes(nodeCode);
 }
 
 /**
  * 根据 data-permission 属性自动显隐元素
- * 页面加载时调用一次，权限切换后重新调用
  */
 function initPermissionVisibility() {
   document.querySelectorAll('[data-permission]').forEach(el => {
@@ -115,7 +99,12 @@ function initPermissionVisibility() {
   });
 }
 
-// 全局暴露
+// ===== ES Module exports =====
+export { API_BASE_URL, BASE_PATH, TOKEN_KEY, AuthGuard, getNowPermission, hasPermission, initPermissionVisibility };
+
+// ===== 兼容层：迁移期保留 window 挂载 =====
+window.API_BASE_URL = API_BASE_URL;
 window.AuthGuard = AuthGuard;
 window.hasPermission = hasPermission;
 window.initPermissionVisibility = initPermissionVisibility;
+window.__nowPermission = nowPermission;
