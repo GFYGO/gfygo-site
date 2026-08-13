@@ -58,7 +58,15 @@ class PermissionPicker {
             }
 
             if (res.status === 403) {
-                this.container.innerHTML = '<div class="pp-error">权限不足，无法查看权限节点</div>';
+                // 403 权限不足时用 state 降级显示
+                this.nodes = Object.keys(this.state).map(code => ({
+                    node_code: code,
+                    module: code.split('.')[0] || 'unknown',
+                    display_name: code,
+                    description: ''
+                }));
+                this.buildTree();
+                this.render();
                 return this;
             }
 
@@ -73,10 +81,10 @@ class PermissionPicker {
             }
 
             const d = await res.json();
-            if (d.code === 200 && d.data) {
+            if (d.code === 200 && Array.isArray(d.data) && d.data.length > 0) {
                 this.nodes = d.data;
             } else {
-                // 从 state 推导节点（降级方案）
+                // 从 state 推导节点（降级方案：API返回空或错误时，用state中的key构建节点）
                 this.nodes = Object.keys(this.state).map(code => ({
                     node_code: code,
                     module: code.split('.')[0] || 'unknown',
@@ -87,7 +95,15 @@ class PermissionPicker {
             this.buildTree();
             this.render();
         } catch (e) {
-            this.container.innerHTML = '<div class="pp-error">网络请求失败：' + (e.message || '未知错误') + '</div>';
+            // 网络错误时用 state 降级显示
+            this.nodes = Object.keys(this.state).map(code => ({
+                node_code: code,
+                module: code.split('.')[0] || 'unknown',
+                display_name: code,
+                description: ''
+            }));
+            this.buildTree();
+            this.render();
         }
         return this;
     }
