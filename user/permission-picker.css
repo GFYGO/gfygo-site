@@ -4,7 +4,7 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    background: #fff;
+    background: var(--color-bg-white, #fff);
     border-radius: 8px;
     overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -72,12 +72,14 @@
 .pp-search input {
     width: 100%;
     padding: 9px 32px 9px 12px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border, #e5e7eb);
     border-radius: 6px;
     font-size: 13px;
     outline: none;
     transition: border-color 0.15s, box-shadow 0.15s;
     box-sizing: border-box;
+    background: var(--color-bg-white, #fff);
+    color: var(--color-text-main, #111827);
 }
 
 .pp-search input:focus {
@@ -86,7 +88,7 @@
 }
 
 .pp-search input::placeholder {
-    color: #9ca3af;
+    color: var(--color-text-muted, #9ca3af);
 }
 
 .pp-search-clear {
@@ -468,4 +470,79 @@
 
 .pp-group .pp-group .pp-group .pp-group .pp-node-row {
     padding-left: 100px;
+}
+
+/* === 深色主题适配 === */
+body.theme-dark_green .pp-root,
+body.theme-gray .pp-root {
+    background: var(--color-bg-white, #1e293b);
+}
+body.theme-dark_green .pp-search input,
+body.theme-gray .pp-search input {
+    background: var(--color-bg, #0f172a);
+    color: var(--color-text-main, #f8fafc);
+    border-color: var(--color-border, #334155);
+}
+body.theme-dark_green .pp-level-bar,
+body.theme-gray .pp-level-bar,
+body.theme-dark_green .pp-bulk-ops,
+body.theme-gray .pp-bulk-ops {
+    background: var(--color-bg-secondary, #1f2937);
+    border-color: var(--color-border, #334155);
+}
+body.theme-dark_green .pp-level-btn,
+body.theme-gray .pp-level-btn,
+body.theme-dark_green .pp-bulk-btn,
+body.theme-gray .pp-bulk-btn {
+    background: var(--color-bg-white, #1e293b);
+    border-color: var(--color-border, #334155);
+    color: var(--color-text-muted, #94a3b8);
+}
+body.theme-dark_green .pp-group-header,
+body.theme-gray .pp-group-header {
+    background: var(--color-bg-secondary, #1f2937);
+}
+body.theme-dark_green .pp-group-header:hover,
+body.theme-gray .pp-group-header:hover {
+    background: var(--color-bg-hover, #374151);
+}
+body.theme-dark_green .pp-group-body,
+body.theme-gray .pp-group-body {
+    background: var(--color-bg, #0f172a);
+}
+body.theme-dark_green .pp-group-name,
+body.theme-gray .pp-group-name {
+    color: var(--color-text-main, #f8fafc);
+}
+body.theme-dark_green .pp-node-row--inherit,
+body.theme-gray .pp-node-row--inherit {
+    background: var(--color-bg, #0f172a);
+}
+body.theme-dark_green .pp-node-row:hover,
+body.theme-gray .pp-node-row:hover {
+    background: var(--color-bg-hover, #1e293b);
+}
+body.theme-dark_green .pp-node-name,
+body.theme-gray .pp-node-name {
+    color: var(--color-text-main, #f8fafc);
+}
+body.theme-dark_green .pp-node-code,
+body.theme-gray .pp-node-code {
+    background: var(--color-bg-secondary, #1f2937);
+    color: var(--color-text-muted, #94a3b8);
+}
+body.theme-dark_green .pp-state-btn,
+body.theme-gray .pp-state-btn {
+    background: var(--color-bg-white, #1e293b);
+    border-color: var(--color-border, #334155);
+    color: var(--color-text-muted, #94a3b8);
+}
+body.theme-dark_green .pp-search-clear,
+body.theme-gray .pp-search-clear {
+    background: var(--color-bg-secondary, #374151);
+    color: var(--color-text-muted, #94a3b8);
+}
+body.theme-dark_green .pp-search-clear:hover,
+body.theme-gray .pp-search-clear:hover {
+    background: var(--color-border, #4b5563);
 }

@@ -75,11 +75,17 @@ class PermissionPicker {
             const d = await res.json();
             if (d.code === 200 && d.data) {
                 this.nodes = d.data;
-                this.buildTree();
-                this.render();
             } else {
-                this.container.innerHTML = '<div class="pp-error">' + (d.msg || '加载权限节点失败') + '</div>';
+                // 从 state 推导节点（降级方案）
+                this.nodes = Object.keys(this.state).map(code => ({
+                    node_code: code,
+                    module: code.split('.')[0] || 'unknown',
+                    display_name: code,
+                    description: ''
+                }));
             }
+            this.buildTree();
+            this.render();
         } catch (e) {
             this.container.innerHTML = '<div class="pp-error">网络请求失败：' + (e.message || '未知错误') + '</div>';
         }
