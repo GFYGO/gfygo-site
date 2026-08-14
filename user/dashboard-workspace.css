@@ -1,0 +1,25 @@
+/* =========================================
+   dashboard-workspace.css — 工作台样式
+   依赖 dashboard.css 中的布局和 core.css 的 CSS 变量
+   ========================================= */
+
+/* ========== 工作台空状态 ========== */
+.workspace-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    text-align: center;
+}
+
+.workspace-empty__icon {
+    font-size: 4rem;
+    margin-bottom: 16px;
+    opacity: 0.6;
+}
+
+.workspace-empty__text {
+    font-size: 1.1rem;
+    color: var(--color-text-muted);
+}

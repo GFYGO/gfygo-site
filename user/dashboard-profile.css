@@ -1,0 +1,298 @@
+/* =========================================
+   dashboard-profile.css — 用户主页样式
+   依赖 dashboard.css 中的布局和 core.css 的 CSS 变量
+   ========================================= */
+
+/* ========== 用户主页：横幅 + 用户信息叠加 ========== */
+.profile-banner {
+    width: 100%;
+    height: 300px;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    position: relative;
+    background: linear-gradient(135deg, var(--color-primary), #818cf8);
+    margin-bottom: 24px;
+}
+
+.profile-banner img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.profile-banner__overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 65%;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent);
+    pointer-events: none;
+}
+
+.profile-banner__info {
+    position: absolute;
+    bottom: 24px;
+    left: 24px;
+    right: 24px;
+    display: flex;
+    gap: 20px;
+    align-items: flex-end;
+    z-index: 1;
+}
+
+.profile-avatar-large {
+    width: 100px;
+    height: 100px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 4px solid rgba(255, 255, 255, 0.9);
+    box-shadow: var(--shadow-md);
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.profile-avatar-large img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-info {
+    flex: 1;
+    min-width: 0;
+    padding-bottom: 8px;
+}
+
+.profile-info__top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.profile-username {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.profile-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.profile-intro {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.95rem;
+    margin-bottom: 10px;
+    line-height: 1.5;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.profile-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.profile-tag {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+}
+
+/* ========== 卡片网格 ========== */
+.profile-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    grid-auto-flow: dense;
+}
+
+.card {
+    background: var(--color-bg-white);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
+    min-height: 180px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.card--wide {
+    grid-column: span 2;
+}
+
+.card--tall {
+    grid-row: span 2;
+}
+
+/* 通用卡片内部结构 */
+.card-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--color-border);
+}
+.card-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--color-text-main);
+    font-weight: 700;
+}
+.card-body {
+    padding: 16px 20px;
+}
+
+/* 日历打卡卡片 */
+.card--calendar {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+}
+.calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--color-border);
+}
+.calendar-nav {
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: var(--radius-md);
+    transition: background 0.15s, color 0.15s;
+    line-height: 1;
+}
+.calendar-nav:hover {
+    background: var(--color-bg-section-alt);
+    color: var(--color-primary);
+}
+.calendar-title {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--color-text-main);
+}
+.calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    padding: 12px 20px 6px;
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+}
+.calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    padding: 4px 20px 12px;
+    flex: 1;
+    align-content: start;
+}
+.calendar-day {
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    color: var(--color-text-main);
+    border-radius: var(--radius-md);
+    cursor: default;
+    transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    position: relative;
+    user-select: none;
+}
+.calendar-day--outside {
+    color: var(--color-border);
+}
+.calendar-day:hover {
+    transform: scale(1.18);
+    background: var(--color-bg-section-alt);
+    z-index: 2;
+}
+.calendar-day--today {
+    color: var(--color-primary);
+    font-weight: 800;
+}
+.calendar-day--checked {
+    background: var(--color-primary);
+    color: #fff !important;
+    font-weight: 700;
+    box-shadow: inset 0 0 0 2px var(--color-primary-hover);
+}
+.calendar-day--checked:hover {
+    background: var(--color-primary-hover);
+    box-shadow: inset 0 0 0 2px var(--color-primary);
+}
+body.theme-gray .calendar-day--checked,
+body.theme-dark_green .calendar-day--checked {
+    background: var(--color-primary);
+    color: #fff !important;
+    box-shadow: inset 0 0 0 2px #fff;
+}
+.calendar-footer {
+    padding: 12px 20px 18px;
+    border-top: 1px solid var(--color-border);
+}
+.checkin-btn {
+    width: 100%;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 700;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+.checkin-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+.checkin-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+.checkin-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    filter: grayscale(0.4);
+}
+
+/* ========== 响应式 ========== */
+@media (max-width: 1024px) {
+    .profile-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .card--wide {
+        grid-column: span 2;
+    }
+
+    .card--tall {
+        grid-row: span 1;
+    }
+}

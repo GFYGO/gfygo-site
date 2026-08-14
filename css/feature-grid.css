@@ -1,0 +1,93 @@
+/* =========================================
+   feature-grid.css — 首页功能卡片网格
+   依赖 core.css 中的 CSS 变量
+   ========================================= */
+
+/* 网格容器：类似 Explorer 平铺视图，自动适应列数 */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+  width: 100%;
+  max-width: 1200px;
+  margin-top: 32px;
+}
+
+/* 单个平铺块 */
+.feature-tile {
+  display: flex;
+  align-items: center;
+  background-color: var(--color-bg-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  gap: 16px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+/* 悬浮微交互 */
+.feature-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary);
+}
+
+/* 左侧图片预留区 */
+.feature-tile__img {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-section-alt);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+  font-weight: bold;
+}
+
+/* 右侧文字内容 */
+.feature-tile__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.feature-tile__title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-main);
+  margin-bottom: 4px;
+}
+
+.feature-tile__desc {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .feature-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .feature-tile {
+    padding: 16px;
+  }
+}
+
+/* Feature Tile Link Reset */
+a.feature-tile {
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+}
+
+a.feature-tile:hover .feature-tile__title,
+a.feature-tile:hover .feature-tile__desc {
+  color: inherit;
+}

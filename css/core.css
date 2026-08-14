@@ -1,0 +1,113 @@
+/* =========================================
+   core.css — CSS 变量、主题系统、Reset、基础排版
+   所有页面必加载
+   ========================================= */
+
+/* =========================================
+   1. CSS Variables (Design Tokens)
+   ========================================= */
+:root {
+  /* 圆角与阴影 */
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+
+  /* 布局尺寸 */
+  --header-height: 64px;
+  --sidebar-width: 280px;
+  --spacing-section: 80px 24px;
+
+  /* 默认主题色彩（等于 green 主题，防止 FOUC） */
+  --color-primary: #10b981;
+  --color-primary-hover: #059669;
+  --color-bg-body: #8aff92;
+  --color-bg-white: #ffffff;
+  --color-bg-section-alt: #aeffd5;
+  --color-text-main: #064e3b;
+  --color-text-muted: #047857;
+  --color-border: #a7f3d0;
+}
+
+/* =========================================
+   1.1 主题色彩系统 (Theme Colors)
+   ========================================= */
+/* 默认主题：绿色 (Green) */
+body.theme-green {
+  --color-primary: #10b981;
+  --color-primary-hover: #059669;
+  --color-bg-body: #8aff92;
+  --color-bg-white: #ffffff;
+  --color-bg-section-alt: #aeffd5;
+  --color-text-main: #064e3b;
+  --color-text-muted: #047857;
+  --color-border: #a7f3d0;
+}
+
+/* 白色主题 (Light) */
+body.theme-light {
+  --color-primary: #4f46e5;
+  --color-primary-hover: #4338ca;
+  --color-bg-body: #aad5ff;
+  --color-bg-white: #ffffff;
+  --color-bg-section-alt: #f1f5f9;
+  --color-text-main: #1e293b;
+  --color-text-muted: #64748b;
+  --color-border: #e2e8f0;
+}
+
+/* 灰色主题 (Gray) */
+body.theme-gray {
+  --color-primary: #60a5fa;
+  --color-primary-hover: #3b82f6;
+  --color-bg-body: #374151;
+  --color-bg-white: #4b5563;
+  --color-bg-section-alt: #1f2937;
+  --color-text-main: #ffffff;
+  --color-text-muted: #e5e7eb;
+  --color-border: #4b5563;
+}
+
+/* 蓝绿主题 (Dark Green / Teal) */
+body.theme-dark_green {
+  --color-primary: #2dd4bf;
+  --color-primary-hover: #14b8a6;
+  --color-bg-body: #0f172a;
+  --color-bg-white: #1e293b;
+  --color-bg-section-alt: #020617;
+  --color-text-main: #f8fafc;
+  --color-text-muted: #94a3b8;
+  --color-border: #334155;
+}
+
+/* 深色主题全局文字颜色修复 */
+body.theme-dark_green input,
+body.theme-dark_green textarea,
+body.theme-dark_green select,
+body.theme-dark_green button,
+body.theme-gray input,
+body.theme-gray textarea,
+body.theme-gray select,
+body.theme-gray button {
+  color: var(--color-text-main);
+}
+
+body.theme-dark_green select option,
+body.theme-gray select option {
+  background: var(--color-bg-white);
+  color: var(--color-text-main);
+}
+
+/* =========================================
+   2. Reset & Base
+   ========================================= */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--color-text-main);
+  background-color: var(--color-bg-body);
+  line-height: 1.6;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+a { text-decoration: none; color: inherit; transition: color 0.2s ease; }
