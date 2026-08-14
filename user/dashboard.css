@@ -2746,6 +2746,7 @@ input:checked + .slider:before { transform: translateX(18px); }
     padding: 12px 16px;
     background: var(--color-bg-secondary, #f9fafb);
     border-bottom: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 8px 8px 0 0;
 }
 
 .perm-editor-title {
@@ -2761,9 +2762,11 @@ input:checked + .slider:before { transform: translateX(18px); }
 }
 
 .perm-picker-container {
-    flex: 1;
-    min-height: 300px;
-    overflow: hidden;
+    flex: 1 1 auto;
+    min-height: 200px;
+    max-height: 55vh;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .perm-placeholder {
