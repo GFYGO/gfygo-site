@@ -1893,28 +1893,6 @@
     color: var(--color-text-muted);
 }
 
-.perm-tabs {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 16px;
-    border-bottom: 1px solid var(--color-border, #e5e7eb);
-}
-
-.perm-tab {
-    padding: 8px 16px;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    font-size: 0.9rem;
-    color: var(--color-text-muted);
-    border-bottom: 2px solid transparent;
-}
-
-.perm-tab.active {
-    color: var(--color-primary, #2ea043);
-    border-bottom-color: var(--color-primary, #2ea043);
-}
-
 .charts-area {
     min-height: 200px;
 }
