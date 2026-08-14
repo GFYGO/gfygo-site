@@ -6,6 +6,16 @@
   <title>GWL | 模板原型</title>
   <link rel="stylesheet" href="../css/styles.css">
   <link rel="icon" href="../favicon.png" type="image/png">
+  <style>
+    .test-btn {
+      display: inline-block; padding: 8px 20px;
+      border: 1px solid var(--color-border); border-radius: 5px;
+      background: var(--color-bg-white); color: var(--color-text-main);
+      font-size: 0.85rem; cursor: pointer; font-family: inherit;
+      transition: all 0.15s;
+    }
+    .test-btn:hover { background: var(--color-bg-section-alt); border-color: var(--color-primary); }
+  </style>
 </head>
 <body>
   <header class="header">
@@ -27,6 +37,10 @@
     <section class="home-section">
       <h1 class="home-section__title">模板原型</h1>
       <p class="home-section__desc">这是一个用于设计和测试的模板原型页面。</p>
+      <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap;">
+        <a href="test.html" class="test-btn" style="display:inline-block;width:auto;padding:8px 20px;text-decoration:none;">🧪 测试面板</a>
+        <a href="debug.html" class="test-btn" style="display:inline-block;width:auto;padding:8px 20px;text-decoration:none;border-color:#ef4444;color:#ef4444;">⚙️ Debug Shell</a>
+      </div>
     </section>
   </main>
 

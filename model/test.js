@@ -192,6 +192,14 @@
         setText('cacheDashboardState', fmtJSON(collectDashboardState()));
     }
 
+    /** 切换缓存区域的折叠/展开 */
+    window.toggleSection = function (header) {
+        const body = header.nextElementSibling;
+        if (body) {
+            body.style.display = body.style.display === 'none' ? '' : 'none';
+        }
+    };
+
     function setText(id, text) {
         const el = document.getElementById(id);
         if (!el) return;
@@ -217,6 +225,30 @@
 
     function showError(msg) {
         appendApiOutput('⚠️ 错误', { error: msg });
+    }
+
+    // =========================================
+    // 通用请求辅助
+    // =========================================
+
+    /** 发起带认证的 GET 请求 */
+    async function authedGet(url, withAdminCtx) {
+        const token = AuthGuard.getToken();
+        const headers = { 'Authorization': `Bearer ${token}` };
+        if (withAdminCtx) { headers['X-Permission-Context'] = 'admin'; }
+        const r = await fetch(url, { headers });
+        return r.json();
+    }
+
+    /** 发起带认证的 POST/PUT/DELETE 请求 */
+    async function authedJson(method, url, body, withAdminCtx) {
+        const token = AuthGuard.getToken();
+        const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+        if (withAdminCtx) { headers['X-Permission-Context'] = 'admin'; }
+        const opts = { method, headers };
+        if (body !== undefined) { opts.body = JSON.stringify(body); }
+        const r = await fetch(url, opts);
+        return r.json();
     }
 
     // =========================================
@@ -248,6 +280,53 @@
             } catch (e) { showError(e.message); }
         },
 
+        async authLogout() {
+            appendApiOutput('➡️ POST /auth/logout', { loading: true });
+            try {
+                const d = await authedJson('POST', API_BASE_URL + '/api/v0/auth/logout');
+                appendApiOutput('✅ POST /auth/logout', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async authEmailStatus() {
+            appendApiOutput('➡️ GET /auth/email-status', { loading: true });
+            try {
+                const d = await authedGet(API_BASE_URL + '/api/v0/auth/email-status');
+                appendApiOutput('✅ GET /auth/email-status', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async switchPerm(level) {
+            appendApiOutput('➡️ POST /auth/switch-permission → Lv' + level, { loading: true });
+            try {
+                const d = await authedJson('POST', API_BASE_URL + '/api/v0/auth/switch-permission', { target_level: level });
+                // 切换成功后刷新 token（如果后端返回了新 token）
+                if (d.code === 200 && d.data && d.data.token) {
+                    AuthGuard.setToken(d.data.token);
+                    appendApiOutput('🔄 Token 已刷新', { new_level: level });
+                }
+                appendApiOutput('✅ POST /auth/switch-permission Lv' + level, d);
+                refreshAll();
+            } catch (e) { showError(e.message); }
+        },
+
+        async tempAccess() {
+            appendApiOutput('➡️ POST /auth/temp-access', { loading: true });
+            try {
+                const username = prompt('输入临时访问用户名：');
+                if (!username) { showError('已取消'); return; }
+                const code = prompt('输入邀请码：');
+                if (!code) { showError('已取消'); return; }
+                const r = await fetch(API_BASE_URL + '/api/v0/auth/temp-access', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, invite_code: code })
+                });
+                const d = await r.json();
+                appendApiOutput('✅ POST /auth/temp-access', d);
+            } catch (e) { showError(e.message); }
+        },
+
         async globalNotifications() {
             appendApiOutput('➡️ GET /notify/global', { loading: true });
             try {
@@ -259,8 +338,18 @@
             } catch (e) { showError(e.message); }
         },
 
+        async adminNotifications() {
+            appendApiOutput('➡️ GET /admin/notifications', { loading: true });
+            try {
+                const d = await authedGet(API_BASE_URL + '/api/v0/admin/notifications', true);
+                appendApiOutput('✅ GET /admin/notifications', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        // ---- 文档 ----
+
         async docList() {
-            appendApiOutput('➡️ GET /document/list', { loading: true });
+            appendApiOutput('➡️ GET /document/list?scope=public', { loading: true });
             try {
                 const token = AuthGuard.getToken();
                 const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
@@ -270,8 +359,35 @@
             } catch (e) { showError(e.message); }
         },
 
+        async docPublic() {
+            appendApiOutput('➡️ GET /document/list?scope=public', { loading: true });
+            try {
+                const token = AuthGuard.getToken();
+                const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+                const r = await fetch(API_BASE_URL + '/api/v0/document/list?scope=public', { headers });
+                const d = await r.json();
+                appendApiOutput('✅ GET /document/list?scope=public', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async docMine() {
+            appendApiOutput('➡️ GET /document/mine', { loading: true });
+            try {
+                const d = await authedGet(API_BASE_URL + '/api/v0/document/mine');
+                appendApiOutput('✅ GET /document/mine', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async docTrash() {
+            appendApiOutput('➡️ GET /document/trash', { loading: true });
+            try {
+                const d = await authedGet(API_BASE_URL + '/api/v0/document/trash');
+                appendApiOutput('✅ GET /document/trash', d);
+            } catch (e) { showError(e.message); }
+        },
+
         async docFolders() {
-            appendApiOutput('➡️ GET /document/folders', { loading: true });
+            appendApiOutput('➡️ GET /document/folders?scope=public', { loading: true });
             try {
                 const token = AuthGuard.getToken();
                 const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
@@ -292,11 +408,218 @@
                 const d = await r.json();
                 appendApiOutput('✅ GET /document/' + slug, d);
             } catch (e) { showError(e.message); }
+        },
+
+        async docCreate() {
+            appendApiOutput('➡️ POST /document/', { loading: true });
+            try {
+                const title = prompt('输入文档标题：', '测试文档 ' + Date.now());
+                if (!title) { showError('已取消'); return; }
+                const d = await authedJson('POST', API_BASE_URL + '/api/v0/document/', {
+                    title, content: '这是通过测试面板创建的文档。', visibility: 'private'
+                });
+                appendApiOutput('✅ POST /document/', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async docRevisions() {
+            appendApiOutput('➡️ GET /document/<id>/revisions', { loading: true });
+            try {
+                const id = prompt('输入文档 ID：');
+                if (!id) { showError('已取消'); return; }
+                const d = await authedGet(API_BASE_URL + '/api/v0/document/' + id + '/revisions');
+                appendApiOutput('✅ GET /document/' + id + '/revisions', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async docRestore() {
+            appendApiOutput('➡️ POST /document/<id>/restore', { loading: true });
+            try {
+                const id = prompt('输入要恢复的文档 ID：');
+                if (!id) { showError('已取消'); return; }
+                const d = await authedJson('POST', API_BASE_URL + '/api/v0/document/' + id + '/restore');
+                appendApiOutput('✅ POST /document/' + id + '/restore', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async docDelete() {
+            appendApiOutput('➡️ DELETE /document/<id>', { loading: true });
+            try {
+                const id = prompt('输入要删除的文档 ID：');
+                if (!id) { showError('已取消'); return; }
+                const d = await authedJson('DELETE', API_BASE_URL + '/api/v0/document/' + id);
+                appendApiOutput('✅ DELETE /document/' + id, d);
+            } catch (e) { showError(e.message); }
+        },
+
+        // ---- 文件夹 ----
+
+        async docFolderCreate() {
+            appendApiOutput('➡️ POST /document/folders', { loading: true });
+            try {
+                const name = prompt('输入文件夹名称：', '测试文件夹');
+                if (!name) { showError('已取消'); return; }
+                const scope = prompt('输入 scope (private/public/group)：', 'private');
+                if (!scope) { showError('已取消'); return; }
+                const d = await authedJson('POST', API_BASE_URL + '/api/v0/document/folders', { name, scope });
+                appendApiOutput('✅ POST /document/folders', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async docFolderPath() {
+            appendApiOutput('➡️ GET /document/folders/<id>/path', { loading: true });
+            try {
+                const id = prompt('输入文件夹 ID：');
+                if (!id) { showError('已取消'); return; }
+                const d = await authedGet(API_BASE_URL + '/api/v0/document/folders/' + id + '/path');
+                appendApiOutput('✅ GET /document/folders/' + id + '/path', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        // ---- 用户 ----
+
+        async userMenu() {
+            appendApiOutput('➡️ GET /user/menu', { loading: true });
+            try {
+                const d = await authedGet(API_BASE_URL + '/api/v0/user/menu');
+                appendApiOutput('✅ GET /user/menu', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async userStats() {
+            appendApiOutput('➡️ GET /user/stats', { loading: true });
+            try {
+                const d = await authedGet(API_BASE_URL + '/api/v0/user/stats');
+                appendApiOutput('✅ GET /user/stats', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async userTheme() {
+            appendApiOutput('➡️ PUT /user/theme', { loading: true });
+            try {
+                const theme = prompt('输入主题名 (green/light/gray/dark_green)：', 'light');
+                if (!theme) { showError('已取消'); return; }
+                const d = await authedJson('PUT', API_BASE_URL + '/api/v0/user/theme', { theme });
+                appendApiOutput('✅ PUT /user/theme', d);
+                refreshAll();
+            } catch (e) { showError(e.message); }
+        },
+
+        async userDeletionStatus() {
+            appendApiOutput('➡️ GET /user/deletion-status', { loading: true });
+            try {
+                const d = await authedGet(API_BASE_URL + '/api/v0/user/deletion-status');
+                appendApiOutput('✅ GET /user/deletion-status', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async userCancelDeletion() {
+            appendApiOutput('➡️ POST /user/cancel-deletion', { loading: true });
+            try {
+                const d = await authedJson('POST', API_BASE_URL + '/api/v0/user/cancel-deletion');
+                appendApiOutput('✅ POST /user/cancel-deletion', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        // ---- 管理 ----
+
+        async adminUsers() {
+            appendApiOutput('➡️ GET /admin/users', { loading: true });
+            try {
+                const d = await authedGet(API_BASE_URL + '/api/v0/admin/users', true);
+                appendApiOutput('✅ GET /admin/users', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminStats() {
+            appendApiOutput('➡️ GET /admin/stats', { loading: true });
+            try {
+                const d = await authedGet(API_BASE_URL + '/api/v0/admin/stats', true);
+                appendApiOutput('✅ GET /admin/stats', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminMenuItems() {
+            appendApiOutput('➡️ GET /admin/menu-items', { loading: true });
+            try {
+                const d = await authedGet(API_BASE_URL + '/api/v0/admin/menu-items', true);
+                appendApiOutput('✅ GET /admin/menu-items', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminPermNodes() {
+            appendApiOutput('➡️ GET /admin/permission-nodes', { loading: true });
+            try {
+                const d = await authedGet(API_BASE_URL + '/api/v0/admin/permission-nodes', true);
+                appendApiOutput('✅ GET /admin/permission-nodes', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminInviteCodes() {
+            appendApiOutput('➡️ GET /admin/invite-codes', { loading: true });
+            try {
+                const d = await authedGet(API_BASE_URL + '/api/v0/admin/invite-codes', true);
+                appendApiOutput('✅ GET /admin/invite-codes', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminGroups() {
+            appendApiOutput('➡️ GET /admin/groups', { loading: true });
+            try {
+                const d = await authedGet(API_BASE_URL + '/api/v0/admin/groups', true);
+                appendApiOutput('✅ GET /admin/groups', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminDocuments() {
+            appendApiOutput('➡️ GET /admin/documents', { loading: true });
+            try {
+                const d = await authedGet(API_BASE_URL + '/api/v0/admin/documents', true);
+                appendApiOutput('✅ GET /admin/documents', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminCreateNotification() {
+            appendApiOutput('➡️ POST /admin/notifications', { loading: true });
+            try {
+                const title = prompt('通知标题：', '测试通知');
+                if (!title) { showError('已取消'); return; }
+                const content = prompt('通知内容：', '这是通过测试面板创建的通知。');
+                if (!content) { showError('已取消'); return; }
+                const d = await authedJson('POST', API_BASE_URL + '/api/v0/admin/notifications',
+                    { title, content }, true);
+                appendApiOutput('✅ POST /admin/notifications', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminPermAssignments() {
+            appendApiOutput('➡️ GET /admin/permission-assignments', { loading: true });
+            try {
+                const t = prompt('类型 (level/user/group)：', 'level');
+                if (!t) { showError('已取消'); return; }
+                const id = prompt('scope_id：', '1');
+                if (id === null) { showError('已取消'); return; }
+                const lv = prompt('level：', '1');
+                const url = API_BASE_URL + '/api/v0/admin/permission-assignments?type=' + encodeURIComponent(t) + '&id=' + encodeURIComponent(id) + (lv ? '&level=' + encodeURIComponent(lv) : '');
+                const d = await authedGet(url, true);
+                appendApiOutput('✅ GET /admin/permission-assignments', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminUserDetail() {
+            appendApiOutput('➡️ GET /admin/users?q=', { loading: true });
+            try {
+                const q = prompt('搜索用户名（留空显示全部）：');
+                if (q === null) { showError('已取消'); return; }
+                const url = API_BASE_URL + '/api/v0/admin/users' + (q ? '?q=' + encodeURIComponent(q) : '');
+                const d = await authedGet(url, true);
+                appendApiOutput('✅ GET /admin/users', d);
+            } catch (e) { showError(e.message); }
         }
     };
 
     // =========================================
-    // 工具函数
+    // UI 工具测试函数
     // =========================================
 
     window.testUtils = {
@@ -357,6 +680,147 @@
             }
         },
 
+        copyText() {
+            try {
+                const testStr = 'GWL 测试文本 #' + Date.now();
+                if (typeof fallbackCopy !== 'undefined') {
+                    const ok = fallbackCopy(testStr);
+                    appendApiOutput('✅ 复制测试', { text: testStr, success: ok, method: 'fallbackCopy' });
+                } else {
+                    navigator.clipboard.writeText(testStr).then(() => {
+                        appendApiOutput('✅ 复制测试', { text: testStr, success: true, method: 'navigator.clipboard' });
+                    }).catch(e => {
+                        appendApiOutput('⚠️ 复制测试', { text: testStr, success: false, error: e.message });
+                    });
+                }
+            } catch (e) { showError(e.message); }
+        },
+
+        testFormat() {
+            try {
+                const now = new Date();
+                const results = {
+                    'toLocaleString()': now.toLocaleString(),
+                    'toLocaleDateString()': now.toLocaleDateString(),
+                    'toISOString()': now.toISOString(),
+                    'toTimeString()': now.toTimeString(),
+                    'getTime()': now.getTime(),
+                    'locale zh-CN': now.toLocaleString('zh-CN'),
+                    'locale en-US': now.toLocaleString('en-US'),
+                    'relative': (function() {
+                        const min = Math.round((Date.now() - now.getTime()) / 60000);
+                        return min + ' 分钟前';
+                    })()
+                };
+                appendApiOutput('✅ 时间格式化测试', results);
+            } catch (e) { showError(e.message); }
+        },
+
+        testNetwork() {
+            try {
+                const info = {
+                    online: navigator.onLine,
+                    userAgent: navigator.userAgent.substring(0, 120),
+                    language: navigator.language,
+                    languages: navigator.languages,
+                    platform: navigator.platform,
+                    cookiesEnabled: navigator.cookieEnabled,
+                    hardwareConcurrency: navigator.hardwareConcurrency,
+                    deviceMemory: navigator.deviceMemory,
+                    maxTouchPoints: navigator.maxTouchPoints,
+                };
+                appendApiOutput('✅ 网络/浏览器信息', info);
+            } catch (e) { showError(e.message); }
+        },
+
+        testLocalStorage() {
+            try {
+                const key = '_test_' + Date.now();
+                localStorage.setItem(key, JSON.stringify({ test: true, time: new Date().toISOString() }));
+                const read = JSON.parse(localStorage.getItem(key));
+                localStorage.removeItem(key);
+                appendApiOutput('✅ localStorage 读写测试', {
+                    writeKey: key,
+                    readValue: read,
+                    cleanup: '已删除测试键',
+                    allKeys: Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i))
+                });
+                refreshAll();
+            } catch (e) { showError(e.message); }
+        },
+
+        testBrowserInfo() {
+            try {
+                const info = {
+                    userAgent: navigator.userAgent,
+                    appVersion: navigator.appVersion,
+                    platform: navigator.platform,
+                    vendor: navigator.vendor,
+                    language: navigator.language,
+                    cookieEnabled: navigator.cookieEnabled,
+                    onLine: navigator.onLine,
+                    hardwareConcurrency: navigator.hardwareConcurrency,
+                    deviceMemory: navigator.deviceMemory,
+                    maxTouchPoints: navigator.maxTouchPoints,
+                };
+                const screenInfo = {
+                    width: screen.width,
+                    height: screen.height,
+                    availWidth: screen.availWidth,
+                    availHeight: screen.availHeight,
+                    colorDepth: screen.colorDepth,
+                    pixelDepth: screen.pixelDepth,
+                };
+                const locationInfo = {
+                    href: location.href,
+                    origin: location.origin,
+                    pathname: location.pathname,
+                    search: location.search,
+                    hash: location.hash,
+                    host: location.host,
+                    hostname: location.hostname,
+                    port: location.port,
+                    protocol: location.protocol,
+                };
+                appendApiOutput('✅ 浏览器环境信息', { navigator: info, screen: screenInfo, location: locationInfo });
+            } catch (e) { showError(e.message); }
+        },
+
+        testUrlParse() {
+            try {
+                const testUrl = document.getElementById('urlInput')?.value || 'https://gwl.net.cn/api/v0/document/list?scope=public&page=1#section';
+                const url = new URL(testUrl);
+                appendApiOutput('✅ URL 解析测试', {
+                    input: testUrl,
+                    protocol: url.protocol,
+                    hostname: url.hostname,
+                    port: url.port,
+                    pathname: url.pathname,
+                    search: url.search,
+                    hash: url.hash,
+                    params: Object.fromEntries(url.searchParams.entries()),
+                    origin: url.origin,
+                });
+            } catch (e) { showError(e.message); }
+        },
+
+        testFormValidation() {
+            try {
+                const tests = [
+                    { input: '', rule: '非空', pass: false },
+                    { input: 'user@example.com', rule: '邮箱', pass: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test('user@example.com') },
+                    { input: '13800138000', rule: '手机号(11位)', pass: /^1\d{10}$/.test('13800138000') },
+                    { input: 'abc123', rule: '字母数字', pass: /^[a-zA-Z0-9]+$/.test('abc123') },
+                    { input: '<script>', rule: '防XSS', pass: /<script/.test('<script>') },
+                    { input: '你好世界', rule: '中文字符', pass: /^[\u4e00-\u9fa5]+$/.test('你好世界') },
+                    { input: '  ', rule: '空白字符', pass: /^\s+$/.test('  ') },
+                ];
+                const results = {};
+                tests.forEach(t => { results[t.rule + ' (' + t.input + ')'] = t.pass; });
+                appendApiOutput('✅ 表单验证测试', results);
+            } catch (e) { showError(e.message); }
+        },
+
         toggleTheme() {
             try {
                 if (typeof ThemeEngine !== 'undefined') {
@@ -366,11 +830,11 @@
                     appendApiOutput('✅ 主题已切换', { from: current, to: next });
                     refreshAll();
                 } else {
-                    // 兜底：直接切换 body class
                     const html = document.documentElement;
-                    const isDark = html.getAttribute('data-theme') === 'dark';
-                    html.setAttribute('data-theme', isDark ? 'light' : 'dark');
-                    appendApiOutput('✅ 主题已切换（兜底）', { to: isDark ? 'light' : 'dark' });
+                    const current = html.getAttribute('data-theme') || 'light';
+                    const next = current === 'dark' ? 'light' : 'dark';
+                    html.setAttribute('data-theme', next);
+                    appendApiOutput('✅ 主题已切换（兜底）', { from: current, to: next });
                 }
             } catch (e) { showError(e.message); }
         },
@@ -384,6 +848,31 @@
                     document.documentElement.setAttribute('data-theme', theme);
                     appendApiOutput('✅ 主题已设置（兜底）', { theme: theme });
                 }
+            } catch (e) { showError(e.message); }
+        },
+
+        listSession() {
+            try {
+                const data = {};
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const key = sessionStorage.key(i);
+                    try {
+                        const val = sessionStorage.getItem(key);
+                        try { data[key] = JSON.parse(val); } catch { data[key] = val; }
+                    } catch { data[key] = '(读取失败)'; }
+                }
+                appendApiOutput('🗄 sessionStorage 内容', {
+                    count: sessionStorage.length,
+                    data: Object.keys(data).length > 0 ? data : '(空)'
+                });
+            } catch (e) { showError(e.message); }
+        },
+
+        clearSession() {
+            try {
+                const count = sessionStorage.length;
+                sessionStorage.clear();
+                appendApiOutput('🗑 sessionStorage 已清空', { clearedCount: count });
             } catch (e) { showError(e.message); }
         },
 

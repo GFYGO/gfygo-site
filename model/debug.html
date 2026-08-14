@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>GWL | Debug Shell</title>
+  <link rel="icon" href="../favicon.png" type="image/png">
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileReady&render=explicit" async defer></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0e14; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; color: #e2e8f0; height: 100vh; overflow: hidden; }
+
+    /* ===== 警告页 ===== */
+    #warningOverlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: #0a0e14;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      transition: opacity 0.5s;
+    }
+    #warningOverlay.hidden { opacity: 0; pointer-events: none; }
+    .warning-box {
+      max-width: 560px; padding: 40px; text-align: center;
+      border: 1px solid #ef4444; border-radius: 8px; background: #1a1a2e;
+    }
+    .warning-box h1 { color: #ef4444; font-size: 1.4rem; margin-bottom: 16px; }
+    .warning-box p { color: #94a3b8; font-size: 0.85rem; line-height: 1.7; margin-bottom: 12px; }
+    .warning-box .countdown { color: #f59e0b; font-size: 2rem; font-weight: 700; margin: 16px 0; }
+    .warning-box .agree-btn {
+      padding: 10px 32px; border: 1px solid #ef4444; border-radius: 6px;
+      background: transparent; color: #ef4444; font-size: 0.9rem;
+      cursor: pointer; font-family: inherit; transition: all 0.2s;
+    }
+    .warning-box .agree-btn:hover { background: #ef4444; color: #fff; }
+    .warning-box .agree-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ===== Turnstile 门 ===== */
+    #turnstileGate {
+      position: fixed; inset: 0; z-index: 9998;
+      background: #0a0e14;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+    }
+    #turnstileGate.active { display: flex; }
+    .gate-box {
+      padding: 40px; text-align: center;
+      border: 1px solid #334155; border-radius: 8px; background: #1a1a2e;
+    }
+    .gate-box h2 { color: #e2e8f0; font-size: 1.1rem; margin-bottom: 20px; }
+    .gate-box .hint { color: #64748b; font-size: 0.8rem; margin-top: 12px; }
+
+    /* ===== Shell 终端 ===== */
+    #shellContainer {
+      display: none; flex-direction: column; height: 100vh;
+      background: #0a0e14;
+    }
+    #shellContainer.active { display: flex; }
+
+    #shellHeader {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 16px; background: #1a1a2e; border-bottom: 1px solid #334155;
+      flex-shrink: 0;
+    }
+    #shellHeader .title { color: #22c55e; font-size: 0.8rem; font-weight: 700; }
+    #shellHeader .status { color: #64748b; font-size: 0.7rem; }
+    #shellHeader .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+    #shellHeader .status .dot.online { background: #22c55e; }
+    #shellHeader .status .dot.offline { background: #ef4444; }
+
+    #shellOutput {
+      flex: 1; overflow-y: auto; padding: 12px 16px;
+      font-size: 0.8rem; line-height: 1.6;
+    }
+    #shellOutput::-webkit-scrollbar { width: 6px; }
+    #shellOutput::-webkit-scrollbar-track { background: #0a0e14; }
+    #shellOutput::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+    .shell-line { margin-bottom: 2px; white-space: pre-wrap; word-break: break-all; }
+    .shell-line .prompt { color: #22c55e; }
+    .shell-line .cmd { color: #e2e8f0; }
+    .shell-line .info { color: #38bdf8; }
+    .shell-line .ok { color: #22c55e; }
+    .shell-line .warn { color: #f59e0b; }
+    .shell-line .err { color: #ef4444; }
+    .shell-line .dim { color: #64748b; }
+    .shell-line .highlight { color: #a78bfa; font-weight: 700; }
+    .shell-line .json { color: #94a3b8; font-size: 0.75rem; }
+
+    #shellInputLine {
+      display: flex; align-items: center; padding: 6px 16px;
+      background: #0a0e14; border-top: 1px solid #1e293b; flex-shrink: 0;
+    }
+    #shellInputLine .prompt { color: #22c55e; font-size: 0.8rem; margin-right: 8px; white-space: nowrap; }
+    #shellInput {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: #e2e8f0; font-size: 0.8rem; font-family: inherit;
+      caret-color: #22c55e;
+    }
+
+    .shell-banner {
+      color: #22c55e; font-size: 0.7rem; line-height: 1.4; margin-bottom: 12px;
+    }
+
+    @media (max-width: 600px) {
+      .warning-box, .gate-box { margin: 16px; padding: 24px; }
+      #shellOutput { font-size: 0.75rem; padding: 8px 10px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== 警告页 ===== -->
+  <div id="warningOverlay">
+    <div class="warning-box">
+      <h1>⚠️ 非开发者警告</h1>
+      <p>此页面为 <strong>Debug Shell</strong> 调试终端，仅供开发人员和管理员使用。</p>
+      <p>非授权访问可能导致系统安全风险。请确认您已获得授权后再继续操作。</p>
+      <div class="countdown" id="countdown">4</div>
+      <button class="agree-btn" id="agreeBtn" disabled>我已了解，继续 (4s)</button>
+    </div>
+  </div>
+
+  <!-- ===== Turnstile 验证门 ===== -->
+  <div id="turnstileGate">
+    <div class="gate-box">
+      <h2>🔐 人机验证</h2>
+      <div id="turnstile-widget-debug"></div>
+      <div class="hint">请完成验证以进入 Debug Shell</div>
+    </div>
+  </div>
+
+  <!-- ===== Shell 终端 ===== -->
+  <div id="shellContainer">
+    <div id="shellHeader">
+      <span class="title">GWL Debug Shell v1.0</span>
+      <span class="status">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusText">disconnected</span>
+      </span>
+    </div>
+    <div id="shellOutput"></div>
+    <div id="shellInputLine">
+      <span class="prompt" id="inputPrompt">$</span>
+      <input type="text" id="shellInput" autofocus spellcheck="false" autocomplete="off" placeholder="输入 help 查看命令列表">
+    </div>
+  </div>
+
+  <script>
+    // =========================================
+    // 配置
+    // =========================================
+    const SITEKEY = '0x4AAAAAAECyOCbL7qIJUOgg';
+    const API_BASE = 'https://back.gwl.net.cn/api/v0';
+    var TOKEN_KEY = 'auth_token';
+    var currentUser = null;
+
+    // =========================================
+    // 警告页逻辑
+    // =========================================
+    (function() {
+      var countdownEl = document.getElementById('countdown');
+      var agreeBtn = document.getElementById('agreeBtn');
+      var warningOverlay = document.getElementById('warningOverlay');
+      var turnstileGate = document.getElementById('turnstileGate');
+      var count = 4;
+
+      function tick() {
+        count--;
+        countdownEl.textContent = count;
+        if (count <= 0) {
+          agreeBtn.disabled = false;
+          agreeBtn.textContent = '我已了解，继续';
+          clearInterval(timer);
+        }
+      }
+      var timer = setInterval(tick, 1000);
+
+      agreeBtn.addEventListener('click', function() {
+        warningOverlay.classList.add('hidden');
+        setTimeout(function() {
+          warningOverlay.style.display = 'none';
+          turnstileGate.classList.add('active');
+        }, 500);
+      });
+    })();
+
+    // =========================================
+    // Turnstile
+    // =========================================
+    var turnstileWidgetId = null;
+
+    window.onTurnstileReady = function() {
+      var container = document.getElementById('turnstile-widget-debug');
+      if (!container || !window.turnstile) return;
+      turnstileWidgetId = window.turnstile.render(container, {
+        sitekey: SITEKEY,
+        theme: 'dark',
+        callback: onTurnstilePass
+      });
+    };
+
+    function onTurnstilePass(token) {
+      document.getElementById('turnstileGate').classList.remove('active');
+      document.getElementById('turnstileGate').style.display = 'none';
+      document.getElementById('shellContainer').classList.add('active');
+      document.getElementById('shellInput').focus();
+      initShell();
+    }
+
+    // =========================================
+    // Token 管理
+    // =========================================
+    function getToken() {
+      try {
+        var data = JSON.parse(localStorage.getItem(TOKEN_KEY));
+        if (!data) return null;
+        if (Date.now() - data.timestamp > data.expiresIn) {
+          localStorage.removeItem(TOKEN_KEY);
+          return null;
+        }
+        return data.token;
+      } catch(e) { return null; }
+    }
+
+    function setToken(token, expiresInSec) {
+      localStorage.setItem(TOKEN_KEY, JSON.stringify({
+        token: token,
+        timestamp: Date.now(),
+        expiresIn: expiresInSec * 1000
+      }));
+    }
+
+    function clearToken() {
+      localStorage.removeItem(TOKEN_KEY);
+      currentUser = null;
+    }
+
+    function getPermFromToken() {
+      var raw = getToken();
+      if (!raw) return { level: 0, context: null, nodes: [] };
+      try {
+        var parts = raw.split('.');
+        if (parts.length < 2) return { level: 0, context: null, nodes: [] };
+        var b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (b64.length % 4) b64 += '=';
+        var payload = JSON.parse(atob(b64));
+        return payload.now_permission || { level: 0, context: null, nodes: [] };
+      } catch(e) {
+        return { level: 0, context: null, nodes: [] };
+      }
+    }
+
+    // =========================================
+    // Shell 核心
+    // =========================================
+    var shellOutput, shellInput, inputPrompt;
+    var history = [];
+    var historyIdx = -1;
+    var cmdHistory = [];
+    var loggedIn = false;
+    var pendingPassword = false;
+    var pendingUsername = null;
+    var cmdQueue = [];
+
+    function initShell() {
+      shellOutput = document.getElementById('shellOutput');
+      shellInput = document.getElementById('shellInput');
+      inputPrompt = document.getElementById('inputPrompt');
+
+      updateStatus();
+      printBanner();
+
+      shellInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          var cmd = shellInput.value.trim();
+          shellInput.value = '';
+          if (cmd) {
+            cmdHistory.push(cmd);
+            if (cmdHistory.length > 200) cmdHistory.shift();
+            historyIdx = cmdHistory.length;
+            processCommand(cmd);
+          }
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (historyIdx > 0) {
+            historyIdx--;
+            shellInput.value = cmdHistory[historyIdx] || '';
+          }
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (historyIdx < cmdHistory.length - 1) {
+            historyIdx++;
+            shellInput.value = cmdHistory[historyIdx] || '';
+          } else {
+            historyIdx = cmdHistory.length;
+            shellInput.value = '';
+          }
+        }
+      });
+
+      // 检查是否已有 token
+      var token = getToken();
+      if (token) {
+        loggedIn = true;
+        updatePrompt();
+        printLine('[i] 检测到已有登录会话，可使用 whoami 查看当前用户信息。', 'info');
+      }
+    }
+
+    function updateStatus() {
+      var dot = document.getElementById('statusDot');
+      var text = document.getElementById('statusText');
+      var token = getToken();
+      if (token) {
+        dot.className = 'dot online';
+        text.textContent = 'authenticated';
+      } else {
+        dot.className = 'dot offline';
+        text.textContent = 'disconnected';
+      }
+    }
+
+    function updatePrompt() {
+      var perm = getPermFromToken();
+      var level = perm.level || 0;
+      if (loggedIn) {
+        inputPrompt.textContent = 'gwl@debug:' + level + '$';
+      } else {
+        inputPrompt.textContent = '$';
+      }
+    }
+
+    function printBanner() {
+      printLine('');
+      printLine('╔══════════════════════════════════════════╗', 'ok');
+      printLine('║     GWL Debug Shell v1.0                ║', 'ok');
+      printLine('║     Type "help" for available commands   ║', 'ok');
+      printLine('╚══════════════════════════════════════════╝', 'ok');
+      printLine('');
+    }
+
+    function printLine(text, className) {
+      if (!shellOutput) return;
+      var div = document.createElement('div');
+      div.className = 'shell-line';
+      if (className) {
+        div.innerHTML = '<span class="' + className + '">' + escapeHtml(text) + '</span>';
+      } else {
+        div.textContent = text;
+      }
+      shellOutput.appendChild(div);
+      shellOutput.scrollTop = shellOutput.scrollHeight;
+    }
+
+    function printJSON(obj) {
+      var text;
+      try {
+        text = JSON.stringify(obj, null, 2);
+      } catch(e) {
+        text = String(obj);
+      }
+      printLine(text, 'json');
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, function(c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    function printCmd(cmd) {
+      var div = document.createElement('div');
+      div.className = 'shell-line';
+      div.innerHTML = '<span class="prompt">' + escapeHtml(inputPrompt.textContent) + '</span> <span class="cmd">' + escapeHtml(cmd) + '</span>';
+      shellOutput.appendChild(div);
+      shellOutput.scrollTop = shellOutput.scrollHeight;
+    }
+
+    // =========================================
+    // 命令处理
+    // =========================================
+    function processCommand(input) {
+      printCmd(input);
+
+      // 密码输入模式
+      if (pendingPassword) {
+        handlePasswordInput(input);
+        return;
+      }
+
+      var parts = input.trim().split(/\s+/);
+      var cmd = parts[0] ? parts[0].toLowerCase() : '';
+      var args = parts.slice(1);
+
+      switch (cmd) {
+        case 'help':     cmdHelp(args); break;
+        case 'login':    cmdLogin(args); break;
+        case 'logout':   cmdLogout(); break;
+        case 'whoami':   cmdWhoami(); break;
+        case 'clear':    cmdClear(); break;
+        case 'echo':     cmdEcho(args); break;
+        case 'date':     cmdDate(); break;
+        case 'token':    cmdToken(); break;
+        case 'perm':     cmdPerm(args); break;
+        case 'switch':   cmdSwitch(args); break;
+        case 'theme':    cmdTheme(args); break;
+        case 'doc':      cmdDoc(args); break;
+        case 'notify':   cmdNotify(args); break;
+        case 'user':     cmdUser(args); break;
+        case 'admin':    cmdAdmin(args); break;
+        case 'exit':     cmdExit(); break;
+        case '':         break;
+        default:
+          printLine('未知命令: ' + cmd + '。输入 help 查看可用命令。', 'err');
+      }
+
+      updateStatus();
+      updatePrompt();
+    }
+
+    // =========================================
+    // 命令实现
+    // =========================================
+
+    function cmdHelp() {
+      printLine('');
+      printLine('━━━ 基础命令 ━━━', 'highlight');
+      printLine('  help                    显示此帮助信息');
+      printLine('  clear                   清空终端');
+      printLine('  echo <text>             回显文本');
+      printLine('  date                    显示当前时间');
+      printLine('  exit                    返回验证页面');
+      printLine('');
+      printLine('━━━ 认证命令 ━━━', 'highlight');
+      printLine('  login <username>        登录（回车后输入密码）');
+      printLine('  logout                  退出登录');
+      printLine('  whoami                  显示当前用户信息');
+      printLine('  token                   查看当前 Token 信息');
+      printLine('  perm                    查看当前权限等级');
+      printLine('  switch <level>          切换权限等级（需管理员权限）');
+      printLine('');
+      printLine('━━━ 文档命令 ━━━', 'highlight');
+      printLine('  doc list                列出公共文档');
+      printLine('  doc mine                列出我的文档');
+      printLine('  doc trash               列出回收站文档');
+      printLine('  doc get <slug>          查看文档详情');
+      printLine('  doc create <title>      创建文档');
+      printLine('  doc revisions <id>      查看文档修订历史');
+      printLine('');
+      printLine('━━━ 通知命令 ━━━', 'highlight');
+      printLine('  notify                  查看全局通知');
+      printLine('  notify admin            查看管理通知');
+      printLine('');
+      printLine('━━━ 用户命令 ━━━', 'highlight');
+      printLine('  user menu               获取用户菜单');
+      printLine('  user stats              获取用户统计');
+      printLine('  user theme <name>       设置用户主题');
+      printLine('');
+      printLine('━━━ 管理命令（需管理员权限）━━━', 'highlight');
+      printLine('  admin users             用户列表');
+      printLine('  admin stats             系统统计');
+      printLine('  admin menu              菜单项列表');
+      printLine('  admin nodes             权限节点列表');
+      printLine('  admin invites           邀请码列表');
+      printLine('  admin groups            组列表');
+      printLine('  admin docs              文档管理列表');
+      printLine('  admin notify            通知管理列表');
+      printLine('  admin perm              查看权限分配');
+      printLine('  admin search <q>        搜索用户');
+      printLine('');
+      printLine('━━━ 主题命令 ━━━', 'highlight');
+      printLine('  theme <name>            切换主题 (green/light/gray/dark_green)');
+      printLine('');
+    }
+
+    // ===== login =====
+    function cmdLogin(args) {
+      if (getToken()) {
+        printLine('已登录。如需切换账号，请先使用 logout 退出。', 'warn');
+        return;
+      }
+      if (args.length === 0) {
+        printLine('用法: login <username>', 'err');
+        return;
+      }
+      var username = args.join(' ').trim();
+      pendingUsername = username;
+      pendingPassword = true;
+      printLine('请输入密码：', 'info');
+      shellInput.type = 'password';
+      shellInput.placeholder = '输入密码...';
+    }
+
+    function handlePasswordInput(input) {
+      var password = input;
+      var username = pendingUsername;
+      pendingUsername = null;
+      pendingPassword = false;
+      shellInput.type = 'text';
+      shellInput.placeholder = '输入 help 查看命令列表';
+
+      doLogin(username, password);
+    }
+
+    async function doLogin(username, password) {
+      printLine('正在登录...', 'dim');
+      try {
+        // 获取 Turnstile token（如果 widget 可见）
+        var cfToken = '';
+        try {
+          if (window.turnstile && turnstileWidgetId) {
+            cfToken = window.turnstile.getResponse(turnstileWidgetId) || '';
+          }
+        } catch(e) {}
+
+        var r = await fetch(API_BASE + '/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: username, password: password, cf_turnstile_token: cfToken })
+        });
+        var d = await r.json();
+        if (d.code === 200 && d.data && d.data.access_token) {
+          setToken(d.data.access_token, d.data.expires_in || 86400);
+          loggedIn = true;
+          currentUser = { username: username };
+          printLine('登录成功！欢迎, ' + username, 'ok');
+          updatePrompt();
+          updateStatus();
+        } else {
+          printLine('登录失败: ' + (d.msg || '未知错误'), 'err');
+        }
+      } catch(e) {
+        printLine('网络错误: ' + e.message, 'err');
+        printLine('提示：后端服务可能已离线，请在服务恢复后重试。', 'warn');
+      }
+    }
+
+    // ===== logout =====
+    function cmdLogout() {
+      if (!getToken()) {
+        printLine('当前未登录。', 'warn');
+        return;
+      }
+      // 尝试调用后端登出
+      (async function() {
+        try {
+          var token = getToken();
+          var r = await fetch(API_BASE + '/auth/logout', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          var d = await r.json();
+          printLine('后端登出: ' + (d.msg || 'ok'), 'dim');
+        } catch(e) {
+          printLine('后端可能离线，本地 Token 已清除。', 'warn');
+        }
+        clearToken();
+        loggedIn = false;
+        currentUser = null;
+        updatePrompt();
+        updateStatus();
+        printLine('已退出登录。', 'ok');
+      })();
+    }
+
+    // ===== whoami =====
+    function cmdWhoami() {
+      var token = getToken();
+      if (!token) {
+        printLine('未登录。使用 login <username> 登录。', 'warn');
+        return;
+      }
+      var perm = getPermFromToken();
+      printLine('');
+      printLine('━━━ 当前会话 ━━━', 'highlight');
+      printLine('登录状态: 已登录', 'ok');
+      printLine('权限等级: ' + (perm.level !== undefined ? 'Lv' + perm.level : '未知'), 'info');
+      printLine('权限上下文: ' + (perm.context || '无'), 'dim');
+      printLine('权限节点数: ' + ((perm.nodes || []).length), 'info');
+
+      // 尝试获取用户信息
+      (async function() {
+        try {
+          var r = await fetch(API_BASE + '/auth/status', {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          var d = await r.json();
+          if (d.code === 200 && d.data && d.data.user) {
+            var u = d.data.user;
+            printLine('用户ID: ' + u.id, 'info');
+            printLine('用户名: ' + u.username, 'ok');
+            printLine('邮箱: ' + (u.email || '未设置'), 'dim');
+            printLine('邮箱验证: ' + (u.email_verified ? '✅' : '❌'), u.email_verified ? 'ok' : 'warn');
+            printLine('真实权限等级: ' + u.permission_level, 'info');
+            currentUser = { username: u.username, id: u.id, level: u.permission_level };
+          }
+        } catch(e) {
+          printLine('获取用户信息失败（后端可能离线）', 'warn');
+        }
+      })();
+    }
+
+    // ===== clear =====
+    function cmdClear() {
+      shellOutput.innerHTML = '';
+      printBanner();
+    }
+
+    // ===== echo =====
+    function cmdEcho(args) {
+      printLine(args.join(' '));
+    }
+
+    // ===== date =====
+    function cmdDate() {
+      var now = new Date();
+      printLine(now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) + ' (CST)', 'info');
+      printLine(now.toISOString() + ' (UTC)', 'dim');
+      printLine('Timestamp: ' + now.getTime(), 'dim');
+    }
+
+    // ===== token =====
+    function cmdToken() {
+      var token = getToken();
+      if (!token) {
+        printLine('无 Token（未登录）', 'warn');
+        return;
+      }
+      printLine('Token: ' + token.substring(0, 40) + '...', 'dim');
+      try {
+        var parts = token.split('.');
+        var b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (b64.length % 4) b64 += '=';
+        var payload = JSON.parse(atob(b64));
+        printLine('Payload:', 'info');
+        printJSON(payload);
+      } catch(e) {
+        printLine('Payload 解析失败', 'err');
+      }
+    }
+
+    // ===== perm =====
+    function cmdPerm(args) {
+      var perm = getPermFromToken();
+      printLine('当前权限等级: Lv' + (perm.level !== undefined ? perm.level : '?'), 'info');
+      printLine('上下文: ' + (perm.context || '无'), 'dim');
+      var nodes = perm.nodes || [];
+      if (nodes.length > 0) {
+        printLine('权限节点 (' + nodes.length + '):', 'info');
+        nodes.forEach(function(n) { printLine('  - ' + n, 'dim'); });
+      } else {
+        printLine('权限节点: 无', 'warn');
+      }
+    }
+
+    // ===== switch =====
+    function cmdSwitch(args) {
+      if (!requireAuth()) return;
+      if (args.length === 0) {
+        printLine('用法: switch <level> (1-5)', 'err');
+        return;
+      }
+      var level = parseInt(args[0]);
+      if (isNaN(level) || level < 1 || level > 5) {
+        printLine('等级必须为 1-5 之间的整数', 'err');
+        return;
+      }
+      (async function() {
+        try {
+          var token = getToken();
+          var r = await fetch(API_BASE + '/auth/switch-permission', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_level: level })
+          });
+          var d = await r.json();
+          if (d.code === 200) {
+            if (d.data && d.data.token) {
+              var oldToken = getToken();
+              setToken(d.data.token, d.data.expires_in || 86400);
+              // 清除旧 token 的黑名单记录
+              try {
+                await fetch(API_BASE + '/auth/logout', {
+                  method: 'POST',
+                  headers: { 'Authorization': 'Bearer ' + oldToken }
+                });
+              } catch(e) {}
+              printLine('权限已切换至 Lv' + level + '，Token 已刷新', 'ok');
+            } else {
+              printLine('权限切换成功', 'ok');
+            }
+            updatePrompt();
+            updateStatus();
+          } else {
+            printLine('切换失败: ' + (d.msg || '权限不足'), 'err');
+          }
+        } catch(e) {
+          printLine('网络错误: ' + e.message, 'err');
+        }
+      })();
+    }
+
+    // ===== theme =====
+    function cmdTheme(args) {
+      if (args.length === 0) {
+        printLine('用法: theme <name>', 'err');
+        printLine('可用主题: green, light, gray, dark_green', 'dim');
+        return;
+      }
+      var name = args[0].toLowerCase();
+      var valid = ['green', 'light', 'gray', 'dark_green'];
+      if (valid.indexOf(name) === -1) {
+        printLine('无效主题: ' + name + '。可用: ' + valid.join(', '), 'err');
+        return;
+      }
+      // 尝试设置主题（需要 ThemeEngine）
+      try {
+        if (typeof ThemeEngine !== 'undefined' && ThemeEngine.setTheme) {
+          ThemeEngine.setTheme(name);
+        } else {
+          document.documentElement.setAttribute('data-theme', name);
+        }
+        printLine('主题已切换为: ' + name, 'ok');
+      } catch(e) {
+        document.documentElement.setAttribute('data-theme', name);
+        printLine('主题已切换为: ' + name + '（兜底模式）', 'ok');
+      }
+    }
+
+    // ===== exit =====
+    function cmdExit() {
+      var c = confirm('返回验证页面？当前 shell 会话将被重置。');
+      if (!c) return;
+      // 重置所有状态
+      clearToken();
+      loggedIn = false;
+      currentUser = null;
+      document.getElementById('shellContainer').classList.remove('active');
+      document.getElementById('shellContainer').style.display = 'none';
+      document.getElementById('turnstileGate').style.display = '';
+      document.getElementById('turnstileGate').classList.add('active');
+      // 重置 Turnstile
+      try {
+        if (window.turnstile && turnstileWidgetId) {
+          window.turnstile.reset(turnstileWidgetId);
+        }
+      } catch(e) {}
+    }
+
+    // =========================================
+    // 文档命令
+    // =========================================
+    function cmdDoc(args) {
+      if (!requireAuth()) return;
+      var sub = args[0] ? args[0].toLowerCase() : '';
+
+      switch (sub) {
+        case 'list':
+          apiGet('/document/list?scope=public', '公共文档列表');
+          break;
+        case 'mine':
+          apiGet('/document/mine', '我的文档列表');
+          break;
+        case 'trash':
+          apiGet('/document/trash', '回收站文档');
+          break;
+        case 'get':
+          if (!args[1]) { printLine('用法: doc get <slug>', 'err'); return; }
+          apiGet('/document/' + args[1], '文档详情: ' + args[1]);
+          break;
+        case 'create':
+          if (!args[1]) { printLine('用法: doc create <title>', 'err'); return; }
+          var title = args.slice(1).join(' ');
+          apiPost('/document/', { title: title, content: '由 Debug Shell 创建', visibility: 'private' }, '文档创建');
+          break;
+        case 'revisions':
+          if (!args[1]) { printLine('用法: doc revisions <id>', 'err'); return; }
+          apiGet('/document/' + args[1] + '/revisions', '文档修订历史 #' + args[1]);
+          break;
+        default:
+          printLine('用法: doc <list|mine|trash|get|create|revisions>', 'err');
+      }
+    }
+
+    // =========================================
+    // 通知命令
+    // =========================================
+    function cmdNotify(args) {
+      var sub = args[0] ? args[0].toLowerCase() : '';
+      if (sub === 'admin') {
+        if (!requireAuth()) return;
+        apiGet('/admin/notifications', '管理通知列表', true);
+      } else {
+        apiGet('/notify/global', '全局通知');
+      }
+    }
+
+    // =========================================
+    // 用户命令
+    // =========================================
+    function cmdUser(args) {
+      if (!requireAuth()) return;
+      var sub = args[0] ? args[0].toLowerCase() : '';
+      switch (sub) {
+        case 'menu':
+          apiGet('/user/menu', '用户菜单');
+          break;
+        case 'stats':
+          apiGet('/user/stats', '用户统计');
+          break;
+        case 'theme':
+          if (!args[1]) { printLine('用法: user theme <name>', 'err'); return; }
+          apiPut('/user/theme', { theme: args[1] }, '设置主题');
+          break;
+        default:
+          printLine('用法: user <menu|stats|theme>', 'err');
+      }
+    }
+
+    // =========================================
+    // 管理命令
+    // =========================================
+    function cmdAdmin(args) {
+      if (!requireAuth()) return;
+      var sub = args[0] ? args[0].toLowerCase() : '';
+      switch (sub) {
+        case 'users':
+          apiGet('/admin/users', '用户列表', true);
+          break;
+        case 'search':
+          if (!args[1]) { printLine('用法: admin search <q>', 'err'); return; }
+          apiGet('/admin/users?q=' + encodeURIComponent(args.slice(1).join(' ')), '用户搜索', true);
+          break;
+        case 'stats':
+          apiGet('/admin/stats', '系统统计', true);
+          break;
+        case 'menu':
+          apiGet('/admin/menu-items', '菜单项列表', true);
+          break;
+        case 'nodes':
+          apiGet('/admin/permission-nodes', '权限节点列表', true);
+          break;
+        case 'invites':
+          apiGet('/admin/invite-codes', '邀请码列表', true);
+          break;
+        case 'groups':
+          apiGet('/admin/groups', '组列表', true);
+          break;
+        case 'docs':
+          apiGet('/admin/documents', '文档管理列表', true);
+          break;
+        case 'notify':
+          apiGet('/admin/notifications', '通知管理列表', true);
+          break;
+        case 'perm':
+          (function() {
+            var t = prompt('类型 (level/user/group):', 'level');
+            if (!t) return;
+            var id = prompt('scope_id:', '1');
+            if (id === null) return;
+            var lv = prompt('level:', '1');
+            var url = '/admin/permission-assignments?type=' + encodeURIComponent(t) + '&id=' + encodeURIComponent(id) + (lv ? '&level=' + encodeURIComponent(lv) : '');
+            apiGet(url, '权限分配', true);
+          })();
+          break;
+        default:
+          printLine('用法: admin <users|search|stats|menu|nodes|invites|groups|docs|notify|perm>', 'err');
+      }
+    }
+
+    // =========================================
+    // API 请求辅助
+    // =========================================
+    function requireAuth() {
+      if (!getToken()) {
+        printLine('请先登录。使用 login <username> 命令。', 'err');
+        return false;
+      }
+      return true;
+    }
+
+    function getHeaders(withAdmin) {
+      var headers = { 'Authorization': 'Bearer ' + getToken() };
+      if (withAdmin) { headers['X-Permission-Context'] = 'admin'; }
+      return headers;
+    }
+
+    function apiGet(path, label, withAdmin) {
+      printLine('请求: GET ' + path, 'dim');
+      (async function() {
+        try {
+          var r = await fetch(API_BASE + path, { headers: getHeaders(withAdmin) });
+          var d = await r.json();
+          if (d.code === 200) {
+            printLine('✅ ' + label + ' 成功', 'ok');
+            printJSON(d.data || d.msg);
+          } else if (d.code === 403) {
+            printLine('❌ 权限不足 (403): ' + (d.msg || '无权限访问'), 'err');
+          } else {
+            printLine('⚠️ ' + label + ': ' + (d.msg || '未知错误'), 'warn');
+            printJSON(d);
+          }
+        } catch(e) {
+          printLine('❌ 请求失败（后端可能离线）: ' + e.message, 'err');
+        }
+      })();
+    }
+
+    function apiPost(path, body, label) {
+      printLine('请求: POST ' + path, 'dim');
+      (async function() {
+        try {
+          var r = await fetch(API_BASE + path, {
+            method: 'POST',
+            headers: getHeaders(true),
+            body: JSON.stringify(body)
+          });
+          var d = await r.json();
+          if (d.code === 200) {
+            printLine('✅ ' + label + ' 成功', 'ok');
+            printJSON(d.data || d.msg);
+          } else {
+            printLine('⚠️ ' + label + ': ' + (d.msg || '失败'), 'warn');
+            printJSON(d);
+          }
+        } catch(e) {
+          printLine('❌ 请求失败: ' + e.message, 'err');
+        }
+      })();
+    }
+
+    function apiPut(path, body, label) {
+      printLine('请求: PUT ' + path, 'dim');
+      (async function() {
+        try {
+          var r = await fetch(API_BASE + path, {
+            method: 'PUT',
+            headers: getHeaders(false),
+            body: JSON.stringify(body)
+          });
+          var d = await r.json();
+          if (d.code === 200) {
+            printLine('✅ ' + label + ' 成功', 'ok');
+            printJSON(d.data || d.msg);
+          } else {
+            printLine('⚠️ ' + label + ': ' + (d.msg || '失败'), 'warn');
+            printJSON(d);
+          }
+        } catch(e) {
+          printLine('❌ 请求失败: ' + e.message, 'err');
+        }
+      })();
+    }
+
+    // =========================================
+    // 容错：页面即使后端崩溃也能加载
+    // =========================================
+    // 此页面是静态 HTML，由 Nginx/GitHub Pages 直接托管
+    // 即使 Flask 后端 (app.py) 崩溃，页面本身仍可正常加载
+    // 所有 API 调用均有 try-catch 保护，后端离线时仅显示错误提示
+    // 终端交互（help/clear/echo/date/theme 等本地命令）完全不受影响
+  </script>
+</body>
+</html>
