@@ -457,19 +457,19 @@
 
 /* === 嵌套组缩进 === */
 .pp-group .pp-node-row {
-    padding-left: calc(40px + var(--pp-depth, 0) * 20px);
-}
-
-.pp-group .pp-group .pp-node-row {
     padding-left: 60px;
 }
 
-.pp-group .pp-group .pp-group .pp-node-row {
+.pp-group .pp-group .pp-node-row {
     padding-left: 80px;
 }
 
-.pp-group .pp-group .pp-group .pp-group .pp-node-row {
+.pp-group .pp-group .pp-group .pp-node-row {
     padding-left: 100px;
+}
+
+.pp-group .pp-group .pp-group .pp-group .pp-node-row {
+    padding-left: 120px;
 }
 
 /* === 深色主题适配 === */
