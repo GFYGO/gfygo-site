@@ -109,10 +109,10 @@ class PermissionPicker {
     }
 
     buildTree() {
-        this.tree = {};
+        this.tree = { _children: {}, _leaf: null };
         for (const node of this.nodes) {
             const parts = (node.node_code || '').split('.');
-            let cursor = this.tree;
+            let cursor = this.tree._children;
             for (let i = 0; i < parts.length; i++) {
                 const part = parts[i];
                 if (!cursor[part]) {
