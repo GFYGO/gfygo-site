@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // 初始化个人文档全局引用 & 设置 currentUserId
     if (menuData && menuData.user_info) {
         const ui = menuData.user_info;
-        const userObj = ui.id || ui.user_id || null;
+        const userObj = ui.id || ui.user_id || (window.getUserId ? window.getUserId() : null) || null;
         if (userObj) {
             try {
                 const { initPersonalDocs, PDocsState: pds } = await import('./dashboard.pdocs.js');

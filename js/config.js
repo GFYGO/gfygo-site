@@ -60,6 +60,23 @@ function getNowPermission() {
   }
 }
 
+function getUserId() {
+  const raw = AuthGuard.getToken();
+  if (!raw) return null;
+  try {
+    const parts = raw.split('.');
+    if (parts.length < 2) return null;
+    let payloadB64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (payloadB64.length % 4) payloadB64 += '=';
+    const payload = JSON.parse(atob(payloadB64));
+    if (payload.uid != null && payload.uid !== '') return payload.uid;
+    if (payload.sub != null && payload.sub !== '') return payload.sub;
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
 const nowPermission = getNowPermission();
 
 function hasPermission(nodeCode) {
