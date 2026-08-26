@@ -566,7 +566,9 @@ async function loadPersonalFolders() {
         return;
     }
     const all = Array.isArray(data.data) ? data.data : [];
-    PDocsState.folders = all.filter(f => f.user_id === PDocsState.currentUserId);
+    // 归一化比较：后端 user_id 为数字，currentUserId 可能是数字或 JWT 字符串
+    const myId = String(PDocsState.currentUserId);
+    PDocsState.folders = all.filter(f => String(f.user_id) === myId);
     renderExplorerGrid();
     renderPdocsBreadcrumb();
 }
