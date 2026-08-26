@@ -685,3 +685,7 @@ async function movePersonalDoc(docId, folderId) {
 
 // ===== ES Module exports =====
 export { initPersonalDocs, loadPersonalDocs, PDocsState };
+
+// ===== 兼容层：挂载完整初始化函数到 window（page/docs.html 动态注入后调用） =====
+window.initPersonalDocs = initPersonalDocs;
+window.loadPersonalDocs = loadPersonalDocs;
