@@ -153,6 +153,19 @@
             <p class="doc-loading-text">正在加载文档正文...</p>
           </article>
 
+          <!-- 内容权限规则面板（作者/超管可见） -->
+          <section class="doc-rules" id="docRulesPanel" style="display:none;">
+            <div class="doc-rules__head">
+              <span>🔐 内容权限规则</span>
+              <span class="doc-rules__hint">格式：&lt;对象id&gt;.&lt;级别&gt;.&lt;类别&gt;.&lt;权限&gt;.&lt;状态&gt;，每行一条，字段可 *（状态 * 表示移除该规则）</span>
+            </div>
+            <textarea id="docRulesInput" class="doc-rules__input" rows="4" placeholder="例如：&#10;42.*.*.*.deny&#10;*.*.doc.private.*.allow"></textarea>
+            <div class="doc-rules__actions">
+              <button class="btn-primary" id="docRulesSave">保存规则</button>
+              <button class="btn-secondary" id="docRulesCancel">取消</button>
+            </div>
+          </section>
+
           <!-- 修订历史折叠面板 -->
           <section class="doc-revisions" id="docRevisions" style="display:none;">
             <button class="doc-revisions__toggle" id="docRevisionsToggle" aria-expanded="false">

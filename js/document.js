@@ -1033,8 +1033,17 @@ function renderDocDetailView(doc) {
   pills.push(`<span class="meta-pill">✏️ 修改 <strong>${fmtTime(doc.updated_at || doc.created_at)}</strong></span>`);
   // 6. 浏览量
   pills.push(`<span class="meta-pill">👁 <strong>${doc.view_count ?? 0}</strong> 次阅读</span>`);
+  // 7. 内容权限规则入口（作者 / 超管）
+  const isDocOwner = uid && doc.author_id == uid;
+  if (isDocOwner || __DOC.isAdmin) {
+    pills.push(`<button class="meta-pill doc-rules-toggle" id="docRulesToggle" title="编辑内容权限规则" style="cursor:pointer">🔐 权限规则</button>`);
+  }
 
   if ($meta) $meta.innerHTML = pills.join('');
+
+  // 绑定权限规则面板开关
+  const rulesToggle = document.getElementById('docRulesToggle');
+  if (rulesToggle) rulesToggle.addEventListener('click', () => toggleDocRules(doc));
 
   // --- Markdown 正文 ---
   if ($content) {
@@ -1135,6 +1144,83 @@ function bindRevisionsToggle() {
     btn.setAttribute('aria-expanded', String(open));
   });
 }
+
+// =========================================
+// 10.5 内容权限规则（作者 / 超管）
+// =========================================
+async function toggleDocRules(doc) {
+  const panel = document.getElementById('docRulesPanel');
+  if (!panel) return;
+  if (panel.style.display !== 'none' && panel.style.display !== '') {
+    panel.style.display = 'none';
+    return;
+  }
+  const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
+  if (!token) {
+    alert('请先登录');
+    return;
+  }
+  __DOC._rulesDocId = doc.id;
+  panel.style.display = '';
+  const input = document.getElementById('docRulesInput');
+  input.value = '加载中...';
+  try {
+    const r = await fetch(`${API_BASE_URL}/api/v0/document/${doc.id}/permissions`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const d = await r.json();
+    if (d.code === 200) {
+      input.value = (d.data || []).map(x => `${x.target}.${x.level}.${x.category}.${x.action}.${x.state}`).join('\n');
+    } else {
+      input.value = '';
+      alert('加载规则失败：' + (d.msg || '未知错误'));
+    }
+  } catch (e) {
+    input.value = '';
+    alert('加载规则失败：网络错误');
+  }
+}
+
+async function saveDocRules() {
+  const id = __DOC._rulesDocId;
+  if (!id) return;
+  const input = document.getElementById('docRulesInput');
+  const lines = (input.value || '').split('\n').map(s => s.trim()).filter(Boolean);
+  const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
+  if (!token) {
+    alert('请先登录');
+    return;
+  }
+  try {
+    const r = await fetch(`${API_BASE_URL}/api/v0/document/${id}/permissions`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ rules: lines })
+    });
+    const d = await r.json();
+    if (d.code === 200) {
+      if (typeof showToast === 'function') showToast('已保存 ' + (d.data.saved || 0) + ' 条规则', 'success');
+      else alert('已保存 ' + (d.data.saved || 0) + ' 条规则');
+    } else {
+      alert('保存失败：' + (d.msg || '未知错误'));
+    }
+  } catch (e) {
+    alert('保存失败：网络错误');
+  }
+}
+
+function initDocRulesPanel() {
+  const saveBtn = document.getElementById('docRulesSave');
+  const cancelBtn = document.getElementById('docRulesCancel');
+  if (saveBtn) saveBtn.addEventListener('click', saveDocRules);
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      const panel = document.getElementById('docRulesPanel');
+      if (panel) panel.style.display = 'none';
+    });
+  }
+}
+document.addEventListener('DOMContentLoaded', initDocRulesPanel);
 
 // =========================================
 // 11. 错误态（404 / 403）

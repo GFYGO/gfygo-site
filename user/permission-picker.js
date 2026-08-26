@@ -1,506 +1,340 @@
 /**
- * permission-picker.js - LuckPerms 风格图形化权限节点编辑器
- * Phase 2: ES Module — 共享资源通过 window 访问
+ * permission-picker.js - 权限编辑器（规则模式 + 节点模式）
+ *
+ * 规则模式（mode:'rules'，默认）：5 字段规则列表 <对象id>.<级别>.<类别>.<权限>.<状态>
+ *   - 各字段可用 '*' 通配；类别/权限从节点字典下拉
+ *   - getRules() / setRules(rules) / getValue()(规则数组)
+ *
+ * 节点模式（mode:'node'，兼容 admin-menu 单节点选择）：节点树 → getValue() 返回 {node_code: state}
  */
 (function() {
-    if (window.__PermissionPickerLoaded) {
-        return;
-    }
+    if (window.__PermissionPickerLoaded) return;
     window.__PermissionPickerLoaded = true;
 
-var AuthGuard = window.AuthGuard;
-var API_BASE_URL = window.API_BASE_URL;
+    var AuthGuard = window.AuthGuard;
+    var API_BASE_URL = window.API_BASE_URL;
 
-class PermissionPicker {
-    constructor(container, options) {
-        this.container = typeof container === 'string'
-            ? document.querySelector(container)
-            : container;
-        this.options = Object.assign({
-            value: {},
-            level: null,
-            showLevelSelector: true,
-            showSearch: true,
-            allowSingleSelect: false,
-            showBulkOps: true,
-            title: '权限节点',
-            apiUrl: API_BASE_URL + '/api/v0/admin/permission-nodes',
-            onChange: null,
-        }, options || {});
+    const LEVEL_OPTS = ['*', '1', '2', '3', '4', '5'];
+    const STATE_OPTS = ['allow', 'deny'];
+    const STATE_LABEL = { allow: '允许', deny: '禁止' };
 
-        this.state = {};
-        if (this.options.value && typeof this.options.value === 'object') {
-            this.state = Object.assign({}, this.options.value);
-        }
-        this.level = this.options.level;
-        this.nodes = [];
-        this.tree = {};
-        this.filteredNodes = null;
+    function esc(s) {
+        const d = document.createElement('div');
+        d.textContent = s == null ? '' : String(s);
+        return d.innerHTML;
     }
 
-    async load() {
-        this.container.innerHTML = '<div class="pp-loading"><div class="pp-spinner"></div><span>加载权限节点...</span></div>';
-        try {
-            const token = AuthGuard.getToken();
-            if (!token) {
-                this.container.innerHTML = '<div class="pp-error">未登录，请先登录系统</div>';
-                AuthGuard.handleAuthError();
-                return this;
-            }
+    class PermissionPicker {
+        constructor(container, options) {
+            this.container = typeof container === 'string'
+                ? document.querySelector(container)
+                : container;
+            this.options = Object.assign({
+                mode: 'rules',          // 'rules' | 'node'
+                rules: [],              // 规则模式初始值 [{target,level,category,action,state}]
+                value: {},              // 节点模式初始值 {node_code: 'allow'}
+                allowSingleSelect: false,
+                title: '权限编辑器',
+                apiUrl: API_BASE_URL + '/api/v0/admin/permission-nodes',
+                onChange: null,
+            }, options || {});
 
-            const headers = { 'Authorization': 'Bearer ' + token };
-            const res = await fetch(this.options.apiUrl, { headers });
-
-            if (res.status === 401 || res.status === 422) {
-                AuthGuard.handleAuthError();
-                this.container.innerHTML = '<div class="pp-error">登录状态已失效，请重新登录</div>';
-                return this;
-            }
-
-            if (res.status === 403) {
-                // 403 权限不足时用 state 降级显示
-                this.nodes = Object.keys(this.state).map(code => ({
-                    node_code: code,
-                    module: code.split('.')[0] || 'unknown',
-                    display_name: code,
-                    description: ''
-                }));
-                this.buildTree();
-                this.render();
-                return this;
-            }
-
-            if (!res.ok) {
-                let msg = '加载权限节点失败 (HTTP ' + res.status + ')';
-                try {
-                    const errData = await res.json();
-                    if (errData && errData.msg) msg = errData.msg;
-                } catch (_) {}
-                this.container.innerHTML = '<div class="pp-error">' + msg + '</div>';
-                return this;
-            }
-
-            const d = await res.json();
-            if (d.code === 200 && Array.isArray(d.data) && d.data.length > 0) {
-                this.nodes = d.data;
-            } else {
-                // 从 state 推导节点（降级方案：API返回空或错误时，用state中的key构建节点）
-                this.nodes = Object.keys(this.state).map(code => ({
-                    node_code: code,
-                    module: code.split('.')[0] || 'unknown',
-                    display_name: code,
-                    description: ''
-                }));
-            }
-            this.buildTree();
-            this.render();
-        } catch (e) {
-            // 网络错误时用 state 降级显示
-            this.nodes = Object.keys(this.state).map(code => ({
-                node_code: code,
-                module: code.split('.')[0] || 'unknown',
-                display_name: code,
-                description: ''
-            }));
-            this.buildTree();
-            this.render();
+            this.rules = Array.isArray(this.options.rules)
+                ? this.options.rules.map(r => Object.assign({}, r))
+                : [];
+            this.state = Object.assign({}, this.options.value || {});
+            this.nodes = [];
+            this.loaded = false;
         }
-        return this;
-    }
 
-    buildTree() {
-        this.tree = { _children: {}, _leaf: null };
-        for (const node of this.nodes) {
-            const parts = (node.node_code || '').split('.');
-            let cursor = this.tree._children;
-            for (let i = 0; i < parts.length; i++) {
-                const part = parts[i];
-                if (!cursor[part]) {
-                    cursor[part] = {
-                        _children: {},
-                        _leaf: null,
-                    };
+        async load() {
+            this.container.innerHTML = '<div class="pp-loading"><span class="pp-spinner"></span><span>加载权限节点...</span></div>';
+            try {
+                const token = AuthGuard.getToken ? AuthGuard.getToken() : null;
+                if (token) {
+                    const res = await fetch(this.options.apiUrl, {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    if (res.ok) {
+                        const d = await res.json();
+                        if (d.code === 200 && Array.isArray(d.data)) this.nodes = d.data;
+                    }
                 }
-                if (i === parts.length - 1) {
-                    cursor[part]._leaf = node;
-                }
-                cursor = cursor[part]._children;
+            } catch (e) { /* 网络失败用空字典降级 */ }
+            this.loaded = true;
+            this._render();
+            return this;
+        }
+
+        _emit() {
+            if (typeof this.options.onChange === 'function') {
+                this.options.onChange(this.options.mode === 'node' ? this.getValue() : this.getRules());
             }
         }
-    }
 
-    render() {
-        this.container.innerHTML = '';
-        const wrapper = document.createElement('div');
-        wrapper.className = 'pp-root';
+        // ================================================
+        // 规则模式（5 字段规则列表）
+        // ================================================
 
-        if (this.options.title) {
-            const title = document.createElement('div');
-            title.className = 'pp-title-bar';
-            title.innerHTML = '<span class="pp-title">' + this._escape(this.options.title) + '</span>' +
-                '<span class="pp-selected-count" id="ppCount">已选 0 项</span>';
-            wrapper.appendChild(title);
+        _categories() {
+            const set = new Set();
+            (this.nodes || []).forEach(n => {
+                const c = (n.node_code || '').lastIndexOf('.');
+                if (c > 0) set.add(n.node_code.slice(0, c));
+            });
+            return ['*', ...Array.from(set).sort()];
         }
 
-        if (this.options.showSearch) {
+        _actions() {
+            const set = new Set();
+            (this.nodes || []).forEach(n => {
+                const c = (n.node_code || '').lastIndexOf('.');
+                if (c > 0) set.add(n.node_code.slice(c + 1));
+            });
+            return ['*', ...Array.from(set).sort()];
+        }
+
+        _renderRulesMode() {
+            this.container.innerHTML = '';
+            const wrap = document.createElement('div');
+            wrap.className = 'pp-root pr-root';
+
+            if (this.options.title) {
+                const title = document.createElement('div');
+                title.className = 'pp-title-bar';
+                title.innerHTML = '<span class="pp-title">' + esc(this.options.title) + '</span>' +
+                    '<span class="pp-selected-count" id="ppCount">0 条规则</span>';
+                wrap.appendChild(title);
+            }
+
+            const ops = document.createElement('div');
+            ops.className = 'pp-bulk-ops pr-toolbar';
+            ops.innerHTML =
+                '<button class="pp-bulk-btn" data-op="add">＋ 添加规则</button>' +
+                '<span class="pp-bulk-divider"></span>' +
+                '<button class="pp-bulk-btn" data-op="clear">清空</button>' +
+                '<span class="pr-hint">格式：&lt;对象id&gt;.&lt;级别&gt;.&lt;类别&gt;.&lt;权限&gt;.&lt;状态&gt;，字段可 *</span>';
+            wrap.appendChild(ops);
+
+            const list = document.createElement('div');
+            list.className = 'pr-list';
+            wrap.appendChild(list);
+
+            const addRow = (rule) => {
+                const r = Object.assign({ target: '*', level: '*', category: '*', action: '*', state: 'allow' }, rule || {});
+                const row = document.createElement('div');
+                row.className = 'pr-row';
+
+                const tInput = document.createElement('input');
+                tInput.className = 'pr-fld pr-target';
+                tInput.value = r.target || '*';
+                tInput.placeholder = '* 或用户/组id';
+
+                const lvSel = this._sel('pr-fld pr-level', LEVEL_OPTS, r.level);
+                const catSel = this._sel('pr-fld pr-cat', this._categories(), r.category);
+                const actSel = this._sel('pr-fld pr-act', this._actions(), r.action);
+                const stSel = this._sel('pr-fld pr-state', STATE_OPTS, r.state, STATE_LABEL);
+
+                const del = document.createElement('button');
+                del.className = 'pr-del';
+                del.textContent = '✕';
+                del.title = '删除该规则（等效于状态设为继承）';
+                del.addEventListener('click', () => { row.remove(); this._updateRuleCount(); this._emit(); });
+
+                const sync = () => {
+                    const state = stSel.value;
+                    if (state === 'inherit' || state === '*') { row.remove(); }
+                    this._updateRuleCount();
+                    this._emit();
+                };
+                [tInput, lvSel, catSel, actSel, stSel].forEach(el => el.addEventListener('change', sync));
+                tInput.addEventListener('input', () => this._emit());
+
+                row.appendChild(tInput);
+                row.appendChild(lvSel);
+                row.appendChild(catSel);
+                row.appendChild(actSel);
+                row.appendChild(stSel);
+                row.appendChild(del);
+                list.appendChild(row);
+            };
+
+            ops.querySelector('[data-op="add"]').addEventListener('click', () => {
+                addRow(null);
+                this._updateRuleCount();
+                this._emit();
+            });
+            ops.querySelector('[data-op="clear"]').addEventListener('click', () => {
+                list.innerHTML = '';
+                this._updateRuleCount();
+                this._emit();
+            });
+
+            (this.rules.length ? this.rules : [{}]).forEach(addRow);
+            this.container.appendChild(wrap);
+            this._updateRuleCount();
+        }
+
+        _sel(cls, values, current, labels) {
+            const s = document.createElement('select');
+            s.className = cls;
+            values.forEach(v => {
+                const o = document.createElement('option');
+                o.value = v;
+                o.textContent = (labels && labels[v]) || v;
+                if (String(v) === String(current)) o.selected = true;
+                s.appendChild(o);
+            });
+            return s;
+        }
+
+        _readRuleRows() {
+            const out = [];
+            this.container.querySelectorAll('.pr-row').forEach(row => {
+                const target = (row.querySelector('.pr-target').value || '*').trim();
+                const level = row.querySelector('.pr-level').value;
+                const category = row.querySelector('.pr-cat').value;
+                const action = row.querySelector('.pr-act').value;
+                const state = row.querySelector('.pr-state').value;
+                if (state === 'allow' || state === 'deny') {
+                    out.push({ target, level, category, action, state });
+                }
+            });
+            return out;
+        }
+
+        _updateRuleCount() {
+            const el = document.getElementById('ppCount');
+            if (el) el.textContent = this._readRuleRows().length + ' 条规则';
+        }
+
+        // ================================================
+        // 节点模式（兼容旧：单/多节点选择）
+        // ================================================
+
+        _renderNodeMode() {
+            this.container.innerHTML = '';
+            const wrap = document.createElement('div');
+            wrap.className = 'pp-root';
+
+            if (this.options.title) {
+                const title = document.createElement('div');
+                title.className = 'pp-title-bar';
+                title.innerHTML = '<span class="pp-title">' + esc(this.options.title) + '</span>' +
+                    '<span class="pp-selected-count" id="ppCount">已选 ' + Object.keys(this.state).length + ' 项</span>';
+                wrap.appendChild(title);
+            }
+
             const search = document.createElement('div');
             search.className = 'pp-search';
-            search.innerHTML = '<input type="text" placeholder="搜索权限节点..." id="ppSearchInput">' +
-                '<button class="pp-search-clear" id="ppSearchClear" style="display:none">✕</button>';
-            wrapper.appendChild(search);
+            search.innerHTML = '<input type="text" placeholder="搜索权限节点..." id="ppSearchInput">';
+            wrap.appendChild(search);
 
-            const searchInput = search.querySelector('#ppSearchInput');
-            const searchClear = search.querySelector('#ppSearchClear');
+            const tree = document.createElement('div');
+            tree.className = 'pp-tree';
+            wrap.appendChild(tree);
 
-            searchInput.addEventListener('input', () => {
-                const q = searchInput.value.toLowerCase().trim();
-                this.filteredNodes = q ? this.filterNodes(q) : null;
-                this.renderTree(wrapper);
-                searchClear.style.display = q ? 'inline' : 'none';
-            });
-
-            searchClear.addEventListener('click', () => {
-                searchInput.value = '';
-                this.filteredNodes = null;
-                this.renderTree(wrapper);
-                searchClear.style.display = 'none';
-                searchInput.focus();
-            });
-        }
-
-        if (this.options.showLevelSelector) {
-            const levelBar = document.createElement('div');
-            levelBar.className = 'pp-level-bar';
-            levelBar.innerHTML = '<span class="pp-level-label">等级:</span>' +
-                '<div class="pp-level-selector" id="ppLevelSelector">' +
-                '<button class="pp-level-btn" data-level="1">Lv1</button>' +
-                '<button class="pp-level-btn" data-level="2">Lv2</button>' +
-                '<button class="pp-level-btn" data-level="3">Lv3</button>' +
-                '<button class="pp-level-btn" data-level="4">Lv4</button>' +
-                '<button class="pp-level-btn" data-level="5">Lv5</button>' +
-                '</div>';
-            wrapper.appendChild(levelBar);
-
-            const levelSelector = levelBar.querySelector('#ppLevelSelector');
-            const levelButtons = levelSelector.querySelectorAll('.pp-level-btn');
-
-            if (this.level !== null) {
-                this._highlightLevel(levelButtons);
-            }
-
-            levelButtons.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    this.level = parseInt(btn.dataset.level);
-                    this._highlightLevel(levelButtons);
-                    this.renderTree(wrapper);
-                    this._onChange();
-                });
-            });
-        }
-
-        if (this.options.showBulkOps) {
-            const ops = document.createElement('div');
-            ops.className = 'pp-bulk-ops';
-            ops.innerHTML =
-                '<button class="pp-bulk-btn" data-op="expand">展开全部</button>' +
-                '<button class="pp-bulk-btn" data-op="collapse">收起全部</button>' +
-                '<span class="pp-bulk-divider"></span>' +
-                '<button class="pp-bulk-btn" data-op="allow-all">全部允许</button>' +
-                '<button class="pp-bulk-btn" data-op="inherit-all">全部继承</button>' +
-                '<button class="pp-bulk-btn" data-op="deny-all">全部禁止</button>' +
-                '<button class="pp-bulk-btn" data-op="clear">清除选择</button>';
-            wrapper.appendChild(ops);
-
-            ops.querySelectorAll('.pp-bulk-btn').forEach(btn => {
-                btn.addEventListener('click', () => this._handleBulkOp(btn.dataset.op, wrapper));
-            });
-        }
-
-        const treeContainer = document.createElement('div');
-        treeContainer.className = 'pp-tree';
-        wrapper.appendChild(treeContainer);
-
-        this._renderTreeInto(treeContainer);
-        this.container.appendChild(wrapper);
-        this._updateCount();
-    }
-
-    _highlightLevel(buttons) {
-        buttons.forEach(btn => {
-            if (parseInt(btn.dataset.level) === this.level) {
-                btn.classList.add('pp-level-btn--active');
-            } else {
-                btn.classList.remove('pp-level-btn--active');
-            }
-        });
-    }
-
-    _renderTreeInto(container) {
-        container.innerHTML = '';
-        const root = document.createElement('div');
-        root.className = 'pp-tree-root';
-        this._renderTreeNode(this.tree, '', root);
-        container.appendChild(root);
-
-        if (!this.nodes.length) {
-            container.innerHTML = '<div class="pp-empty">暂无权限节点</div>';
-        }
-    }
-
-    _renderTreeNode(node, path, container) {
-        const keys = Object.keys(node._children || {}).sort();
-
-        for (const key of keys) {
-            const child = node._children[key];
-            const childPath = path ? (path + '.' + key) : key;
-            const hasChildren = Object.keys(child._children || {}).length > 0;
-            const isLeaf = child._leaf !== null;
-
-            if (isLeaf && !hasChildren) {
-                this._renderLeaf(childPath, child._leaf, container);
-            } else {
-                const groupEl = document.createElement('div');
-                groupEl.className = 'pp-group';
-                groupEl.dataset.path = childPath;
-
-                const header = document.createElement('div');
-                header.className = 'pp-group-header';
-                header.innerHTML =
-                    '<span class="pp-arrow">▶</span>' +
-                    '<span class="pp-group-name">' + this._escape(key) + '</span>' +
-                    '<span class="pp-group-count" id="cnt_' + this._hashPath(childPath) + '"></span>';
-
-                header.addEventListener('click', (e) => {
-                    if (e.target.closest('.pp-node-row')) return;
-                    groupEl.classList.toggle('pp-group--open');
-                    this._updateGroupCount(childPath);
-                });
-
-                const body = document.createElement('div');
-                body.className = 'pp-group-body';
-                this._renderTreeNode(child, childPath, body);
-                groupEl.appendChild(header);
-                groupEl.appendChild(body);
-                container.appendChild(groupEl);
-
-                if (path === '') {
-                    groupEl.classList.add('pp-group--open');
+            const renderList = (query) => {
+                const q = (query || '').toLowerCase().trim();
+                const list = (this.nodes || []).filter(n =>
+                    !q || (n.node_code || '').toLowerCase().includes(q) || (n.display_name || '').toLowerCase().includes(q)
+                );
+                tree.innerHTML = '';
+                if (!list.length) {
+                    tree.innerHTML = '<div class="pp-empty">暂无权限节点</div>';
+                    return;
                 }
+                // 按 module 分组
+                const groups = {};
+                list.forEach(n => {
+                    const mod = n.module || 'other';
+                    (groups[mod] = groups[mod] || []).push(n);
+                });
+                Object.keys(groups).sort().forEach(mod => {
+                    const g = document.createElement('div');
+                    g.className = 'pp-group pp-group--open';
+                    const header = document.createElement('div');
+                    header.className = 'pp-group-header';
+                    header.innerHTML = '<span class="pp-arrow">▼</span><span class="pp-group-name">' + esc(mod) + '</span>';
+                    header.addEventListener('click', () => g.classList.toggle('pp-group--open'));
+                    g.appendChild(header);
+                    const body = document.createElement('div');
+                    body.className = 'pp-group-body';
+                    groups[mod].sort((a, b) => (a.node_code || '').localeCompare(b.node_code || '')).forEach(n => {
+                        const st = this.state[n.node_code] || 'inherit';
+                        const row = document.createElement('div');
+                        row.className = 'pp-node-row pp-node-row--' + st;
+                        row.dataset.nodeCode = n.node_code;
+                        row.innerHTML =
+                            '<span class="pp-node-icon">' + (st === 'allow' ? '✓' : st === 'deny' ? '✗' : '○') + '</span>' +
+                            '<span class="pp-node-info"><span class="pp-node-name">' + esc(n.display_name || n.node_code) + '</span>' +
+                            '<span class="pp-node-code">' + esc(n.node_code) + '</span></span>';
+                        row.addEventListener('click', () => {
+                            if (this.options.allowSingleSelect) {
+                                this.state = {};
+                                this.state[n.node_code] = 'allow';
+                            } else {
+                                if (this.state[n.node_code] === 'allow') delete this.state[n.node_code];
+                                else this.state[n.node_code] = 'allow';
+                            }
+                            renderList(search.querySelector('input').value);
+                            const c = document.getElementById('ppCount');
+                            if (c) c.textContent = '已选 ' + Object.keys(this.state).length + ' 项';
+                            this._emit();
+                        });
+                        body.appendChild(row);
+                    });
+                    g.appendChild(body);
+                    tree.appendChild(g);
+                });
+            };
 
-                this._updateGroupCount(childPath);
+            search.querySelector('input').addEventListener('input', e => renderList(e.target.value));
+            this.container.appendChild(wrap);
+            renderList('');
+        }
+
+        // ================================================
+        // 公共 API
+        // ================================================
+
+        getRules() {
+            if (this.options.mode === 'rules' && this.container.querySelector('.pr-list')) {
+                return this._readRuleRows();
             }
+            return this.rules.slice();
         }
-    }
 
-    _renderLeaf(nodeCode, nodeData, container) {
-        const currentState = this.state[nodeCode] || 'inherit';
+        setRules(rules) {
+            this.rules = Array.isArray(rules) ? rules.map(r => Object.assign({}, r)) : [];
+            if (this.loaded) this._render();
+        }
 
-        const row = document.createElement('div');
-        row.className = 'pp-node-row pp-node-row--' + currentState;
-        row.dataset.nodeCode = nodeCode;
-
-        const displayName = nodeData.display_name || nodeCode;
-
-        row.innerHTML =
-            '<span class="pp-node-icon">' + this._getStateIcon(currentState) + '</span>' +
-            '<span class="pp-node-info">' +
-            '<span class="pp-node-name">' + this._escape(displayName) + '</span>' +
-            '<span class="pp-node-code">' + this._escape(nodeCode) + '</span>' +
-            (nodeData.description ? '<span class="pp-node-desc">' + this._escape(nodeData.description) + '</span>' : '') +
-            '</span>' +
-            '<span class="pp-node-actions">' +
-            '<button class="pp-state-btn pp-state-btn--allow" data-state="allow" title="允许">✓</button>' +
-            '<button class="pp-state-btn pp-state-btn--inherit" data-state="inherit" title="继承">○</button>' +
-            '<button class="pp-state-btn pp-state-btn--deny" data-state="deny" title="禁止">✗</button>' +
-            '</span>';
-
-        row.querySelectorAll('.pp-state-btn').forEach(btn => {
-            if (btn.dataset.state === currentState) {
-                btn.classList.add('pp-state-btn--active');
+        getValue() {
+            if (this.options.mode === 'rules') {
+                const arr = this.getRules();
+                const map = {};
+                arr.forEach(r => {
+                    if (r.category !== '*' || r.action !== '*') {
+                        map[(r.category === '*' ? '' : r.category + '.') + (r.action === '*' ? '' : r.action) || '*'] = r.state;
+                    } else {
+                        map['*'] = r.state;
+                    }
+                });
+                return map;
             }
-        });
+            return Object.assign({}, this.state);
+        }
 
-        row.querySelectorAll('.pp-state-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const newState = btn.dataset.state;
-                this._setNodeState(nodeCode, newState);
-                this._updateNodeRow(row, nodeCode, newState);
-                this._updateCount();
-                this._updateParentCounts(row);
-                this._onChange();
-            });
-        });
+        getNodesList() {
+            return this.options.mode === 'rules' ? this.getRules() : Object.keys(this.state);
+        }
 
-        row.addEventListener('click', (e) => {
-            if (e.target.closest('.pp-state-btn')) return;
-            if (this.options.allowSingleSelect) {
-                const cycle = { 'inherit': 'allow', 'allow': 'inherit', 'deny': 'inherit' };
-                const next = cycle[currentState] || 'allow';
-                this._setNodeState(nodeCode, next);
-                this._updateNodeRow(row, nodeCode, next);
-                this._updateCount();
-                this._updateParentCounts(row);
-                this._onChange();
-            }
-        });
-
-        container.appendChild(row);
-    }
-
-    _updateNodeRow(row, nodeCode, state) {
-        row.className = 'pp-node-row pp-node-row--' + state;
-        row.querySelector('.pp-node-icon').textContent = this._getStateIcon(state);
-        row.querySelectorAll('.pp-state-btn').forEach(btn => {
-            btn.classList.toggle('pp-state-btn--active', btn.dataset.state === state);
-        });
-    }
-
-    _setNodeState(nodeCode, state) {
-        if (state === 'inherit') {
-            delete this.state[nodeCode];
-        } else {
-            this.state[nodeCode] = state;
+        setValue(state) {
+            this.state = Object.assign({}, state || {});
+            if (this.options.mode === 'node' && this.loaded) this._render();
         }
     }
 
-    _getStateIcon(state) {
-        switch (state) {
-            case 'allow': return '✓';
-            case 'deny': return '✗';
-            default: return '○';
-        }
-    }
-
-    _updateGroupCount(path) {
-        const countEl = document.getElementById('cnt_' + this._hashPath(path));
-        if (!countEl) return;
-
-        let count = 0;
-        const prefix = path + '.';
-        for (const code in this.state) {
-            if (code.startsWith(prefix)) {
-                count++;
-            }
-        }
-        if (count > 0) {
-            countEl.textContent = count + ' 项';
-            countEl.style.display = 'inline';
-        } else {
-            countEl.style.display = 'none';
-        }
-    }
-
-    _updateParentCounts(row) {
-        let parent = row.closest('.pp-group');
-        while (parent) {
-            const path = parent.dataset.path;
-            if (path) this._updateGroupCount(path);
-            parent = parent.parentElement ? parent.parentElement.closest('.pp-group') : null;
-        }
-    }
-
-    _updateCount() {
-        const countEl = document.getElementById('ppCount');
-        if (countEl) {
-            const count = Object.keys(this.state).length;
-            countEl.textContent = '已选 ' + count + ' 项';
-        }
-    }
-
-    _handleBulkOp(op, wrapper) {
-        switch (op) {
-            case 'expand':
-                this.container.querySelectorAll('.pp-group').forEach(g => g.classList.add('pp-group--open'));
-                break;
-            case 'collapse':
-                this.container.querySelectorAll('.pp-group').forEach(g => g.classList.remove('pp-group--open'));
-                break;
-            case 'allow-all':
-                this._bulkSetAll('allow');
-                break;
-            case 'inherit-all':
-                this._bulkSetAll('inherit');
-                break;
-            case 'deny-all':
-                this._bulkSetAll('deny');
-                break;
-            case 'clear':
-                this.state = {};
-                break;
-        }
-        this._renderTreeInto(wrapper.querySelector('.pp-tree'));
-        this._updateCount();
-        this._onChange();
-    }
-
-    _bulkSetAll(state) {
-        if (state === 'inherit') {
-            this.state = {};
-        } else {
-            for (const node of this.nodes) {
-                this.state[node.node_code] = state;
-            }
-        }
-    }
-
-    filterNodes(query) {
-        const q = query.toLowerCase();
-        return this.nodes.filter(n => {
-            const code = (n.node_code || '').toLowerCase();
-            const name = (n.display_name || '').toLowerCase();
-            const desc = (n.description || '').toLowerCase();
-            return code.includes(q) || name.includes(q) || desc.includes(q);
-        });
-    }
-
-    _hashPath(path) {
-        let hash = 0;
-        for (let i = 0; i < path.length; i++) {
-            hash = ((hash << 5) - hash) + path.charCodeAt(i);
-            hash |= 0;
-        }
-        return 'g_' + Math.abs(hash);
-    }
-
-    getValue() {
-        return Object.assign({}, this.state);
-    }
-
-    getNodesList() {
-        return Object.keys(this.state);
-    }
-
-    getLevel() {
-        return this.level;
-    }
-
-    setValue(state) {
-        this.state = {};
-        if (state && typeof state === 'object') {
-            this.state = Object.assign({}, state);
-        }
-        if (this.nodes.length > 0) this.render();
-    }
-
-    setLevel(level) {
-        this.level = level;
-        if (this.nodes.length > 0) this.render();
-    }
-
-    _onChange() {
-        if (typeof this.options.onChange === 'function') {
-            this.options.onChange(this.getValue(), this.level);
-        }
-    }
-
-    _escape(s) {
-        const div = document.createElement('div');
-        div.textContent = s || '';
-        return div.innerHTML;
-    }
-}
-
-// ===== 全局挂载 =====
-window.PermissionPicker = PermissionPicker;
+    window.PermissionPicker = PermissionPicker;
 })();

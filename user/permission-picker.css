@@ -1,5 +1,57 @@
 /* permission-picker.css - LuckPerms 风格图形化权限编辑器 */
 
+/* === 规则模式（5 字段规则列表） === */
+.pr-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.pr-hint {
+    color: #6b7280;
+    font-size: 11px;
+    margin-left: auto;
+}
+.pr-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.pr-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    background: var(--color-bg-section-alt, #f7f8fa);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 6px;
+}
+.pr-fld {
+    font-size: 12px;
+    padding: 4px 6px;
+    border: 1px solid var(--color-border, #d1d5db);
+    border-radius: 4px;
+    background: var(--color-bg-white, #fff);
+    color: inherit;
+    min-width: 0;
+}
+.pr-target {
+    flex: 1 1 100px;
+}
+.pr-level { width: 58px; }
+.pr-cat   { flex: 1 1 130px; }
+.pr-act   { flex: 1 1 90px; }
+.pr-state { width: 70px; }
+.pr-del {
+    border: none;
+    background: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 4px;
+}
+.pr-del:hover { color: #ef4444; }
+
 .pp-root {
     display: flex;
     flex-direction: column;

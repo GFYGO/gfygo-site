@@ -3,6 +3,45 @@
    依赖 core.css 中的 CSS 变量
    ========================================= */
 
+/* --- 内容权限规则面板 --- */
+.doc-rules {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: var(--color-bg-section-alt, #f7f8fa);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 10px;
+}
+.doc-rules__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+.doc-rules__hint {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--color-text-secondary, #6b7280);
+}
+.doc-rules__input {
+  width: 100%;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border, #d1d5db);
+  border-radius: 6px;
+  background: var(--color-bg-white, #fff);
+  color: inherit;
+  box-sizing: border-box;
+  resize: vertical;
+}
+.doc-rules__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 /* --- 布局 --- */
 .doc-layout {
   display: flex;

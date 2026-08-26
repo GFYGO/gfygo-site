@@ -14,28 +14,31 @@ function parseScope(scopeId) {
     return { type: null, id: null };
 }
 
+/**
+ * 解析 5 字段规则字符串（可含 * 通配）
+ * 格式：<对象id>.<级别>.<类别>.<权限>.<状态>；类别可含点（如 doc.private）
+ * 返回 { target, level, category, action, state } 或 null
+ */
 function parseFullPermissionId(permId) {
     if (!permId) return null;
-    const parts = permId.split('.');
-    if (parts.length < 4) return null;
+    const parts = String(permId).trim().split('.');
+    if (parts.length < 5) return null;
+    const target = parts[0];
+    const level = parts[1];
+    const action = parts[parts.length - 2];
+    const state = parts[parts.length - 1];
+    const category = parts.slice(2, parts.length - 2).join('.');
 
-    const scopeRaw = parts[0];
-    const level = parseInt(parts[1], 10);
-    const category = parts[2];
-    const action = parts[3];
-
-    if (isNaN(level) || level < 1 || level > 5) return null;
-
-    const scope = parseScope(scopeRaw);
-    if (scope.type === null) return null;
+    if (state !== 'allow' && state !== 'deny' && state !== '*') return null;
+    if (level !== '*' && (!/^\d$/.test(level) || level < 1 || level > 5)) return null;
 
     return {
-        scope_type: scope.type,
-        scope_id: scope.id,
-        level: level,
-        category: category,
-        action: action,
-        node_code: `${category}.${action}`
+        target: target || '*',
+        level,
+        category: category || '*',
+        action: action || '*',
+        state,
+        rule: [target || '*', level, category || '*', action || '*', state].join('.'),
     };
 }
 

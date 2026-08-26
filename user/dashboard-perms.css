@@ -3,6 +3,62 @@
    依赖 core.css 的 CSS 变量
    ========================================= */
 
+/* ====== 内容权限选择面板 ====== */
+.perm-ctype-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.perm-ctype-btn {
+    flex: 1;
+    padding: 6px 8px;
+    font-size: 12px;
+    border: 1px solid var(--color-border, #d1d5db);
+    border-radius: 6px;
+    background: var(--color-bg-white, #fff);
+    color: var(--color-text-secondary, #6b7280);
+    cursor: pointer;
+}
+.perm-ctype-btn.active {
+    border-color: var(--color-primary, #4b3fe3);
+    color: var(--color-primary, #4b3fe3);
+    background: var(--color-bg-section-alt, #f2f7ff);
+    font-weight: 600;
+}
+.perm-content-list {
+    max-height: 320px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.perm-content-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 10px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+}
+.perm-content-item:hover { background: var(--color-bg-section-alt, #f3f4f6); }
+.perm-content-item.active {
+    border-color: var(--color-primary, #4b3fe3);
+    background: var(--color-bg-section-alt, #f2f7ff);
+    color: var(--color-primary, #4b3fe3);
+}
+.perm-content-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 6px;
+}
+.perm-content-id {
+    color: var(--color-text-secondary, #9ca3af);
+    flex-shrink: 0;
+}
+
 /* ====== Admin Permissions 页面 (LuckPerms 风格) ====== */
 .perm-layout {
     display: grid;
