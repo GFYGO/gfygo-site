@@ -77,6 +77,37 @@ function getUserId() {
   }
 }
 
+/**
+ * DashUrl — dashboard 页面状态 ↔ URL 查询参数
+ * 约定：?tab=<tabKey>&folder=<文件夹id>&doc=<文档id>&mode=browse|editor
+ * 用于：刷新后停留在当前页面 / 直达指定文档
+ */
+const DashUrl = {
+  read() {
+    const url = new URL(window.location.href);
+    const num = (k) => {
+      const v = url.searchParams.get(k);
+      if (v === null || v === '' || isNaN(Number(v))) return null;
+      return Number(v);
+    };
+    return {
+      tab: url.searchParams.get('tab') || null,
+      folder: num('folder'),
+      doc: num('doc'),
+      mode: url.searchParams.get('mode') || null,
+    };
+  },
+  write(partial) {
+    const url = new URL(window.location.href);
+    Object.keys(partial).forEach((k) => {
+      const v = partial[k];
+      if (v === null || v === undefined || v === '') url.searchParams.delete(k);
+      else url.searchParams.set(k, String(v));
+    });
+    window.history.replaceState(window.history.state || null, '', url.toString());
+  },
+};
+
 const nowPermission = getNowPermission();
 
 function hasPermission(nodeCode) {
@@ -107,3 +138,5 @@ window.getNowPermission = getNowPermission;
 window.hasPermission = hasPermission;
 window.initPermissionVisibility = initPermissionVisibility;
 window.__nowPermission = nowPermission;
+window.DashUrl = DashUrl;
+window.getUserId = getUserId;

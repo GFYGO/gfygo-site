@@ -56,8 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
       bindRevisionsToggle();
       updateVisEmptyPlaceholders();
       renderDocBreadcrumb();
-      // 最后按当前 hash 决定去哪
-      routeByHash();
+      // 最后按当前 URL 决定去哪（支持 ?slug= / ?id= 直达 与 #/doc/<slug> 路由）
+      applyQueryRouteOrHash();
       window.addEventListener('hashchange', routeByHash);
     })
     .catch(err => {
@@ -838,6 +838,43 @@ async function deleteDocFolder(id) {
 // =========================================
 // 7. Hash 路由
 // =========================================
+function applyQueryRouteOrHash() {
+  // 优先：?slug=<slug> 直达文档（并同步为 hash，便于刷新/分享）
+  const params = new URLSearchParams(window.location.search);
+  const slug = params.get('slug');
+  if (slug) {
+    const target = '#/doc/' + encodeURIComponent(slug);
+    if (window.location.hash !== target) {
+      window.history.replaceState(null, '', target);
+    }
+    routeByHash();
+    return;
+  }
+  // 其次：?id=<docId>（需登录，通过 id 取 slug 后跳转）
+  const id = params.get('id');
+  if (id) {
+    const token = (window.AuthGuard && window.AuthGuard.getToken) ? window.AuthGuard.getToken() : null;
+    if (token) {
+      fetch(`${API_BASE_URL}/api/v0/document/${encodeURIComponent(id)}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(r => r.json())
+        .then(d => {
+          if (d.code === 200 && d.data && d.data.slug) {
+            const target = '#/doc/' + encodeURIComponent(d.data.slug);
+            window.history.replaceState(null, '', target);
+          }
+          routeByHash();
+        })
+        .catch(() => routeByHash());
+      return;
+    }
+    routeByHash();
+    return;
+  }
+  routeByHash();
+}
+
 function routeByHash() {
   const hash = window.location.hash || '';
   // 详情：#/doc/<slug>

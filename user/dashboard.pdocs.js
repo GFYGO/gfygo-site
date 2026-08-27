@@ -233,8 +233,14 @@ function showPdocsView(viewName) {
         const el = $('pdocs-view-' + v);
         if (el) el.style.display = (v === viewName) ? '' : 'none';
     });
-    if (viewName === 'list') loadPersonalDocs();
-    if (viewName === 'trash') loadPersonalTrash();
+    if (viewName === 'list') {
+        if (window.DashUrl) window.DashUrl.write({ doc: null, mode: null });
+        loadPersonalDocs();
+    }
+    if (viewName === 'trash') {
+        if (window.DashUrl) window.DashUrl.write({ doc: null, mode: null });
+        loadPersonalTrash();
+    }
 }
 
 async function loadPersonalDocs() {
@@ -382,6 +388,7 @@ function renderExplorerGrid() {
 function navigateToFolder(folderId) {
     PDocsState.currentFolderId = (typeof folderId === 'number' && folderId > 0) ? folderId : null;
     PDocsState.currentDocs = null;
+    if (window.DashUrl) window.DashUrl.write({ folder: PDocsState.currentFolderId, doc: null, mode: null });
     renderExplorerGrid();
     renderPdocsBreadcrumb();
     loadPersonalDocs();
@@ -398,6 +405,7 @@ async function openPdocsBrowser(docId) {
     if (!docId) return;
     PDocsState.browserDocId = docId;
     PDocsState.browserDocSlug = null;
+    if (window.DashUrl) window.DashUrl.write({ doc: docId, mode: 'browse' });
     showPdocsView('browse');
 
     const titleEl = $('pdocsBrowserTitle');
@@ -485,6 +493,7 @@ function renderPdocsTrash(docs) {
 
 async function openPdocsEditor(docId) {
     PDocsState.editingId = docId || null;
+    if (window.DashUrl) window.DashUrl.write({ doc: docId || null, mode: docId ? 'editor' : null });
     showPdocsView('editor');
 
     const titleInput = $('pdocsTitleInput');
@@ -766,3 +775,14 @@ export { initPersonalDocs, loadPersonalDocs, PDocsState };
 // ===== 兼容层：挂载完整初始化函数到 window（page/docs.html 动态注入后调用） =====
 window.initPersonalDocs = initPersonalDocs;
 window.loadPersonalDocs = loadPersonalDocs;
+
+// ===== 导出导航动作（供 dashboard.js 从 URL 恢复时调用） =====
+window.PDocsActions = {
+    navigateToFolder,
+    goUpOneLevel,
+    openPdocsBrowser,
+    openPdocsEditor,
+    showPdocsView,
+    loadPersonalDocs,
+    loadPersonalFolders,
+};

@@ -73,8 +73,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     // 6. 绑定退出/验证码等全局事件
     bindGlobalEvents();
 
-    // 7. 切换到默认 Tab (workspace)
-    DashboardMenu.switchTab('workspace');
+    // 7. 切换到默认 Tab（若 URL 带 ?tab= 则优先恢复该页）
+    const urlState = window.DashUrl ? window.DashUrl.read() : null;
+    const initialTab = (urlState && urlState.tab) || 'workspace';
+    DashboardMenu.switchTab(initialTab, { reset: false });
 
     // 初始化注销相关
     initDeletion();
@@ -101,6 +103,22 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (typeof window.initPersonalDocs !== 'function') {
         window.initPersonalDocs = function() { loadPersonalDocs(); };
     }
+
+    // URL 恢复：动态页（含个人文档）注入完成后，应用 folder/doc 参数
+    document.addEventListener('dashboard:tab-switched', function onTabSwitched(e) {
+        if (!e.detail || e.detail.tabKey !== 'docs') return;
+        const st = window.DashUrl ? window.DashUrl.read() : null;
+        const actions = window.PDocsActions;
+        if (!st || !actions) return;
+        if (st.doc) {
+            // 先定位文件夹（返回列表时停留在原文件夹），再打开文档
+            if (st.folder) actions.navigateToFolder(st.folder);
+            if (st.mode === 'editor') actions.openPdocsEditor(st.doc);
+            else actions.openPdocsBrowser(st.doc);
+        } else if (st.folder) {
+            actions.navigateToFolder(st.folder);
+        }
+    });
 
     // 初始化打卡模块全局引用
     if (typeof window.initCheckinModule !== 'function') {

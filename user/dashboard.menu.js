@@ -79,12 +79,19 @@ function bindTabClick(item) {
     item.addEventListener('click', (e) => {
         e.preventDefault();
         const tabKey = item.dataset.tab;
-        if (tabKey) switchTab(tabKey);
+        if (tabKey) switchTab(tabKey, { reset: true });
     });
 }
 
-async function switchTab(tabKey) {
+async function switchTab(tabKey, opts) {
+    opts = opts || {};
     document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+
+    // URL 状态同步：用户点击时重置 folder/doc/mode（回到 tab 根），URL 恢复时保留
+    if (window.DashUrl) {
+        if (opts.reset) window.DashUrl.write({ tab: tabKey, folder: null, doc: null, mode: null });
+        else window.DashUrl.write({ tab: tabKey });
+    }
 
     const dynamicContainer = document.getElementById('dynamicContentContainer');
     if (dynamicContainer) dynamicContainer.innerHTML = '';
