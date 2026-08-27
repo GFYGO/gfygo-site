@@ -132,6 +132,12 @@ function initPersonalDocs() {
     bind('pdocsFolderAddBtn', addPersonalFolder);
     bind('pdocsSaveBtn', savePersonalDoc);
     bind('pdocsPreviewToggleBtn', togglePdocsPreview);
+    bind('pdocsImportBtn', togglePdocsImportMenu);
+    bind('pdocsImportMdBtn', () => {
+        closePdocsImportMenu();
+        const input = $('pdocsImportFileInput');
+        if (input) input.click();
+    });
     bind('pdocsBrowserBackBtn', () => showPdocsView('list'));
     bind('pdocsBrowserEditBtn', () => {
         if (PDocsState.browserDocId) openPdocsEditor(PDocsState.browserDocId);
@@ -148,9 +154,78 @@ function initPersonalDocs() {
         }
     });
 
+    // 导入文件：监听文件选择
+    const importFileInput = $('pdocsImportFileInput');
+    if (importFileInput && !importFileInput.dataset.pdocsBound) {
+        importFileInput.dataset.pdocsBound = '1';
+        importFileInput.addEventListener('change', async () => {
+            const file = importFileInput.files && importFileInput.files[0];
+            importFileInput.value = '';
+            await handlePdocsImportFile(file);
+        });
+    }
+    // 点击下拉外区域关闭
+    if (!PDocsState._importOutsideBound) {
+        PDocsState._importOutsideBound = true;
+        document.addEventListener('click', (e) => {
+            const dd = $('pdocsImportDropdown');
+            if (dd && !dd.contains(e.target)) closePdocsImportMenu();
+        });
+    }
+
     initPdocsEasyMDE();
     loadPersonalDocs();
     loadPersonalFolders();
+}
+
+function togglePdocsImportMenu() {
+    const menu = $('pdocsImportMenu');
+    if (menu) menu.classList.toggle('is-open');
+}
+
+function closePdocsImportMenu() {
+    const menu = $('pdocsImportMenu');
+    if (menu) menu.classList.remove('is-open');
+}
+
+async function handlePdocsImportFile(file) {
+    if (!file) return;
+    try {
+        const text = await file.text();
+        const fname = (file.name || '').trim();
+        // 标题：取正文首个 # 一级标题；否则用文件名
+        let title = fname.replace(/\.(md|markdown|txt)$/i, '').trim() || '未命名文档';
+        const heading = text.match(/^\s*#\s+(.+?)\s*$/m);
+        if (heading && heading[1].trim()) {
+            title = heading[1].trim();
+        }
+        title = title.slice(0, 200);
+
+        const body = {
+            title,
+            content: text,
+            summary: pdocsExtractSummary(text),
+            visibility: 'private',
+            permission_bits: '100000'
+        };
+        if (typeof PDocsState.currentFolderId === 'number' && PDocsState.currentFolderId > 0) {
+            body.folder_id = PDocsState.currentFolderId;
+        }
+
+        const data = await pdocsRequest('/', {
+            method: 'POST',
+            body: JSON.stringify(body)
+        });
+        if (data && data.code === 200) {
+            showToast(`已导入「${title}」`, 'success');
+            loadPersonalDocs();
+        } else {
+            showToast(data?.msg || '导入失败', 'error');
+        }
+    } catch (e) {
+        console.error('[pdocs] 导入文件失败:', e);
+        showToast('导入文件失败：文件读取错误', 'error');
+    }
 }
 
 function showPdocsView(viewName) {

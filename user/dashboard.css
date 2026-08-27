@@ -648,6 +648,57 @@
     flex-wrap: wrap;
 }
 
+/* 导入下拉菜单 */
+.pdocs-dropdown {
+    position: relative;
+}
+.pdocs-dropdown__menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 240px;
+    padding: 6px;
+    background: var(--color-bg-white, #fff);
+    border: 1px solid var(--color-border, #ddd);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    z-index: 60;
+}
+.pdocs-dropdown__menu.is-open {
+    display: block;
+}
+.pdocs-dropdown__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 9px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text-main, #333);
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+}
+.pdocs-dropdown__item:hover {
+    background: var(--color-bg-section-alt, #f3f4f6);
+}
+.pdocs-dropdown__divider {
+    height: 1px;
+    background: var(--color-border, #eee);
+    margin: 6px 0;
+}
+.pdocs-dropdown__hint {
+    padding: 6px 12px 4px;
+    font-size: 12px;
+    color: var(--color-text-muted, #999);
+    line-height: 1.5;
+}
+
 /* 通用按钮 */
 .pdocs-btn {
     display: inline-flex;
