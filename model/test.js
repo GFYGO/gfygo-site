@@ -349,11 +349,11 @@
         // ---- 文档 ----
 
         async docList() {
-            appendApiOutput('➡️ GET /document/list?scope=public', { loading: true });
+            appendApiOutput('➡️ GET /document/list (default)', { loading: true });
             try {
                 const token = AuthGuard.getToken();
                 const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-                const r = await fetch(API_BASE_URL + '/api/v0/document/list?scope=public', { headers });
+                const r = await fetch(API_BASE_URL + '/api/v0/document/list', { headers });
                 const d = await r.json();
                 appendApiOutput('✅ GET /document/list', d);
             } catch (e) { showError(e.message); }

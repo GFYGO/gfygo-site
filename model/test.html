@@ -208,6 +208,10 @@
         <button class="test-btn test-btn--danger" onclick="testUtils.clearToken()">清除 Token</button>
         <button class="test-btn" onclick="testUtils.showToken()">查看 Token</button>
         <button class="test-btn" onclick="testApi.tempAccess()">POST /auth/temp-access</button>
+        <button class="test-btn" onclick="testApi.authRegisterEmail()">POST /auth/register/email</button>
+        <button class="test-btn" onclick="testApi.authRegisterPhone()">POST /auth/register/phone</button>
+        <button class="test-btn" onclick="testApi.authVerifyEmail()">POST /auth/verify-email</button>
+        <button class="test-btn" onclick="testApi.authResendVerification()">POST /auth/resend-verification</button>
 
         <div class="test-sidebar__title">📢 通知</div>
         <button class="test-btn" onclick="testApi.globalNotifications()">GET /notify/global</button>
@@ -223,6 +227,11 @@
         <button class="test-btn" onclick="testApi.docRevisions()">GET /document/&lt;id&gt;/revisions</button>
         <button class="test-btn" onclick="testApi.docRestore()">POST /document/&lt;id&gt;/restore</button>
         <button class="test-btn test-btn--danger" onclick="testApi.docDelete()">DELETE /document/&lt;id&gt;</button>
+        <button class="test-btn" onclick="testApi.docById()">GET /document/&lt;id&gt; (by ID)</button>
+        <button class="test-btn" onclick="testApi.docUpdate()">PUT /document/&lt;id&gt; (更新)</button>
+        <button class="test-btn test-btn--danger" onclick="testApi.docPermanentDelete()">DELETE /document/&lt;id&gt;/permanent</button>
+        <button class="test-btn" onclick="testApi.docGetPermissions()">GET /document/&lt;id&gt;/permissions</button>
+        <button class="test-btn" onclick="testApi.docPutPermissions()">PUT /document/&lt;id&gt;/permissions</button>
         <div class="test-input-group">
           <input id="docSlugInput" placeholder="文档 slug" value="welcome-gwl">
           <button onclick="testApi.docDetail()">查看详情</button>
@@ -235,6 +244,11 @@
         <div class="test-sidebar__title">📁 文件夹</div>
         <button class="test-btn" onclick="testApi.docFolderCreate()">POST /document/folders</button>
         <button class="test-btn" onclick="testApi.docFolderPath()">GET /folders/&lt;id&gt;/path</button>
+        <button class="test-btn" onclick="testApi.docFoldersPublic()">GET /document/folders/public</button>
+        <button class="test-btn" onclick="testApi.docFolderUpdate()">PUT /document/folders/&lt;id&gt; (更新)</button>
+        <button class="test-btn test-btn--danger" onclick="testApi.docFolderDelete()">DELETE /document/folders/&lt;id&gt; (删除)</button>
+        <button class="test-btn" onclick="testApi.docFolderGetPermissions()">GET /document/folders/&lt;id&gt;/permissions</button>
+        <button class="test-btn" onclick="testApi.docFolderPutPermissions()">PUT /document/folders/&lt;id&gt;/permissions</button>
 
         <div class="test-sidebar__title">👤 用户</div>
         <button class="test-btn" onclick="testApi.userMenu()">GET /user/menu</button>
@@ -242,6 +256,11 @@
         <button class="test-btn" onclick="testApi.userTheme()">PUT /user/theme</button>
         <button class="test-btn" onclick="testApi.userDeletionStatus()">GET /user/deletion-status</button>
         <button class="test-btn" onclick="testApi.userCancelDeletion()">POST /user/cancel-deletion</button>
+        <button class="test-btn" onclick="testApi.userMenuContent()">GET /user/menu/&lt;id&gt;/content</button>
+        <button class="test-btn" onclick="testApi.userDynamicPage()">GET /user/dynamic-page/&lt;key&gt;</button>
+        <button class="test-btn" onclick="testApi.userPagesRefresh()">POST /user/pages/refresh</button>
+        <button class="test-btn" onclick="testApi.userSendDeletionCode()">POST /user/send-deletion-code</button>
+        <button class="test-btn" onclick="testApi.userRequestDeletion()">POST /user/request-deletion</button>
 
         <div class="test-sidebar__title">🔧 管理</div>
         <button class="test-btn" onclick="testApi.adminUsers()">GET /admin/users</button>
@@ -254,6 +273,17 @@
         <button class="test-btn" onclick="testApi.adminGroups()">GET /admin/groups</button>
         <button class="test-btn" onclick="testApi.adminDocuments()">GET /admin/documents</button>
         <button class="test-btn" onclick="testApi.adminCreateNotification()">POST /admin/notifications</button>
+        <button class="test-btn test-btn--danger" onclick="testApi.adminDocDelete()">DELETE /admin/documents/&lt;id&gt;</button>
+        <button class="test-btn" onclick="testApi.adminUpdateNotification()">PUT /admin/notifications/&lt;id&gt;</button>
+        <button class="test-btn test-btn--danger" onclick="testApi.adminDeleteNotification()">DELETE /admin/notifications/&lt;id&gt;</button>
+        <button class="test-btn" onclick="testApi.adminCreateInviteCode()">POST /admin/invite-codes</button>
+        <button class="test-btn" onclick="testApi.adminUpdateInviteCode()">PUT /admin/invite-codes/&lt;id&gt;</button>
+        <button class="test-btn test-btn--danger" onclick="testApi.adminDisableInviteCode()">DELETE /admin/invite-codes/&lt;id&gt;</button>
+        <button class="test-btn" onclick="testApi.adminPermRules()">GET /admin/permission-rules</button>
+        <button class="test-btn" onclick="testApi.adminSavePermRules()">POST /admin/permission-rules</button>
+        <button class="test-btn" onclick="testApi.adminCreateMenuItem()">POST /admin/menu-items</button>
+        <button class="test-btn" onclick="testApi.adminUpdateMenuItem()">PUT /admin/menu-items/&lt;id&gt;</button>
+        <button class="test-btn test-btn--danger" onclick="testApi.adminDeleteMenuItem()">DELETE /admin/menu-items/&lt;id&gt;</button>
 
         <div class="test-sidebar__title">🎨 UI 组件</div>
         <button class="test-btn" onclick="testUtils.showToast('success','成功提示')">Toast 成功</button>
