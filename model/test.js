@@ -615,6 +615,390 @@
                 const d = await authedGet(url, true);
                 appendApiOutput('✅ GET /admin/users', d);
             } catch (e) { showError(e.message); }
+        },
+
+        // ===== 新增的 Auth 方法 =====
+
+        async authRegisterEmail() {
+            appendApiOutput('➡️ POST /auth/register/email', { loading: true });
+            try {
+                const email = prompt('邮箱地址：');
+                if (!email) { showError('已取消'); return; }
+                const username = prompt('用户名：');
+                if (!username) { showError('已取消'); return; }
+                const password = prompt('密码：');
+                if (!password) { showError('已取消'); return; }
+                const r = await fetch(API_BASE_URL + '/api/v0/auth/register/email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, username, password })
+                });
+                const d = await r.json();
+                appendApiOutput('✅ POST /auth/register/email', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async authRegisterPhone() {
+            appendApiOutput('➡️ POST /auth/register/phone', { loading: true });
+            try {
+                const phone = prompt('手机号：');
+                if (!phone) { showError('已取消'); return; }
+                const username = prompt('用户名：');
+                if (!username) { showError('已取消'); return; }
+                const password = prompt('密码：');
+                if (!password) { showError('已取消'); return; }
+                const r = await fetch(API_BASE_URL + '/api/v0/auth/register/phone', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, username, password })
+                });
+                const d = await r.json();
+                appendApiOutput('✅ POST /auth/register/phone', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async authVerifyEmail() {
+            appendApiOutput('➡️ POST /auth/verify-email', { loading: true });
+            try {
+                const code = prompt('输入邮箱验证码：');
+                if (!code) { showError('已取消'); return; }
+                const d = await authedJson('POST', API_BASE_URL + '/api/v0/auth/verify-email', { code });
+                appendApiOutput('✅ POST /auth/verify-email', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async authResendVerification() {
+            appendApiOutput('➡️ POST /auth/resend-verification', { loading: true });
+            try {
+                const d = await authedJson('POST', API_BASE_URL + '/api/v0/auth/resend-verification');
+                appendApiOutput('✅ POST /auth/resend-verification', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        // ===== 新增的 Document 方法 =====
+
+        async docById() {
+            appendApiOutput('➡️ GET /document/<id>', { loading: true });
+            try {
+                const id = prompt('输入文档 ID：');
+                if (!id) { showError('已取消'); return; }
+                const d = await authedGet(API_BASE_URL + '/api/v0/document/' + id);
+                appendApiOutput('✅ GET /document/' + id, d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async docUpdate() {
+            appendApiOutput('➡️ PUT /document/<id>', { loading: true });
+            try {
+                const id = prompt('输入文档 ID：');
+                if (!id) { showError('已取消'); return; }
+                const title = prompt('新标题（留空不修改）：');
+                const content = prompt('新内容（留空不修改）：');
+                const body = {};
+                if (title) body.title = title;
+                if (content) body.content = content;
+                const d = await authedJson('PUT', API_BASE_URL + '/api/v0/document/' + id, body);
+                appendApiOutput('✅ PUT /document/' + id, d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async docPermanentDelete() {
+            appendApiOutput('➡️ DELETE /document/<id>/permanent', { loading: true });
+            try {
+                const id = prompt('输入要彻底删除的文档 ID：');
+                if (!id) { showError('已取消'); return; }
+                const d = await authedJson('DELETE', API_BASE_URL + '/api/v0/document/' + id + '/permanent');
+                appendApiOutput('✅ DELETE /document/' + id + '/permanent', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async docGetPermissions() {
+            appendApiOutput('➡️ GET /document/<id>/permissions', { loading: true });
+            try {
+                const id = prompt('输入文档 ID：');
+                if (!id) { showError('已取消'); return; }
+                const d = await authedGet(API_BASE_URL + '/api/v0/document/' + id + '/permissions');
+                appendApiOutput('✅ GET /document/' + id + '/permissions', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async docPutPermissions() {
+            appendApiOutput('➡️ PUT /document/<id>/permissions', { loading: true });
+            try {
+                const id = prompt('输入文档 ID：');
+                if (!id) { showError('已取消'); return; }
+                const rulesStr = prompt('输入规则数组（JSON 格式，如 ["*.*.doc.public.view.deny"]）：', '["*.*.doc.public.view.deny"]');
+                if (!rulesStr) { showError('已取消'); return; }
+                let rules;
+                try { rules = JSON.parse(rulesStr); } catch { showError('JSON 格式错误'); return; }
+                const d = await authedJson('PUT', API_BASE_URL + '/api/v0/document/' + id + '/permissions', { rules });
+                appendApiOutput('✅ PUT /document/' + id + '/permissions', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        // ===== 新增的文件夹方法 =====
+
+        async docFoldersPublic() {
+            appendApiOutput('➡️ GET /document/folders/public', { loading: true });
+            try {
+                const token = AuthGuard.getToken();
+                const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+                const r = await fetch(API_BASE_URL + '/api/v0/document/folders/public', { headers });
+                const d = await r.json();
+                appendApiOutput('✅ GET /document/folders/public', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async docFolderUpdate() {
+            appendApiOutput('➡️ PUT /document/folders/<id>', { loading: true });
+            try {
+                const id = prompt('输入文件夹 ID：');
+                if (!id) { showError('已取消'); return; }
+                const name = prompt('新名称（留空不修改）：');
+                const body = {};
+                if (name) body.name = name;
+                const d = await authedJson('PUT', API_BASE_URL + '/api/v0/document/folders/' + id, body);
+                appendApiOutput('✅ PUT /document/folders/' + id, d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async docFolderDelete() {
+            appendApiOutput('➡️ DELETE /document/folders/<id>', { loading: true });
+            try {
+                const id = prompt('输入要删除的文件夹 ID：');
+                if (!id) { showError('已取消'); return; }
+                const d = await authedJson('DELETE', API_BASE_URL + '/api/v0/document/folders/' + id);
+                appendApiOutput('✅ DELETE /document/folders/' + id, d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async docFolderGetPermissions() {
+            appendApiOutput('➡️ GET /document/folders/<id>/permissions', { loading: true });
+            try {
+                const id = prompt('输入文件夹 ID：');
+                if (!id) { showError('已取消'); return; }
+                const d = await authedGet(API_BASE_URL + '/api/v0/document/folders/' + id + '/permissions');
+                appendApiOutput('✅ GET /document/folders/' + id + '/permissions', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async docFolderPutPermissions() {
+            appendApiOutput('➡️ PUT /document/folders/<id>/permissions', { loading: true });
+            try {
+                const id = prompt('输入文件夹 ID：');
+                if (!id) { showError('已取消'); return; }
+                const rulesStr = prompt('输入规则数组（JSON 格式）：', '["*.*.doc.group.*.deny"]');
+                if (!rulesStr) { showError('已取消'); return; }
+                let rules;
+                try { rules = JSON.parse(rulesStr); } catch { showError('JSON 格式错误'); return; }
+                const d = await authedJson('PUT', API_BASE_URL + '/api/v0/document/folders/' + id + '/permissions', { rules });
+                appendApiOutput('✅ PUT /document/folders/' + id + '/permissions', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        // ===== 新增的用户方法 =====
+
+        async userMenuContent() {
+            appendApiOutput('➡️ GET /user/menu/<id>/content', { loading: true });
+            try {
+                const id = prompt('输入菜单项 ID：');
+                if (!id) { showError('已取消'); return; }
+                const d = await authedGet(API_BASE_URL + '/api/v0/user/menu/' + id + '/content');
+                appendApiOutput('✅ GET /user/menu/' + id + '/content', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async userDynamicPage() {
+            appendApiOutput('➡️ GET /user/dynamic-page/<key>', { loading: true });
+            try {
+                const key = prompt('输入 tab_key：');
+                if (!key) { showError('已取消'); return; }
+                const d = await authedGet(API_BASE_URL + '/api/v0/user/dynamic-page/' + encodeURIComponent(key));
+                appendApiOutput('✅ GET /user/dynamic-page/' + key, d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async userPagesRefresh() {
+            appendApiOutput('➡️ POST /user/pages/refresh', { loading: true });
+            try {
+                const d = await authedJson('POST', API_BASE_URL + '/api/v0/user/pages/refresh');
+                appendApiOutput('✅ POST /user/pages/refresh', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async userSendDeletionCode() {
+            appendApiOutput('➡️ POST /user/send-deletion-code', { loading: true });
+            try {
+                const email = prompt('输入邮箱地址：');
+                if (!email) { showError('已取消'); return; }
+                const d = await authedJson('POST', API_BASE_URL + '/api/v0/user/send-deletion-code', { email });
+                appendApiOutput('✅ POST /user/send-deletion-code', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async userRequestDeletion() {
+            appendApiOutput('➡️ POST /user/request-deletion', { loading: true });
+            try {
+                const email = prompt('输入邮箱地址：');
+                if (!email) { showError('已取消'); return; }
+                const code = prompt('输入验证码：');
+                if (!code) { showError('已取消'); return; }
+                const d = await authedJson('POST', API_BASE_URL + '/api/v0/user/request-deletion', { email, code });
+                appendApiOutput('✅ POST /user/request-deletion', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        // ===== 新增的管理员方法 =====
+
+        async adminDocDelete() {
+            appendApiOutput('➡️ DELETE /admin/documents/<id>', { loading: true });
+            try {
+                const id = prompt('输入文档 ID：');
+                if (!id) { showError('已取消'); return; }
+                const d = await authedJson('DELETE', API_BASE_URL + '/api/v0/admin/documents/' + id, undefined, true);
+                appendApiOutput('✅ DELETE /admin/documents/' + id, d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminUpdateNotification() {
+            appendApiOutput('➡️ PUT /admin/notifications/<id>', { loading: true });
+            try {
+                const id = prompt('输入通知 ID：');
+                if (!id) { showError('已取消'); return; }
+                const title = prompt('新标题（留空不修改）：');
+                const content = prompt('新内容（留空不修改）：');
+                const body = {};
+                if (title) body.title = title;
+                if (content) body.content = content;
+                const d = await authedJson('PUT', API_BASE_URL + '/api/v0/admin/notifications/' + id, body, true);
+                appendApiOutput('✅ PUT /admin/notifications/' + id, d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminDeleteNotification() {
+            appendApiOutput('➡️ DELETE /admin/notifications/<id>', { loading: true });
+            try {
+                const id = prompt('输入通知 ID：');
+                if (!id) { showError('已取消'); return; }
+                const d = await authedJson('DELETE', API_BASE_URL + '/api/v0/admin/notifications/' + id, undefined, true);
+                appendApiOutput('✅ DELETE /admin/notifications/' + id, d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminCreateInviteCode() {
+            appendApiOutput('➡️ POST /admin/invite-codes', { loading: true });
+            try {
+                const durationDays = prompt('有效期天数（默认 7）：', '7');
+                if (!durationDays) { showError('已取消'); return; }
+                const body = { duration_days: parseInt(durationDays) };
+                const d = await authedJson('POST', API_BASE_URL + '/api/v0/admin/invite-codes', body, true);
+                appendApiOutput('✅ POST /admin/invite-codes', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminUpdateInviteCode() {
+            appendApiOutput('➡️ PUT /admin/invite-codes/<id>', { loading: true });
+            try {
+                const id = prompt('输入邀请码 ID：');
+                if (!id) { showError('已取消'); return; }
+                const isActive = prompt('是否激活 (true/false)：', 'true');
+                const body = { is_active: isActive === 'true' };
+                const d = await authedJson('PUT', API_BASE_URL + '/api/v0/admin/invite-codes/' + id, body, true);
+                appendApiOutput('✅ PUT /admin/invite-codes/' + id, d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminDisableInviteCode() {
+            appendApiOutput('➡️ DELETE /admin/invite-codes/<id>', { loading: true });
+            try {
+                const id = prompt('输入邀请码 ID：');
+                if (!id) { showError('已取消'); return; }
+                const d = await authedJson('DELETE', API_BASE_URL + '/api/v0/admin/invite-codes/' + id, undefined, true);
+                appendApiOutput('✅ DELETE /admin/invite-codes/' + id, d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminPermRules() {
+            appendApiOutput('➡️ GET /admin/permission-rules', { loading: true });
+            try {
+                const scope = prompt('规则范围 (level/user/group/content)：', 'level');
+                if (!scope) { showError('已取消'); return; }
+                let url = API_BASE_URL + '/api/v0/admin/permission-rules?scope=' + encodeURIComponent(scope);
+                if (scope === 'content') {
+                    const ot = prompt('object_type (document/folder)：');
+                    if (!ot) { showError('已取消'); return; }
+                    const oid = prompt('object_id：');
+                    if (!oid) { showError('已取消'); return; }
+                    url += '&object_type=' + encodeURIComponent(ot) + '&id=' + encodeURIComponent(oid);
+                } else {
+                    const id = prompt('scope_id（留空查全部）：');
+                    if (id) url += '&id=' + encodeURIComponent(id);
+                }
+                const d = await authedGet(url, true);
+                appendApiOutput('✅ GET /admin/permission-rules', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminSavePermRules() {
+            appendApiOutput('➡️ POST /admin/permission-rules', { loading: true });
+            try {
+                const scope = prompt('规则范围 (level/user/group/content)：', 'level');
+                if (!scope) { showError('已取消'); return; }
+                const body = { scope };
+                if (scope === 'content') {
+                    const ot = prompt('object_type (document/folder)：');
+                    if (!ot) { showError('已取消'); return; }
+                    const oid = prompt('object_id：');
+                    if (!oid) { showError('已取消'); return; }
+                    body.object_type = ot;
+                    body.object_id = parseInt(oid);
+                } else {
+                    const sid = prompt('scope_id：');
+                    if (!sid) { showError('已取消'); return; }
+                    body.scope_id = sid;
+                }
+                const rulesStr = prompt('输入规则数组（JSON）：', '["*.*.doc.public.view.deny"]');
+                if (!rulesStr) { showError('已取消'); return; }
+                try { body.rules = JSON.parse(rulesStr); } catch { showError('JSON 格式错误'); return; }
+                const d = await authedJson('POST', API_BASE_URL + '/api/v0/admin/permission-rules', body, true);
+                appendApiOutput('✅ POST /admin/permission-rules', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminCreateMenuItem() {
+            appendApiOutput('➡️ POST /admin/menu-items', { loading: true });
+            try {
+                const tabKey = prompt('tab_key：');
+                if (!tabKey) { showError('已取消'); return; }
+                const label = prompt('显示名称：');
+                if (!label) { showError('已取消'); return; }
+                const body = { tab_key: tabKey, label };
+                const d = await authedJson('POST', API_BASE_URL + '/api/v0/admin/menu-items', body, true);
+                appendApiOutput('✅ POST /admin/menu-items', d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminUpdateMenuItem() {
+            appendApiOutput('➡️ PUT /admin/menu-items/<id>', { loading: true });
+            try {
+                const id = prompt('输入菜单项 ID：');
+                if (!id) { showError('已取消'); return; }
+                const label = prompt('新名称（留空不修改）：');
+                const body = {};
+                if (label) body.label = label;
+                const d = await authedJson('PUT', API_BASE_URL + '/api/v0/admin/menu-items/' + id, body, true);
+                appendApiOutput('✅ PUT /admin/menu-items/' + id, d);
+            } catch (e) { showError(e.message); }
+        },
+
+        async adminDeleteMenuItem() {
+            appendApiOutput('➡️ DELETE /admin/menu-items/<id>', { loading: true });
+            try {
+                const id = prompt('输入菜单项 ID：');
+                if (!id) { showError('已取消'); return; }
+                const d = await authedJson('DELETE', API_BASE_URL + '/api/v0/admin/menu-items/' + id, undefined, true);
+                appendApiOutput('✅ DELETE /admin/menu-items/' + id, d);
+            } catch (e) { showError(e.message); }
         }
     };
 
