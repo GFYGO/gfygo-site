@@ -244,10 +244,12 @@ function showPdocsView(viewName) {
 }
 
 async function loadPersonalDocs() {
-    const folderQuery = (typeof PDocsState.currentFolderId === 'number' && PDocsState.currentFolderId > 0)
-        ? `folder_id=${PDocsState.currentFolderId}`
-        : `folder_id=0`;
-    const data = await pdocsRequest('/mine?' + folderQuery);
+    // 根目录（null 或 0）不传 folder_id，后端返回全部个人文档
+    let query = '';
+    if (typeof PDocsState.currentFolderId === 'number' && PDocsState.currentFolderId > 0) {
+        query = `folder_id=${PDocsState.currentFolderId}`;
+    }
+    const data = await pdocsRequest('/mine' + (query ? '?' + query : ''));
     PDocsState.currentDocs = (data && data.code === 200 && Array.isArray(data.data)) ? data.data : [];
     renderExplorerGrid();
 }

@@ -215,7 +215,8 @@ async function fetchDocList() {
     let url = `${API_BASE_URL}/api/v0/document/list`;
     const qp = [];
     qp.push(`scope=${encodeURIComponent(actualScope)}`);
-    if (__DOC.currentFolderId !== null && __DOC.currentFolderId !== undefined) {
+    // 根目录（0/null/undefined）不传 folder_id，后端默认返回该 scope 全部文档
+    if (typeof __DOC.currentFolderId === 'number' && __DOC.currentFolderId > 0) {
       qp.push(`folder_id=${encodeURIComponent(__DOC.currentFolderId)}`);
     }
     if (qp.length) url += '?' + qp.join('&');
