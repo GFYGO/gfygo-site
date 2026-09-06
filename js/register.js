@@ -61,7 +61,7 @@ function validUsername(v) {
 }
 function validPassword(p, cp) {
     if (p !== cp) { Toast.show('两次输入的密码不一致'); return false; }
-    if (p.length < 8) { Toast.show('密码长度不能少于8位'); return false; }
+    if (p.length < 6) { Toast.show('密码长度不能少于6位'); return false; }
     return true;
 }
 function validEmail(v) {

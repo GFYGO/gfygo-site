@@ -244,10 +244,13 @@ function showPdocsView(viewName) {
 }
 
 async function loadPersonalDocs() {
-    // 根目录（null 或 0）不传 folder_id，后端返回全部个人文档
+    // 根目录（null 或 0）传 folder_id=0 只显示根目录文档；正整数传指定文件夹
     let query = '';
-    if (typeof PDocsState.currentFolderId === 'number' && PDocsState.currentFolderId > 0) {
-        query = `folder_id=${PDocsState.currentFolderId}`;
+    const fid = PDocsState.currentFolderId;
+    if (fid === null || fid === undefined) {
+        query = 'folder_id=0';
+    } else if (typeof fid === 'number' && fid >= 0) {
+        query = `folder_id=${fid}`;
     }
     const data = await pdocsRequest('/mine' + (query ? '?' + query : ''));
     PDocsState.currentDocs = (data && data.code === 200 && Array.isArray(data.data)) ? data.data : [];

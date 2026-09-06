@@ -449,7 +449,7 @@
     z-index: 200;
     height: calc(100vh - var(--header-height));
   }
-  .doc-sidebar--open { transform: translateX(0); }
+  .doc-sidebar.is-open { transform: translateX(0); }
   .doc-sidebar__close { display: block; }
   .doc-main { padding: 16px; }
   .doc-detail__title { font-size: 1.5rem; }
