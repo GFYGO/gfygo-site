@@ -22,8 +22,12 @@ var PAGE_MISSING_HTML = '<div class="empty-state">'
 
 // 静态页面资源的缓存版本号：与各 HTML 里的 ?v= 保持一致，
 // 否则 GitHub Pages CDN（默认 max-age≈600s）会让改动延迟生效。
-var PAGE_ASSET_VERSION = '20260911b';
+var PAGE_ASSET_VERSION = '20260911c';
 var PAGE_ASSET_QS = '?v=' + PAGE_ASSET_VERSION;
+// 便于在浏览器控制台一眼确认「当前跑的是哪一版」：
+//   window.__DASHBOARD_BUILD__        → 例如 "20260911c"
+//   document.querySelector('script[src*="dashboard.menu.js"]').src
+window.__DASHBOARD_BUILD__ = PAGE_ASSET_VERSION;
 
 let _menuData = null;
 let _pageScriptEl = null;   // 当前动态页面注入的 <script>，切换时先移除
@@ -39,14 +43,22 @@ async function loadMenu() {
             AuthGuard.handleAuthError();
             return;
         }
-        if (!res.ok) throw new Error('Failed to load menu');
+        if (!res.ok) {
+            console.error('[MENU] 加载菜单失败: HTTP', res.status);
+            renderMenuNotice('菜单加载失败（HTTP ' + res.status + '），请刷新页面重试');
+            return null;
+        }
         _menuData = await res.json();
         if (_menuData.code === 200) {
             renderMenu(_menuData.data);
+        } else {
+            console.error('[MENU] 菜单接口返回异常:', _menuData);
+            renderMenuNotice('菜单加载失败：' + (_menuData.msg || ('code ' + _menuData.code)));
         }
         return _menuData.data;
     } catch (e) {
         console.error('[MENU] 加载菜单失败:', e);
+        renderMenuNotice('菜单加载失败，请刷新页面重试');
         return null;
     }
 }
@@ -58,8 +70,8 @@ function renderMenu(data) {
     // （症状：工作台/通知/个人文档/第三方工具整组消失）。这里改为拼好再一次性写入。
     const baseContainer = document.getElementById('dynamicMenuContainer');
     const baseDivider = document.getElementById('dynamicMenuDivider');
-    const baseItems = filterVisibleMenuItems(data.base_items);
-    const dynamicItems = filterVisibleMenuItems(data.dynamic_items);
+    const baseItems = asMenuItems(data.base_items);
+    const dynamicItems = asMenuItems(data.dynamic_items);
 
     let hasNonAdmin = false;
     if (baseContainer) {
@@ -72,7 +84,7 @@ function renderMenu(data) {
     // 渲染管理员菜单
     const adminContainer = document.getElementById('adminMenuContainer');
     const adminDivider = document.getElementById('adminMenuDivider');
-    const adminItems = filterVisibleMenuItems(data.admin_items);
+    const adminItems = asMenuItems(data.admin_items);
     let hasAdmin = false;
     if (adminContainer) {
         if (adminItems.length > 0) {
@@ -88,38 +100,37 @@ function renderMenu(data) {
     if (baseDivider) baseDivider.style.display = (hasNonAdmin && hasAdmin) ? '' : 'none';
     if (adminDivider) adminDivider.style.display = 'none';
 
+    // 一组都没有 → 明确提示，避免侧边栏静默空白（历史上这个「静默」让排查绕了远路）
+    if (!hasNonAdmin && !hasAdmin) {
+        renderMenuNotice('暂无可用菜单项（请检查 menu_items 配置）');
+    }
+
     return hasNonAdmin || hasAdmin;
 }
 
 /**
- * 权限节点集是否可用。
- * 节点为空视为「不可用」（令牌中缺少 now_permission 快照的降级情况），
- * 此时不隐藏任何菜单项 —— 仅做 UI 便利，真正的鉴权始终在服务端。
+ * 规范化后端返回的菜单数组。
+ *
+ * ⚠️ 这里**不再做 permission_node 前端二次过滤**：
+ *   后端 UserService.get_menu_list() 已经按「权限节点 / 等级 / is_admin + permission_level」判定过可见性，
+ *   前端再按 token 里的 nodes 过滤是重复且危险的 —— 一旦 token 的节点快照与菜单项的
+ *   permission_node 对不上（自定义菜单项、节点表漂移、旧 token），
+ *   管理员菜单会在界面上「凭空消失」，而服务端其实已经授权。鉴权始终以服务端为准。
  */
-function isPermissionDataAvailable() {
-    if (typeof window.hasPermission !== 'function') return false;
-    const np = window.__nowPermission;
-    if (!np || !Array.isArray(np.nodes)) return false;
-    return np.nodes.length > 0;
+function asMenuItems(items) {
+    return Array.isArray(items) ? items : [];
 }
 
-/**
- * 按 permission_node 过滤菜单项（仅前端显隐，服务端仍会独立鉴权）。
- * 无 permission_node 的项一律保留；节点集不可用时一律保留。
- */
-function filterVisibleMenuItems(items) {
-    if (!items || items.length === 0) return [];
-    if (!isPermissionDataAvailable()) return items;
-    const hasPermission = window.hasPermission;
-    return items.filter(item => {
-        const node = item && item.permission_node;
-        if (!node) return true;
-        try {
-            return hasPermission(node) !== false;
-        } catch (e) {
-            return true;
-        }
-    });
+/** 菜单加载失败/为空时的可见提示（别让侧边栏静默空白，否则只能靠控制台排查） */
+function renderMenuNotice(msg) {
+    const container = document.getElementById('dynamicMenuContainer');
+    const adminContainer = document.getElementById('adminMenuContainer');
+    if (container) {
+        container.innerHTML = '<div style="padding:12px;font-size:13px;'
+            + 'color:var(--color-text-muted);line-height:1.5;">'
+            + escapeMenuText(msg) + '</div>';
+    }
+    if (adminContainer) adminContainer.innerHTML = '';
 }
 
 function escapeMenuText(value) {
