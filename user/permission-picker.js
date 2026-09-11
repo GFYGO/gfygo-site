@@ -98,6 +98,17 @@
             return ['*', ...Array.from(set).sort()];
         }
 
+        /**
+         * 统一渲染入口：按 mode 分发到具体渲染方法。
+         * load() / setRules() / setValue() 都调用 _render()，但历史上只定义了
+         * _renderRulesMode / _renderNodeMode，导致 `this._render is not a function`
+         * → 权限编辑器整块渲染不出来（页面只剩标题）。
+         */
+        _render() {
+            if (this.options.mode === 'node') return this._renderNodeMode();
+            return this._renderRulesMode();
+        }
+
         _renderRulesMode() {
             this.container.innerHTML = '';
             const wrap = document.createElement('div');

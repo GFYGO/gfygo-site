@@ -6,8 +6,8 @@
   1. 复制此文件到目标位置（根目录或 user/ 子目录）
   2. 修改 <title> 和主体内容
   3. 根据所在目录调整相对路径：
-     - 根目录页面：CSS href="./css/xxx.css?v=20260911a"  JS src="./js/xxx.js?v=20260911a"
-     - 子目录页面(user/admin*/model/)：CSS href="../css/xxx.css?v=20260911a"  JS src="../js/xxx.js?v=20260911a"
+     - 根目录页面：CSS href="./css/xxx.css?v=20260911b"  JS src="./js/xxx.js?v=20260911b"
+     - 子目录页面(user/admin*/model/)：CSS href="../css/xxx.css?v=20260911b"  JS src="../js/xxx.js?v=20260911b"
   4. 根目录页面引入 JS 顺序：js/config.js → js/theme.js → js/toast.js → js/index.js → 页面专属.js
      子目录引入 JS：../js/config.js → ../js/theme.js → ../js/toast.js → ../js/index.js → 页面专属.js
   5. 需要登录的页面在 DOMContentLoaded 中调用 AuthGuard.requireAuth()
@@ -18,9 +18,9 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GWL | 页面标题</title>
-  <link rel="stylesheet" href="../css/core.css?v=20260911a">
-  <link rel="stylesheet" href="../css/styles.css?v=20260911a">
-  <link rel="stylesheet" href="../css/components.css?v=20260911a">
+  <link rel="stylesheet" href="../css/core.css?v=20260911b">
+  <link rel="stylesheet" href="../css/styles.css?v=20260911b">
+  <link rel="stylesheet" href="../css/components.css?v=20260911b">
   <link rel="icon" href="../favicon.png" type="image/png">
 </head>
 <body>
@@ -101,10 +101,10 @@
   <!-- ============================================
        JS 引入（顺序很重要：config → theme → toast → index → 页面专属）
        ============================================ -->
-  <script src="../js/config.js?v=20260911a"></script>
-  <script src="../js/theme.js?v=20260911a"></script>
-  <script src="../js/toast.js?v=20260911a"></script>
-  <script src="../js/index.js?v=20260911a"></script>
-  <!-- <script src="../page-specific.js?v=20260911a"></script> -->
+  <script src="../js/config.js?v=20260911b"></script>
+  <script src="../js/theme.js?v=20260911b"></script>
+  <script src="../js/toast.js?v=20260911b"></script>
+  <script src="../js/index.js?v=20260911b"></script>
+  <!-- <script src="../page-specific.js?v=20260911b"></script> -->
 </body>
 </html>

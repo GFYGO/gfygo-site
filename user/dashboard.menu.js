@@ -22,7 +22,7 @@ var PAGE_MISSING_HTML = '<div class="empty-state">'
 
 // 静态页面资源的缓存版本号：与各 HTML 里的 ?v= 保持一致，
 // 否则 GitHub Pages CDN（默认 max-age≈600s）会让改动延迟生效。
-var PAGE_ASSET_VERSION = '20260911a';
+var PAGE_ASSET_VERSION = '20260911b';
 var PAGE_ASSET_QS = '?v=' + PAGE_ASSET_VERSION;
 
 let _menuData = null;
@@ -52,34 +52,43 @@ async function loadMenu() {
 }
 
 function renderMenu(data) {
-    // 渲染基础菜单
+    // 基础页面 + 动态页面共用同一个挂载点 #dynamicMenuContainer（见 dashboard.html 注释）。
+    // ⚠️ 必须一次性写入：以前分两次调用 renderMenuItems 渲染，
+    // 第二次的 innerHTML 赋值会把基础项整体覆盖掉，导致侧边栏只剩动态项
+    // （症状：工作台/通知/个人文档/第三方工具整组消失）。这里改为拼好再一次性写入。
     const baseContainer = document.getElementById('dynamicMenuContainer');
     const baseDivider = document.getElementById('dynamicMenuDivider');
     const baseItems = filterVisibleMenuItems(data.base_items);
-    let hasBase = renderMenuItems(baseContainer, baseItems, '', baseDivider);
-
-    // 渲染动态菜单
-    let hasDynamic = false;
     const dynamicItems = filterVisibleMenuItems(data.dynamic_items);
-    if (baseContainer && dynamicItems.length > 0) {
-        hasDynamic = renderMenuItems(baseContainer, dynamicItems, 'dynamic-only', baseDivider, hasBase);
-    } else if (baseContainer && !hasBase) {
-        baseContainer.innerHTML = '';
-        if (baseDivider) baseDivider.style.display = 'none';
+
+    let hasNonAdmin = false;
+    if (baseContainer) {
+        baseContainer.innerHTML = menuItemsHtml(baseItems, '')
+            + menuItemsHtml(dynamicItems, 'dynamic-only');
+        baseContainer.querySelectorAll('.sidebar__nav-item').forEach(bindTabClick);
+        hasNonAdmin = (baseItems.length + dynamicItems.length) > 0;
     }
 
     // 渲染管理员菜单
     const adminContainer = document.getElementById('adminMenuContainer');
     const adminDivider = document.getElementById('adminMenuDivider');
     const adminItems = filterVisibleMenuItems(data.admin_items);
+    let hasAdmin = false;
     if (adminContainer) {
         if (adminItems.length > 0) {
-            renderMenuItems(adminContainer, adminItems, 'admin-only', adminDivider);
+            adminContainer.innerHTML = menuItemsHtml(adminItems, 'admin-only');
+            adminContainer.querySelectorAll('.sidebar__nav-item').forEach(bindTabClick);
+            hasAdmin = true;
         } else {
             adminContainer.innerHTML = '';
-            if (adminDivider) adminDivider.style.display = 'none';
         }
     }
+
+    // 分隔线只在「非管理员组」和「管理员组」都有内容时显示
+    if (baseDivider) baseDivider.style.display = (hasNonAdmin && hasAdmin) ? '' : 'none';
+    if (adminDivider) adminDivider.style.display = 'none';
+
+    return hasNonAdmin || hasAdmin;
 }
 
 /**
@@ -122,16 +131,21 @@ function escapeMenuText(value) {
         .replace(/'/g, '&#39;');
 }
 
-function renderMenuItems(container, items, extraClass, divider, showDivider) {
-    if (!container || !items || items.length === 0) return showDivider || false;
+/** 生成一组菜单项的 HTML（菜单元数据来自后端 menu_items 表，一律转义后再拼接） */
+function menuItemsHtml(items, extraClass) {
+    if (!items || items.length === 0) return '';
     const cls = extraClass ? `sidebar__nav-item ${extraClass}` : 'sidebar__nav-item';
-    // 菜单元数据来自后端（menu_items 表，管理员可写）：一律转义后再拼 HTML
-    container.innerHTML = items.map(item => `
+    return items.map(item => `
         <a href="#" class="${cls}" data-tab="${escapeMenuText(item.tab_key)}">
             <span class="sidebar__nav-icon">${escapeMenuText(item.icon || '📄')}</span>
             <span class="sidebar__nav-text">${escapeMenuText(item.label)}</span>
         </a>
     `).join('');
+}
+
+function renderMenuItems(container, items, extraClass, divider, showDivider) {
+    if (!container || !items || items.length === 0) return showDivider || false;
+    container.innerHTML = menuItemsHtml(items, extraClass);
     container.querySelectorAll('.sidebar__nav-item').forEach(bindTabClick);
     if (divider && showDivider !== undefined) divider.style.display = showDivider ? '' : 'none';
     return true;
@@ -197,22 +211,40 @@ function appendPageStylesheet(id, href) {
 }
 
 /**
- * 注入页面脚本：移除上一次的脚本标签，再以真实 <script src> 重新加载，
- * 并等待 load / error —— 这样每次打开 tab 都会重新执行一次（与旧行为一致）。
+ * 探测静态资源是否存在。
+ * 探测本身失败（网络异常/opaque 响应）时按「存在」处理，交给 <script>/<link> 自己报错。
  */
-function loadPageScript(tabKey) {
-    return new Promise(resolve => {
-        if (_pageScriptEl && _pageScriptEl.parentNode) {
-            _pageScriptEl.parentNode.removeChild(_pageScriptEl);
-        }
-        _pageScriptEl = null;
+function pageAssetExists(url) {
+    return fetch(url, { method: 'HEAD' })
+        .then(res => !!(res && res.ok))
+        .catch(() => true);
+}
 
+/**
+ * 注入页面脚本：先 HEAD 探测（没有 .js 的页面就不打一个 404 到控制台），
+ * 再以真实 <script src> 加载并等待 load / error —— 这样每次打开 tab 都会重新执行一次
+ * （与旧行为一致）。不使用 eval / new Function / 动态重建内联 <script>。
+ */
+async function loadPageScript(tabKey) {
+    const url = './pages/' + tabKey + '.js' + PAGE_ASSET_QS;
+
+    if (_pageScriptEl && _pageScriptEl.parentNode) {
+        _pageScriptEl.parentNode.removeChild(_pageScriptEl);
+    }
+    _pageScriptEl = null;
+
+    if (!(await pageAssetExists(url))) {
+        console.warn('[MENU] 页面无脚本文件（正常，可能是纯展示页）:', tabKey);
+        return false;
+    }
+
+    return new Promise(resolve => {
         const script = document.createElement('script');
         script.id = 'dynamicPageScript';
-        script.src = './pages/' + tabKey + '.js' + PAGE_ASSET_QS;
+        script.src = url;
         script.onload = () => resolve(true);
         script.onerror = () => {
-            console.warn('[MENU] 页面脚本加载失败或不存在:', tabKey);
+            console.warn('[MENU] 页面脚本加载失败:', tabKey);
             resolve(false);
         };
         _pageScriptEl = script;

@@ -14,24 +14,29 @@
             if(el) el.textContent = v ?? '--';
         }
         function drawCharts(s){
+            // 后端字段缺失/形状变化时不要让整个 Tab 崩掉（历史上这里直接 .map 会抛异常，
+            // 导致仪表盘图形区整块不渲染）
+            const regs = Array.isArray(s.daily_registrations) ? s.daily_registrations : [];
+            const docs = Array.isArray(s.daily_documents) ? s.daily_documents : [];
+            const levels = Array.isArray(s.level_distribution) ? s.level_distribution : [];
             const regData = {
-                labels: s.daily_registrations.map(d=>d.date),
-                vals: s.daily_registrations.map(d=>d.count)
+                labels: regs.map(d=>d.date),
+                vals: regs.map(d=>d.count)
             };
             const docData = {
-                labels: s.daily_documents.map(d=>d.date),
-                vals: s.daily_documents.map(d=>d.count)
+                labels: docs.map(d=>d.date),
+                vals: docs.map(d=>d.count)
             };
             drawBar('chart-registrations', regData, '#2ea043');
             drawBar('chart-documents', docData, '#2563eb');
             const levelColors = ['#9ca3af','#60a5fa','#34d399','#fbbf24','#ef4444'];
-            drawPie('chart-levels', s.level_distribution.map((d,i)=>({
+            drawPie('chart-levels', levels.map((d,i)=>({
                 label:'Lv'+d.level, value:d.count, color:levelColors[i]||'#6b7280'
             })));
         }
         function drawBar(id, data, color){
             const c = document.getElementById(id);
-            if(!c) return;
+            if(!c || !data || !data.vals || data.vals.length === 0) return;
             const ctx = c.getContext('2d');
             const w = c.width, h = c.height;
             ctx.clearRect(0,0,w,h);
