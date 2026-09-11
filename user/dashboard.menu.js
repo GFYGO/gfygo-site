@@ -1,16 +1,21 @@
 /**
  * dashboard.menu.js
- * 动态菜单与 Tab 切换
+ * 侧边栏菜单与 Tab 切换
  * Phase 2: ES Module — 共享资源通过 window 访问
  *
- * 安全约定：动态页面一律来自同源静态文件 ./pages/<tabKey>.{html,js,css}。
+ * 【菜单来源：前端写死，不再依赖后端 /user/menu 的菜单数据】
+ *   - 4 个基础项（工作台/通知/个人文档/第三方工具）：对所有登录用户可见，**不做任何权限检查**；
+ *   - 5 个管理项：仅当当前身份具备管理能力（token 里有 admin.* 节点，或等级 ≥ 2）时显示。
+ *   服务端 `/api/v0/user/menu` 仍会被 dashboard.js 调用（用于 user_info / 权限按钮），
+ *   但**菜单渲染与它无关** —— DB 里的 menu_items 为空、接口异常都不会再让侧边栏空掉。
+ *
+ * 安全约定：页面一律来自同源静态文件 ./pages/<tabKey>.{html,js,css}。
  * 不再从后端 / 数据库注入 html_content / js_content（历史上是存储型 XSS / RCE 通道），
  * 也不再用 eval / new Function / 动态重建内联 <script>。
  */
 import { renderDeletionStatus } from './dashboard.deletion.js';
 
 var AuthGuard = window.AuthGuard;
-var API_BASE_URL = window.API_BASE_URL;
 var $ = window.$;
 
 // tab_key 白名单：只允许字母、数字、下划线、短横线，杜绝路径遍历
@@ -20,9 +25,26 @@ var PAGE_MISSING_HTML = '<div class="empty-state">'
     + '<p class="empty-state__text">页面不存在或未安装</p>'
     + '</div>';
 
+// ===== 侧边栏菜单定义（前端写死）=====
+// 基础项：所有登录用户均可见，不检查权限
+var PRIMARY_MENU = [
+    { tab_key: 'workspace',     label: '工作台',     icon: '🏠' },
+    { tab_key: 'notifications', label: '通知',       icon: '🔔' },
+    { tab_key: 'docs',          label: '个人文档',   icon: '📚' },
+    { tab_key: 'tools',         label: '第三方工具', icon: '🔧' },
+];
+// 管理项：仅对具备管理能力的身份显示（切换视角到 Lv1 不影响，见 isAdminUser 注释）
+var ADMIN_MENU = [
+    { tab_key: 'admin-stats',         label: '仪表盘',     icon: '📊', permission_node: 'admin.stats.view' },
+    { tab_key: 'admin-notifications', label: '通知管理',   icon: '📢', permission_node: 'admin.notify.view' },
+    { tab_key: 'admin-invite-codes',  label: '邀请码管理', icon: '🎫', permission_node: 'admin.invite.view' },
+    { tab_key: 'admin-permissions',   label: '权限设置',   icon: '🔐', permission_node: 'admin.permission.view' },
+    { tab_key: 'admin-menu',          label: '页面设置',   icon: '⚙️', permission_node: 'admin.menu.view' },
+];
+
 // 静态页面资源的缓存版本号：与各 HTML 里的 ?v= 保持一致，
 // 否则 GitHub Pages CDN（默认 max-age≈600s）会让改动延迟生效。
-var PAGE_ASSET_VERSION = '20260911c';
+var PAGE_ASSET_VERSION = '20260911d';
 var PAGE_ASSET_QS = '?v=' + PAGE_ASSET_VERSION;
 // 便于在浏览器控制台一眼确认「当前跑的是哪一版」：
 //   window.__DASHBOARD_BUILD__        → 例如 "20260911c"
@@ -33,34 +55,44 @@ let _menuData = null;
 let _pageScriptEl = null;   // 当前动态页面注入的 <script>，切换时先移除
 let _pageLoadSeq = 0;       // 并发保护：只允许最后一次切换写入 DOM
 
+/**
+ * 当前身份是否具备管理能力。
+ * 判定依据（只看 token 里的 now_permission，纯前端显隐；真正的鉴权在服务端）：
+ *   1. 节点里存在任意 admin.* 节点（最可靠：后端签发 token 时写入）；
+ *   2. 或等级 >= 2。
+ * 注意：超管的 nodes 恒为全量（见 utils/permission.compute_effective_nodes），
+ * 所以「切换视角到 Lv1」不会把管理菜单切没，用户仍能切回去。
+ */
+function isAdminUser() {
+    const np = window.__nowPermission || {};
+    const nodes = Array.isArray(np.nodes) ? np.nodes : [];
+    if (nodes.some(function (n) { return typeof n === 'string' && n.indexOf('admin.') === 0; })) return true;
+    const lv = Number(np.level);
+    return Number.isFinite(lv) && lv >= 2;
+}
+
+/**
+ * 渲染侧边栏菜单。
+ * **不再请求后端菜单数据**：基础项写死在前端（所有登录用户可见、不校验权限），
+ * 管理项按 isAdminUser() 显隐。后端 /user/menu 的服务端过滤/DB menu_items 状态
+ * 都不再影响侧边栏能否显示（历史上 DB menu_items 为空会让整条侧边栏空白）。
+ */
 async function loadMenu() {
-    try {
-        const token = AuthGuard.getToken();
-        const headers = {};
-        if (token) headers['Authorization'] = 'Bearer ' + token;
-        const res = await fetch(`${API_BASE_URL}/api/v0/user/menu`, { headers });
-        if(res.status === 401 || res.status === 422){
-            AuthGuard.handleAuthError();
-            return;
-        }
-        if (!res.ok) {
-            console.error('[MENU] 加载菜单失败: HTTP', res.status);
-            renderMenuNotice('菜单加载失败（HTTP ' + res.status + '），请刷新页面重试');
-            return null;
-        }
-        _menuData = await res.json();
-        if (_menuData.code === 200) {
-            renderMenu(_menuData.data);
-        } else {
-            console.error('[MENU] 菜单接口返回异常:', _menuData);
-            renderMenuNotice('菜单加载失败：' + (_menuData.msg || ('code ' + _menuData.code)));
-        }
-        return _menuData.data;
-    } catch (e) {
-        console.error('[MENU] 加载菜单失败:', e);
-        renderMenuNotice('菜单加载失败，请刷新页面重试');
-        return null;
-    }
+    const baseItems = PRIMARY_MENU.slice();
+    const adminItems = isAdminUser() ? ADMIN_MENU.slice() : [];
+
+    _menuData = {
+        code: 200,
+        msg: 'ok',
+        data: {
+            base_items: baseItems,
+            dynamic_items: [],          // 后端动态页机制已废弃，侧边栏不再展示
+            admin_items: adminItems,
+            user_info: (_menuData && _menuData.data && _menuData.data.user_info) || null,
+        },
+    };
+    renderMenu(_menuData.data);
+    return _menuData.data;
 }
 
 function renderMenu(data) {
@@ -100,9 +132,9 @@ function renderMenu(data) {
     if (baseDivider) baseDivider.style.display = (hasNonAdmin && hasAdmin) ? '' : 'none';
     if (adminDivider) adminDivider.style.display = 'none';
 
-    // 一组都没有 → 明确提示，避免侧边栏静默空白（历史上这个「静默」让排查绕了远路）
+    // 兜底：正常不会触发（基础项写死在前端），留作渲染异常时的可见提示
     if (!hasNonAdmin && !hasAdmin) {
-        renderMenuNotice('暂无可用菜单项（请检查 menu_items 配置）');
+        renderMenuNotice('菜单渲染异常（未生成任何菜单项），请刷新页面重试');
     }
 
     return hasNonAdmin || hasAdmin;
@@ -152,14 +184,6 @@ function menuItemsHtml(items, extraClass) {
             <span class="sidebar__nav-text">${escapeMenuText(item.label)}</span>
         </a>
     `).join('');
-}
-
-function renderMenuItems(container, items, extraClass, divider, showDivider) {
-    if (!container || !items || items.length === 0) return showDivider || false;
-    container.innerHTML = menuItemsHtml(items, extraClass);
-    container.querySelectorAll('.sidebar__nav-item').forEach(bindTabClick);
-    if (divider && showDivider !== undefined) divider.style.display = showDivider ? '' : 'none';
-    return true;
 }
 
 function bindTabClick(item) {
