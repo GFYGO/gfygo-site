@@ -1,0 +1,45 @@
+<div class="admin-page" data-tab="admin-invite-codes">
+    <h2>🎫 邀请码管理</h2>
+    <form id="inviteForm" class="admin-form">
+        <div class="form-row">
+            <label>权限节点</label>
+            <input type="text" name="permission_node" placeholder="如 admin.stats.view" style="max-width:300px">
+        </div>
+        <div class="form-row">
+            <label>目标用户名类型</label>
+            <select name="target_username_type" style="max-width:150px">
+                <option value="username">用户名</option>
+                <option value="email">邮箱</option>
+                <option value="phone">手机</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label>使用限制</label>
+            <select name="usage_type" id="usageType" style="max-width:120px">
+                <option value="count">次数限制</option>
+                <option value="duration">持续时间</option>
+            </select>
+            <input type="number" name="max_uses" id="maxUses" min="1" placeholder="次数" style="max-width:100px">
+            <input type="number" name="duration_days" id="durationDays" min="1" placeholder="天数" style="max-width:100px" disabled>
+        </div>
+        <div class="form-row">
+            <label>到期时间(选填)</label>
+            <input type="datetime-local" name="expires_at" id="expiresAt">
+        </div>
+        <div class="form-row">
+            <label></label>
+            <button type="submit" class="btn btn-primary">生成邀请码</button>
+        </div>
+    </form>
+    <div class="admin-list-header">
+        <h3>邀请码列表</h3>
+        <button id="refreshInviteBtn" class="btn btn-secondary btn-sm">刷新</button>
+    </div>
+    <table class="admin-table" id="inviteTable">
+        <thead>
+            <tr><th>ID</th><th>邀请码</th><th>权限节点</th><th>使用限制</th><th>已用</th><th>到期</th><th>状态</th><th>创建人</th><th>操作</th></tr>
+        </thead>
+        <tbody id="inviteTbody"></tbody>
+    </table>
+    
+</div>

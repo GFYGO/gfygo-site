@@ -7,13 +7,63 @@
 const API_BASE_URL = "https://back.gwl.net.cn";
 const BASE_PATH = (window.location.pathname.match(/\/(user|model)\//) ? '..' : '.');
 const TOKEN_KEY = 'auth_token';
+// 无法判定有效期时的保守兜底：后端签发 token 的默认寿命（50 小时），绝不视为「永不过期」
+const DEFAULT_TOKEN_TTL_MS = 50 * 60 * 60 * 1000;
+
+/**
+ * decodeJwtPayload — 解析 JWT 的 payload 段（base64url → JSON）
+ * getNowPermission / getUserId / setToken 共用，避免重复实现
+ * @param {string} token
+ * @returns {object|null} 解析失败返回 null（不抛异常）
+ */
+function decodeJwtPayload(token) {
+  if (!token || typeof token !== 'string') return null;
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    let payloadB64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (payloadB64.length % 4) payloadB64 += '=';
+    const payload = JSON.parse(atob(payloadB64));
+    if (!payload || typeof payload !== 'object') return null;
+    return payload;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * resolveTokenTtlMs — 计算 token 有效期（毫秒）
+ * 优先级：显式 expiresInSec → JWT payload 的 exp 声明
+ * @param {string} token
+ * @param {number} [expiresInSec] 后端返回的有效期（秒）
+ * @param {number} [baseTs] 计算剩余有效期的基准时间戳（默认当前时间）
+ * @returns {number|null} 毫秒数（可能为负=已过期）；两者都无法判定时返回 null
+ */
+function resolveTokenTtlMs(token, expiresInSec, baseTs) {
+  const sec = Number(expiresInSec);
+  if (Number.isFinite(sec) && sec > 0) return sec * 1000;
+  const payload = decodeJwtPayload(token);
+  const exp = payload ? Number(payload.exp) : NaN;
+  if (Number.isFinite(exp) && exp > 0) {
+    return exp * 1000 - (Number.isFinite(baseTs) ? baseTs : Date.now());
+  }
+  return null;
+}
 
 const AuthGuard = {
   getToken: function() {
     try {
       const tokenData = JSON.parse(localStorage.getItem(TOKEN_KEY));
-      if (!tokenData) return null;
-      if (Date.now() - tokenData.timestamp > tokenData.expiresIn) {
+      if (!tokenData || !tokenData.token) return null;
+      const timestamp = Number(tokenData.timestamp);
+      let ttlMs = Number(tokenData.expiresIn);
+      if (!Number.isFinite(ttlMs) || ttlMs <= 0) {
+        // 旧数据/异常数据（expiresIn 为 NaN、null 或缺失）：改用 JWT exp 兜底，
+        // 仍然判不出来就按「已过期」处理，绝不把 token 当成永不过期
+        ttlMs = resolveTokenTtlMs(tokenData.token, null, Number.isFinite(timestamp) ? timestamp : Date.now());
+      }
+      if (!Number.isFinite(ttlMs) || ttlMs <= 0 ||
+          !Number.isFinite(timestamp) || Date.now() - timestamp > ttlMs) {
         this.clearToken();
         return null;
       }
@@ -24,15 +74,28 @@ const AuthGuard = {
     }
   },
   setToken: function(token, expiresInSec) {
-    const expiresInMs = expiresInSec * 1000;
-    localStorage.setItem(TOKEN_KEY, JSON.stringify({
+    // 兼容旧数据形状：{ token, timestamp, expiresIn }，expiresIn 单位毫秒
+    const now = Date.now();
+    let ttlMs = resolveTokenTtlMs(token, expiresInSec, now);
+    // 显式有效期与 JWT exp 都没有时，用保守默认值而不是 NaN（NaN 会让 token 永不过期）
+    if (ttlMs === null) ttlMs = DEFAULT_TOKEN_TTL_MS;
+    const tokenData = {
       token: token,
-      timestamp: Date.now(),
-      expiresIn: expiresInMs
-    }));
+      timestamp: now,
+      expiresIn: ttlMs
+    };
+    try {
+      localStorage.setItem(TOKEN_KEY, JSON.stringify(tokenData));
+    } catch (e) {
+      console.warn('[AuthGuard] 写入 token 失败（本地存储不可用）:', e);
+    }
   },
   clearToken: function() {
-    localStorage.removeItem(TOKEN_KEY);
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+    } catch (e) {
+      console.warn('[AuthGuard] 清除 token 失败（本地存储不可用）:', e);
+    }
   },
   requireAuth: function() {
     if (!this.getToken()) {
@@ -46,35 +109,17 @@ const AuthGuard = {
 };
 
 function getNowPermission() {
-  const raw = AuthGuard.getToken();
-  if (!raw) return { level: 0, context: null, nodes: [] };
-  try {
-    const parts = raw.split('.');
-    if (parts.length < 2) return { level: 0, context: null, nodes: [] };
-    let payloadB64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    while (payloadB64.length % 4) payloadB64 += '=';
-    const payload = JSON.parse(atob(payloadB64));
-    return payload.now_permission || { level: 0, context: null, nodes: [] };
-  } catch (e) {
-    return { level: 0, context: null, nodes: [] };
-  }
+  const payload = decodeJwtPayload(AuthGuard.getToken());
+  if (!payload) return { level: 0, context: null, nodes: [] };
+  return payload.now_permission || { level: 0, context: null, nodes: [] };
 }
 
 function getUserId() {
-  const raw = AuthGuard.getToken();
-  if (!raw) return null;
-  try {
-    const parts = raw.split('.');
-    if (parts.length < 2) return null;
-    let payloadB64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    while (payloadB64.length % 4) payloadB64 += '=';
-    const payload = JSON.parse(atob(payloadB64));
-    if (payload.uid != null && payload.uid !== '') return payload.uid;
-    if (payload.sub != null && payload.sub !== '') return payload.sub;
-    return null;
-  } catch (e) {
-    return null;
-  }
+  const payload = decodeJwtPayload(AuthGuard.getToken());
+  if (!payload) return null;
+  if (payload.uid != null && payload.uid !== '') return payload.uid;
+  if (payload.sub != null && payload.sub !== '') return payload.sub;
+  return null;
 }
 
 /**

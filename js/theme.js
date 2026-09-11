@@ -7,19 +7,43 @@
 var THEME_LIST = ['green', 'light', 'gray', 'dark_green'];
 var THEME_KEY = 'app_theme';
 
+/**
+ * 安全读取本地主题：浏览器禁用/阻断 localStorage 时退化为 null（使用默认主题）
+ */
+function readStoredTheme() {
+    try {
+        return localStorage.getItem(THEME_KEY);
+    } catch (e) {
+        console.warn('[theme] 读取本地主题失败，使用默认主题:', e);
+        return null;
+    }
+}
+
+/**
+ * 安全写入本地主题：写入失败只降级（不持久化），不影响主题切换本身
+ */
+function writeStoredTheme(themeName) {
+    try {
+        localStorage.setItem(THEME_KEY, themeName);
+    } catch (e) {
+        console.warn('[theme] 保存本地主题失败（本次切换仍然生效）:', e);
+    }
+}
+
 var ThemeEngine = {
     init: function() {
-        var savedTheme = localStorage.getItem(THEME_KEY) || 'green';
+        var savedTheme = readStoredTheme() || 'green';
         this.applyTheme(savedTheme);
     },
 
     applyTheme: function(themeName) {
         var body = document.body;
+        if (!body) return;
         THEME_LIST.forEach(function(theme) {
             body.classList.remove('theme-' + theme);
         });
         body.classList.add('theme-' + themeName);
-        localStorage.setItem(THEME_KEY, themeName);
+        writeStoredTheme(themeName);
     },
 
     bindSwitchEvent: function() {
@@ -29,7 +53,7 @@ var ThemeEngine = {
         if (switcherBtn) {
             var self = this;
             switcherBtn.addEventListener('click', function() {
-                var currentTheme = localStorage.getItem(THEME_KEY) || 'green';
+                var currentTheme = readStoredTheme() || 'green';
                 var currentIndex = THEME_LIST.indexOf(currentTheme);
                 if (currentIndex < 0) currentIndex = 0;
                 var nextIndex = (currentIndex + 1) % THEME_LIST.length;

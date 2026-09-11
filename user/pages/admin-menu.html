@@ -1,0 +1,125 @@
+<div class="admin-page" data-tab="admin-menu">
+    <h2>⚙️ 页面管理</h2>
+
+    <!-- 工具栏 -->
+    <div class="menu-toolbar">
+        <div class="menu-toolbar-left">
+            <button id="refreshPagesBtn" class="btn btn-sm btn-secondary">🔍 扫描新页面</button>
+            <button id="addPageBtn" class="btn btn-sm btn-primary">➕ 添加页面</button>
+        </div>
+        <div class="menu-toolbar-center">
+            <input type="text" id="menuSearchInput" class="menu-search-input" placeholder="搜索页面名称、标识或权限节点...">
+        </div>
+        <div class="menu-toolbar-right" id="menuBulkBar" style="display:none">
+            <span class="bulk-hint">有未保存的更改</span>
+            <button id="saveBulkBtn" class="btn btn-sm btn-primary">💾 保存更改</button>
+            <button id="discardBulkBtn" class="btn btn-sm btn-secondary">✕ 放弃</button>
+        </div>
+    </div>
+
+    <!-- 添加页面模态框 -->
+    <div id="addPageForm" class="modal-form" style="display:none">
+        <div class="modal-content" style="max-width:560px">
+            <div class="modal-header">
+                <h3>添加新页面</h3>
+                <button class="modal-close" id="cancelNewPage">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <label>Tab Key <span class="req">*</span></label>
+                    <input type="text" id="newTabKey" placeholder="英文标识，如 my-page" style="max-width:220px">
+                </div>
+                <div class="form-row">
+                    <label>显示名 <span class="req">*</span></label>
+                    <input type="text" id="newLabel" placeholder="页面名称" style="max-width:220px">
+                </div>
+                <div class="form-row">
+                    <label>图标</label>
+                    <input type="text" id="newIcon" placeholder="emoji" value="📄" style="max-width:100px">
+                </div>
+                <div class="form-row">
+                    <label>权限等级</label>
+                    <select id="newPermLevel" style="max-width:140px">
+                        <option value="1">Lv1 - 普通用户</option>
+                        <option value="2">Lv2 - 认证用户</option>
+                        <option value="3">Lv3 - 高级用户</option>
+                        <option value="4">Lv4 - 管理员</option>
+                        <option value="5">Lv5 - 超级管理员</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>权限节点</label>
+                    <div style="display:flex;gap:8px;align-items:center;flex:1">
+                        <input type="text" id="newPermNode" placeholder="点击右侧按钮选择" readonly style="flex:1;min-width:0">
+                        <button type="button" id="pickPermNodeBtn" class="btn btn-sm btn-secondary">选择</button>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label>排序</label>
+                    <input type="number" id="newSort" value="100" style="max-width:100px">
+                </div>
+                <div class="form-row-inline">
+                    <label>管理员页面</label>
+                    <label class="switch">
+                        <input type="checkbox" id="newIsAdmin">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="form-hint">仅管理员可见的后台页面</span>
+                </div>
+                <div class="form-row">
+                    <label>HTML 内容</label>
+                    <textarea id="newHtml" rows="3" placeholder="粘贴 HTML 片段（可选，留空则从 page/ 目录读取）"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="submitNewPage" class="btn btn-primary">创建页面</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 权限选择弹窗 -->
+    <div id="permPickerModal" class="modal-form" style="display:none">
+        <div class="modal-content" style="max-width:560px">
+            <div class="modal-header">
+                <h3>选择权限节点</h3>
+                <button class="modal-close" id="closePermPicker">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="permPickerContainer" style="min-height:300px;max-height:60vh;overflow-y:auto"></div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelPermPicker" class="btn btn-secondary">取消</button>
+                <button id="clearPermPicker" class="btn btn-secondary">清除</button>
+                <button id="savePermPicker" class="btn btn-primary">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页面编辑表格 -->
+    <div class="menu-table-wrapper">
+        <table class="admin-table" id="menuTable">
+            <thead>
+                <tr>
+                    <th style="width:40px">ID</th>
+                    <th style="width:50px">图标</th>
+                    <th style="width:130px">显示名</th>
+                    <th style="width:140px">Tab Key</th>
+                    <th style="width:140px">权限等级</th>
+                    <th style="width:180px">权限节点</th>
+                    <th style="width:70px">排序</th>
+                    <th style="width:60px">管理员</th>
+                    <th style="width:50px">启用</th>
+                    <th style="width:100px">操作</th>
+                </tr>
+            </thead>
+            <tbody id="menuTbody"></tbody>
+        </table>
+        <div id="menuEmpty" class="empty-state" style="display:none">
+            <p class="empty-state__text">暂无页面数据</p>
+        </div>
+    </div>
+
+    
+
+    
+</div>

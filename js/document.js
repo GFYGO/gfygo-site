@@ -351,7 +351,7 @@ function renderDocSidebarTree(keyword = '') {
 
   if (list.length === 0) {
     const reason = __DOC.docs.length === 0 ? '暂无可访问的文档'
-      : (kw ? `没有匹配「${kw}」的文档` : `当前「${({public:'公共',group:'组',private:'私有'})[__DOC.visFilter] || '全部'}」分类下暂无文档`);
+      : (kw ? `没有匹配「${escapeHtml(kw)}」的文档` : `当前「${({public:'公共',group:'组',private:'私有'})[__DOC.visFilter] || '全部'}」分类下暂无文档`);
     root.innerHTML = `<p class="doc-loading-text">${reason}</p>`;
     return;
   }
@@ -363,7 +363,7 @@ function docItemHTML(d) {
   const active = __DOC.currentSlug === d.slug ? ' is-active' : '';
   const href = `#/doc/${encodeURIComponent(d.slug)}`;
   return `<a href="${href}" class="doc-item${active}" data-slug="${escapeAttr(d.slug)}">
-    <span class="doc-item__icon">${d.icon || '📄'}</span>
+    <span class="doc-item__icon">${escapeHtml(d.icon || '📄')}</span>
     <span>${escapeHtml(d.title)}</span>
   </a>`;
 }
@@ -395,7 +395,7 @@ function renderHomeCategoryGrids() {
   grid.innerHTML = visibleDocs.map(d => {
     const href = `#/doc/${encodeURIComponent(d.slug)}`;
     return `<a class="feature-tile" href="${href}">
-      <div class="feature-tile__img">${d.icon || '📚'}</div>
+      <div class="feature-tile__img">${escapeHtml(d.icon || '📚')}</div>
       <div class="feature-tile__content">
         <div class="feature-tile__title">${escapeHtml(d.title)}</div>
         <div class="feature-tile__desc">${escapeHtml(d.summary || '')}</div>
@@ -500,15 +500,15 @@ function renderDocFolderTreeNode(node, depth = 0) {
   const hasChildren = Array.isArray(node.children) && node.children.length > 0;
   const isActive = __DOC.currentFolderId === node.id;
   return `
-    <div class="doc-folder-node" data-folder-id="${node.id}" style="padding-left:${10 + depth * 16}px">
+    <div class="doc-folder-node" data-folder-id="${escapeAttr(node.id)}" style="padding-left:${10 + depth * 16}px">
       <div class="doc-folder-node__row ${isActive ? 'is-active' : ''}">
         <span class="doc-folder-node__arrow ${hasChildren ? 'is-expandable' : ''}" data-action="toggle" title="${hasChildren ? '展开/折叠' : ''}">▶</span>
         <span class="doc-folder-node__icon">📁</span>
         <span class="doc-folder-node__name">${escapeHtml(node.name)}</span>
         <span class="doc-folder-node__actions">
           ${__DOC.isAdmin ? `
-            <button class="doc-folder-item__btn" data-action="rename" data-id="${node.id}" data-name="${escapeAttr(node.name)}" title="重命名">✏️</button>
-            <button class="doc-folder-item__btn" data-action="delete" data-id="${node.id}" title="删除">🗑</button>
+            <button class="doc-folder-item__btn" data-action="rename" data-id="${escapeAttr(node.id)}" data-name="${escapeAttr(node.name)}" title="重命名">✏️</button>
+            <button class="doc-folder-item__btn" data-action="delete" data-id="${escapeAttr(node.id)}" title="删除">🗑</button>
           ` : ''}
         </span>
       </div>
@@ -571,7 +571,7 @@ async function __buildDocBreadcrumbHTML(folderId) {
   chain.forEach((f, idx) => {
     items.push(`<span class="doc-path-breadcrumb__sep">/</span>`);
     const isLast = idx === chain.length - 1;
-    items.push(`<button class="doc-path-breadcrumb__item ${isLast ? 'is-active' : ''}" data-folder-id="${f.id}">${escapeHtml(f.name)}</button>`);
+    items.push(`<button class="doc-path-breadcrumb__item ${isLast ? 'is-active' : ''}" data-folder-id="${escapeAttr(f.id)}">${escapeHtml(f.name)}</button>`);
   });
   return `<div class="doc-path-breadcrumb">${items.join('')}</div>`;
 }
@@ -764,14 +764,14 @@ function bindDocFolderActions() {
  */
 async function renameDocFolder(id, oldName) {
   if (!__DOC.isAdmin) {
-    alert('仅等级≥5 的管理员可重命名公共文件夹');
+    docToast('仅等级≥5 的管理员可重命名公共文件夹', 'warning');
     return;
   }
   const name = await Modal.prompt('请输入新的文件夹名称：', oldName || '', { title: '重命名文件夹' });
   if (name === null || !name.trim() || name.trim() === oldName) return;
   const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
   if (!token) {
-    alert('请先登录');
+    docToast('请先登录', 'warning');
     return;
   }
   try {
@@ -789,11 +789,11 @@ async function renameDocFolder(id, oldName) {
       renderDocFolders();
     } else {
       console.error('[folder] 重命名失败:', d.msg);
-      alert('重命名失败：' + (d.msg || '未知错误'));
+      docToast('重命名失败：' + (d.msg || '未知错误'), 'error');
     }
   } catch (e) {
     console.error('[folder] 重命名网络错误:', e);
-    alert('重命名失败：网络错误');
+    docToast('重命名失败：网络错误', 'error');
   }
 }
 
@@ -803,14 +803,14 @@ async function renameDocFolder(id, oldName) {
  */
 async function deleteDocFolder(id) {
   if (!__DOC.isAdmin) {
-    alert('仅等级≥5 的管理员可删除公共文件夹');
+    docToast('仅等级≥5 的管理员可删除公共文件夹', 'warning');
     return;
   }
   const ok = await Modal.confirm('删除文件夹后，文件夹内的文档将移至根目录，确认删除？', { title: '删除文件夹' });
   if (!ok) return;
   const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
   if (!token) {
-    alert('请先登录');
+    docToast('请先登录', 'warning');
     return;
   }
   try {
@@ -828,11 +828,11 @@ async function deleteDocFolder(id) {
       await applyDocFolderFilter();
     } else {
       console.error('[folder] 删除失败:', d.msg);
-      alert('删除失败：' + (d.msg || '未知错误'));
+      docToast('删除失败：' + (d.msg || '未知错误'), 'error');
     }
   } catch (e) {
     console.error('[folder] 删除网络错误:', e);
-    alert('删除失败：网络错误');
+    docToast('删除失败：网络错误', 'error');
   }
 }
 
@@ -1066,11 +1066,11 @@ function renderDocDetailView(doc) {
   }
   pills.push(`<span class="meta-pill">👤 <strong>${escapeHtml(author)}</strong>${__ovText}</span>`);
   // 4. 创作时间
-  pills.push(`<span class="meta-pill">📅 创建 <strong>${fmtTime(doc.created_at)}</strong></span>`);
+  pills.push(`<span class="meta-pill">📅 创建 <strong>${escapeHtml(fmtTime(doc.created_at))}</strong></span>`);
   // 5. 最新修改时间（Document.updated_at 冗余展示）
-  pills.push(`<span class="meta-pill">✏️ 修改 <strong>${fmtTime(doc.updated_at || doc.created_at)}</strong></span>`);
+  pills.push(`<span class="meta-pill">✏️ 修改 <strong>${escapeHtml(fmtTime(doc.updated_at || doc.created_at))}</strong></span>`);
   // 6. 浏览量
-  pills.push(`<span class="meta-pill">👁 <strong>${doc.view_count ?? 0}</strong> 次阅读</span>`);
+  pills.push(`<span class="meta-pill">👁 <strong>${escapeHtml(String(doc.view_count == null ? 0 : doc.view_count))}</strong> 次阅读</span>`);
   // 7. 内容权限规则入口（作者 / 超管）
   const isDocOwner = uid && doc.author_id == uid;
   if (isDocOwner || __DOC.isAdmin) {
@@ -1088,13 +1088,9 @@ function renderDocDetailView(doc) {
     const raw = doc.content || '';
     ensureMarkedLoaded()
       .then(ok => {
-        if (ok && window.marked && typeof window.marked.parse === 'function') {
-          try {
-            $content.innerHTML = window.marked.parse(raw || '（空文档）');
-          } catch (err) {
-            console.warn('[marked] 解析失败，降级:', err);
-            $content.innerHTML = `<pre>${escapeHtml(raw || '')}</pre>`;
-          }
+        if (ok) {
+          // marked 输出经白名单净化后再写入（sanitize.js 缺失时降级为纯文本）
+          $content.innerHTML = renderMarkdownSafe(raw);
         } else {
           $content.innerHTML = `<p class="doc-loading-text" style="background:var(--color-bg-section-alt);padding:12px;border-radius:8px;">
             ⚠️ Markdown 渲染器加载失败，下方为原始文本：
@@ -1138,6 +1134,31 @@ function ensureMarkedLoaded() {
   });
 }
 
+/**
+ * 渲染 Markdown 为「可直接写入 innerHTML」的安全 HTML
+ * - marked 解析后必须经 sanitize.js 白名单净化（文档正文属于不可信内容，防存储型 XSS）
+ * - sanitize.js 尚未加载（HTML 引入顺序未就绪）时降级为转义纯文本，绝不注入原始 HTML
+ * @param {string} raw Markdown 原文
+ * @returns {string} 安全 HTML
+ */
+function renderMarkdownSafe(raw) {
+  const text = (raw === null || raw === undefined) ? '' : String(raw);
+  const fallback = `<pre>${escapeHtml(text || '（空文档）')}</pre>`;
+  if (!window.marked || typeof window.marked.parse !== 'function') return fallback;
+  let html;
+  try {
+    html = window.marked.parse(text || '（空文档）');
+  } catch (err) {
+    console.warn('[marked] 解析失败，降级:', err);
+    return fallback;
+  }
+  if (typeof window.sanitizeHtml !== 'function') {
+    console.warn('[document.js] sanitize.js 未加载，Markdown 降级为纯文本');
+    return fallback;
+  }
+  return window.sanitizeHtml(html);
+}
+
 // =========================================
 // 10. 修订历史
 // =========================================
@@ -1162,8 +1183,8 @@ async function fetchAndRenderRevisions(docId) {
   if ($list) {
     $list.innerHTML = __DOC.revisions.map(rev => `<li class="doc-rev__item">
       <div class="doc-rev__head">
-        <span class="doc-rev__badge">${rev.revision_num}</span>
-        <span class="doc-rev__time">⏱ ${fmtTime(rev.created_at)}</span>
+        <span class="doc-rev__badge">${escapeHtml(rev.revision_num)}</span>
+        <span class="doc-rev__time">⏱ ${escapeHtml(fmtTime(rev.created_at))}</span>
         <span class="doc-rev__editor">👤 ${escapeHtml(rev.editor_username || '系统')}</span>
       </div>
       ${rev.summary ? `<p class="doc-rev__summary">📝 ${escapeHtml(rev.summary)}</p>` : ''}
@@ -1195,7 +1216,7 @@ async function toggleDocRules(doc) {
   }
   const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
   if (!token) {
-    alert('请先登录');
+    docToast('请先登录', 'warning');
     return;
   }
   __DOC._rulesDocId = doc.id;
@@ -1211,11 +1232,11 @@ async function toggleDocRules(doc) {
       input.value = (d.data || []).map(x => `${x.target}.${x.level}.${x.category}.${x.action}.${x.state}`).join('\n');
     } else {
       input.value = '';
-      alert('加载规则失败：' + (d.msg || '未知错误'));
+      docToast('加载规则失败：' + (d.msg || '未知错误'), 'error');
     }
   } catch (e) {
     input.value = '';
-    alert('加载规则失败：网络错误');
+    docToast('加载规则失败：网络错误', 'error');
   }
 }
 
@@ -1226,7 +1247,7 @@ async function saveDocRules() {
   const lines = (input.value || '').split('\n').map(s => s.trim()).filter(Boolean);
   const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
   if (!token) {
-    alert('请先登录');
+    docToast('请先登录', 'warning');
     return;
   }
   try {
@@ -1237,13 +1258,12 @@ async function saveDocRules() {
     });
     const d = await r.json();
     if (d.code === 200) {
-      if (typeof showToast === 'function') showToast('已保存 ' + (d.data.saved || 0) + ' 条规则', 'success');
-      else alert('已保存 ' + (d.data.saved || 0) + ' 条规则');
+      docToast('已保存 ' + ((d.data && d.data.saved) || 0) + ' 条规则', 'success');
     } else {
-      alert('保存失败：' + (d.msg || '未知错误'));
+      docToast('保存失败：' + (d.msg || '未知错误'), 'error');
     }
   } catch (e) {
-    alert('保存失败：网络错误');
+    docToast('保存失败：网络错误', 'error');
   }
 }
 
@@ -1315,6 +1335,24 @@ function showDocState403() {
 // =========================================
 // 工具
 // =========================================
+
+/**
+ * 页面内提示：优先复用本页已加载的 Toast（js/toast.js 暴露 window.Toast）。
+ * document.html 不加载 utils.js，因此不能依赖 window.showToast；
+ * 只有在 Toast 完全不可用时才退回原生 alert，保证提示不丢失。
+ */
+function docToast(msg, type) {
+  if (window.Toast && typeof window.Toast.show === 'function') {
+    window.Toast.show(msg, type || 'error');
+    return;
+  }
+  if (typeof showToast === 'function') {
+    showToast(msg, type);
+    return;
+  }
+  try { alert(msg); } catch (e) { console.warn('[docToast]', msg); }
+}
+
 function escapeHtml(str) {
   return String(str || '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]

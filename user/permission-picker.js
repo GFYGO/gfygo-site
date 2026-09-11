@@ -53,7 +53,11 @@
                 const token = AuthGuard.getToken ? AuthGuard.getToken() : null;
                 if (token) {
                     const res = await fetch(this.options.apiUrl, {
-                        headers: { 'Authorization': 'Bearer ' + token }
+                        headers: {
+                            'Authorization': 'Bearer ' + token,
+                            // 管理接口要求 admin 权限上下文（后端 require_admin_node 强制）
+                            'X-Permission-Context': 'admin'
+                        }
                     });
                     if (res.ok) {
                         const d = await res.json();

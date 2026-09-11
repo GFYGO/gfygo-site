@@ -26,6 +26,25 @@ function initDeletion() {
     }
     on(sendCodeBtn, 'click', sendDeletionCode);
     on(confirmBtn, 'click', submitDeletionRequest);
+    bindDeletionActions();
+}
+
+/**
+ * 绑定注销操作区的委托点击（替代内联 onclick）
+ * 内联 onclick 里的函数只存在于模块作用域，点击会抛 ReferenceError，
+ * 且会被新 CSP（不允许 unsafe-inline）拦截，因此改为事件委托 + data-action。
+ */
+function bindDeletionActions() {
+    const actionArea = $('deletionActionArea');
+    if (!actionArea || actionArea.dataset.deletionBound) return;
+    actionArea.dataset.deletionBound = '1';
+    on(actionArea, 'click', (e) => {
+        const btn = e.target && e.target.closest ? e.target.closest('[data-action]') : null;
+        if (!btn || !actionArea.contains(btn)) return;
+        const action = btn.dataset.action;
+        if (action === 'open-deletion-modal') openDeletionModal();
+        else if (action === 'cancel-deletion') cancelDeletion();
+    });
 }
 
 /** 打开注销警告弹窗 */
@@ -208,6 +227,9 @@ async function renderDeletionStatus() {
     const actionArea = $('deletionActionArea');
     if (!statusArea || !actionArea) return;
 
+    // 兜底：即使 initDeletion 早于本函数执行顺序异常，也保证按钮可用（幂等）
+    bindDeletionActions();
+
     const token = AuthGuard.getToken();
     if (!token) {
         statusArea.innerHTML = '';
@@ -224,7 +246,7 @@ async function renderDeletionStatus() {
         if (d.code !== 200 || !d.data) {
             statusArea.innerHTML = '';
             actionArea.innerHTML = `
-                <button class="deletion-btn deletion-btn--danger" onclick="openDeletionModal()">
+                <button class="deletion-btn deletion-btn--danger" data-action="open-deletion-modal">
                     🗑 注销账号
                 </button>
             `;
@@ -246,7 +268,7 @@ async function renderDeletionStatus() {
                 </div>
             `;
             actionArea.innerHTML = `
-                <button class="deletion-btn deletion-btn--secondary" onclick="cancelDeletion()">
+                <button class="deletion-btn deletion-btn--secondary" data-action="cancel-deletion">
                     ↩ 取消注销
                 </button>
             `;
@@ -265,7 +287,7 @@ async function renderDeletionStatus() {
                 </div>
             `;
             actionArea.innerHTML = `
-                <button class="deletion-btn deletion-btn--danger" onclick="openDeletionModal()">
+                <button class="deletion-btn deletion-btn--danger" data-action="open-deletion-modal">
                     🗑 再次申请注销
                 </button>
             `;

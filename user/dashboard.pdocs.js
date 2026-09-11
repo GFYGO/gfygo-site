@@ -40,6 +40,33 @@ function ensureMarkedLoaded() {
     return PDocsState.markedLoading;
 }
 
+/**
+ * 渲染 Markdown 为「可直接写入 innerHTML」的安全 HTML
+ * - marked 解析后必须经 sanitize.js 白名单净化（文档正文不可信，防存储型 XSS）
+ * - sanitize.js 尚未加载时降级为转义纯文本，绝不注入原始 HTML
+ * @param {string} raw Markdown 原文
+ * @returns {string} 安全 HTML
+ */
+function pdocsRenderMarkdown(raw) {
+    const text = (raw === null || raw === undefined) ? '' : String(raw);
+    const fallback = `<pre>${escapeHtml(text || '*空内容*')}</pre>`;
+    if (!PDocsState.markedReady || !window.marked || typeof window.marked.parse !== 'function') {
+        return fallback;
+    }
+    let html;
+    try {
+        html = window.marked.parse(text || '*空内容*');
+    } catch (e) {
+        console.warn('[pdocs] Markdown 解析失败，降级为纯文本:', e);
+        return fallback;
+    }
+    if (typeof window.sanitizeHtml !== 'function') {
+        console.warn('[pdocs] sanitize.js 未加载，Markdown 降级为纯文本');
+        return fallback;
+    }
+    return window.sanitizeHtml(html);
+}
+
 function pdocsFmtTime(iso) {
     if (!iso) return '';
     const d = new Date(iso);
@@ -100,11 +127,8 @@ function initPdocsEasyMDE() {
             ],
             previewRender: async function(plainText, preview) {
                 await ensureMarkedLoaded();
-                if (PDocsState.markedReady && window.marked) {
-                    preview.innerHTML = window.marked.parse(plainText || '*空内容*');
-                } else {
-                    preview.innerHTML = `<pre>${escapeHtml(plainText)}</pre>`;
-                }
+                // 预览同样走白名单净化，避免编辑不可信内容时自伤
+                preview.innerHTML = pdocsRenderMarkdown(plainText);
                 return preview;
             },
             placeholder: '使用 Markdown 编写文档...',
@@ -301,31 +325,31 @@ function renderExplorerGrid() {
 
     subFolders.forEach(f => {
         items.push(`
-            <div class="pdocs-explorer-item pdocs-explorer-item--folder" data-folder-id="${f.id}" title="${escapeHtml(f.name)}">
+            <div class="pdocs-explorer-item pdocs-explorer-item--folder" data-folder-id="${escapeHtml(f.id)}" title="${escapeHtml(f.name)}">
                 <div class="pdocs-explorer-item__icon">📁</div>
                 <div class="pdocs-explorer-item__name">${escapeHtml(f.name)}</div>
                 <div class="pdocs-explorer-item__actions">
-                    <button class="pdocs-explorer-item__btn" data-action="rename-folder" data-id="${f.id}" title="重命名">✏️</button>
-                    <button class="pdocs-explorer-item__btn" data-action="delete-folder" data-id="${f.id}" title="删除">🗑</button>
+                    <button class="pdocs-explorer-item__btn" data-action="rename-folder" data-id="${escapeHtml(f.id)}" title="重命名">✏️</button>
+                    <button class="pdocs-explorer-item__btn" data-action="delete-folder" data-id="${escapeHtml(f.id)}" title="删除">🗑</button>
                 </div>
             </div>`);
     });
 
     docs.forEach(doc => {
         items.push(`
-            <div class="pdocs-explorer-item pdocs-explorer-item--doc" data-doc-id="${doc.id}" title="${escapeHtml(doc.title)}">
+            <div class="pdocs-explorer-item pdocs-explorer-item--doc" data-doc-id="${escapeHtml(doc.id)}" title="${escapeHtml(doc.title)}">
                 <div class="pdocs-explorer-item__icon">${escapeHtml(doc.icon || '📄')}</div>
                 <div class="pdocs-explorer-item__name">${escapeHtml(doc.title)}</div>
                 <div class="pdocs-explorer-item__meta">${pdocsFmtTime(doc.updated_at)}</div>
                 <div class="pdocs-explorer-item__actions">
-                    <select class="pdocs-explorer-move" data-action="move" data-id="${doc.id}" title="移动到文件夹">
+                    <select class="pdocs-explorer-move" data-action="move" data-id="${escapeHtml(doc.id)}" title="移动到文件夹">
                         <option value="" disabled selected>📁</option>
                         <option value="0">无文件夹</option>
-                        ${PDocsState.folders.map(f => `<option value="${f.id}" ${doc.folder_id === f.id ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('')}
+                        ${PDocsState.folders.map(f => `<option value="${escapeHtml(f.id)}" ${doc.folder_id === f.id ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('')}
                     </select>
-                    <button class="pdocs-explorer-item__btn" data-action="browse" data-id="${doc.id}" title="浏览">👁</button>
-                    <button class="pdocs-explorer-item__btn" data-action="edit" data-id="${doc.id}" title="编辑">✏️</button>
-                    <button class="pdocs-explorer-item__btn" data-action="delete" data-id="${doc.id}" title="删除">🗑</button>
+                    <button class="pdocs-explorer-item__btn" data-action="browse" data-id="${escapeHtml(doc.id)}" title="浏览">👁</button>
+                    <button class="pdocs-explorer-item__btn" data-action="edit" data-id="${escapeHtml(doc.id)}" title="编辑">✏️</button>
+                    <button class="pdocs-explorer-item__btn" data-action="delete" data-id="${escapeHtml(doc.id)}" title="删除">🗑</button>
                 </div>
             </div>`);
     });
@@ -446,11 +470,8 @@ async function openPdocsBrowser(docId) {
     if (contentEl) {
         await ensureMarkedLoaded();
         try {
-            if (PDocsState.markedReady && window.marked) {
-                contentEl.innerHTML = window.marked.parse(doc.content || '*空内容*');
-            } else {
-                contentEl.innerHTML = `<pre>${escapeHtml(doc.content || '')}</pre>`;
-            }
+            // marked 输出经白名单净化后再写入（sanitize.js 缺失时降级为纯文本）
+            contentEl.innerHTML = pdocsRenderMarkdown(doc.content);
         } catch (e) {
             contentEl.innerHTML = `<pre>${escapeHtml(doc.content || '')}</pre>`;
         }
@@ -480,8 +501,8 @@ function renderPdocsTrash(docs) {
                 </div>
             </div>
             <div class="pdocs-trash-item__actions">
-                <button class="pdocs-btn pdocs-btn--secondary pdocs-btn--sm" data-action="restore" data-id="${doc.id}">恢复</button>
-                <button class="pdocs-btn pdocs-btn--danger pdocs-btn--sm" data-action="permanent" data-id="${doc.id}">彻底删除</button>
+                <button class="pdocs-btn pdocs-btn--secondary pdocs-btn--sm" data-action="restore" data-id="${escapeHtml(doc.id)}">恢复</button>
+                <button class="pdocs-btn pdocs-btn--danger pdocs-btn--sm" data-action="permanent" data-id="${escapeHtml(doc.id)}">彻底删除</button>
             </div>
         </div>
     `).join('');
@@ -634,11 +655,8 @@ async function renderPdocsPreview() {
     if (!preview) return;
     await ensureMarkedLoaded();
     try {
-        if (PDocsState.markedReady && window.marked) {
-            preview.innerHTML = window.marked.parse(content || '*空内容*');
-        } else {
-            preview.innerHTML = `<pre>${escapeHtml(content)}</pre>`;
-        }
+        // marked 输出经白名单净化后再写入（sanitize.js 缺失时降级为纯文本）
+        preview.innerHTML = pdocsRenderMarkdown(content);
     } catch (e) {
         preview.innerHTML = `<pre>${escapeHtml(content || '')}</pre>`;
     }
@@ -694,7 +712,7 @@ async function renderPdocsBreadcrumb() {
         chain.forEach((f, idx) => {
             const isLast = idx === chain.length - 1;
             items.push(`<span class="pdocs-breadcrumb__sep">›</span>`);
-            items.push(`<button class="pdocs-breadcrumb__item ${isLast ? 'is-active' : ''}" data-folder-id="${f.id}">${escapeHtml(f.name)}</button>`);
+            items.push(`<button class="pdocs-breadcrumb__item ${isLast ? 'is-active' : ''}" data-folder-id="${escapeHtml(f.id)}">${escapeHtml(f.name)}</button>`);
         });
     }
 

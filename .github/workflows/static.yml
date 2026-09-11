@@ -33,11 +33,30 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      # 只发布站点文件：把仓库内容复制到 _site，排除开发/调试残留
+      - name: Assemble clean site directory
+        run: |
+          mkdir -p _site
+          rsync -a ./ _site/ \
+            --exclude '_site/' \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.gitignore' \
+            --exclude '.user.ini' \
+            --exclude 'debug.log' \
+            --exclude 'scp-ai.txt' \
+            --exclude 'model/debug.html' \
+            --exclude 'model/test.html' \
+            --exclude 'model/test.js' \
+            --exclude 'model/favicon.ico' \
+            --exclude '.venv*' \
+            --exclude 'node_modules/' \
+            --exclude '*.pyc'
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: '.'
+          # Upload the cleaned site directory only
+          path: '_site'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

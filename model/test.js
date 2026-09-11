@@ -301,8 +301,10 @@
             try {
                 const d = await authedJson('POST', API_BASE_URL + '/api/v0/auth/switch-permission', { target_level: level });
                 // 切换成功后刷新 token（如果后端返回了新 token）
-                if (d.code === 200 && d.data && d.data.token) {
-                    AuthGuard.setToken(d.data.token);
+                // 后端字段为 access_token / expires_in（兼容旧字段 token）
+                const newToken = d && d.data && (d.data.access_token || d.data.token);
+                if (d && d.code === 200 && newToken) {
+                    AuthGuard.setToken(newToken, d.data.expires_in);
                     appendApiOutput('🔄 Token 已刷新', { new_level: level });
                 }
                 appendApiOutput('✅ POST /auth/switch-permission Lv' + level, d);

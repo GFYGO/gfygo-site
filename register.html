@@ -2,18 +2,18 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>GWL | 个人学习平台 - 注册</title>
-    <script>window.onTurnstileReady = function(){};</script>
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileReady&render=explicit" async defer></script>
-    <link rel="stylesheet" href="./css/core.css">
-    <link rel="stylesheet" href="./css/styles.css">
-    <link rel="stylesheet" href="./css/login.css">
-    <link rel="stylesheet" href="./css/register.css">
-    <link rel="stylesheet" href="./css/components.css">
+    <!-- Cloudflare Turnstile SDK 由 js/register.js 在定义 onTurnstileReady 回调后动态注入 -->
+    <link rel="stylesheet" href="./css/core.css?v=20260911a">
+    <link rel="stylesheet" href="./css/styles.css?v=20260911a">
+    <link rel="stylesheet" href="./css/login.css?v=20260911a">
+    <link rel="stylesheet" href="./css/register.css?v=20260911a">
+    <link rel="stylesheet" href="./css/components.css?v=20260911a">
     <link rel="icon" href="./favicon.png" type="image/png">
 </head>
 <body>
@@ -143,10 +143,10 @@
 
     <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
-    <script src="./js/config.js"></script>
-    <script src="./js/theme.js"></script>
-    <script src="./js/toast.js"></script>
-    <script src="./js/index.js"></script>
-    <script src="./js/register.js"></script>
+    <script src="./js/config.js?v=20260911a"></script>
+    <script src="./js/theme.js?v=20260911a"></script>
+    <script src="./js/toast.js?v=20260911a"></script>
+    <script src="./js/index.js?v=20260911a"></script>
+    <script src="./js/register.js?v=20260911a"></script>
 </body>
 </html>

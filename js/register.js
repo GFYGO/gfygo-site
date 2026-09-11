@@ -8,10 +8,25 @@ const TABS = ['email', 'phone', 'temp'];
 let currentTab = 'email';
 const widgetIds = {};
 
-// SDK 加载完成回调
+// SDK 加载完成回调（由动态注入的 Turnstile SDK 通过 onload 参数触发）
 window.onTurnstileReady = function() {
     initRegisterPage();
 };
+
+// 回调定义完成后再动态注入 Turnstile SDK，避免 SDK 先加载完成导致回调丢失
+let turnstileSdkInjected = false;
+function loadTurnstileSdk() {
+    // 防止重复注入（同一页面已存在 SDK 脚本时直接跳过）
+    if (turnstileSdkInjected) return;
+    if (document.querySelector('script[src*="challenges.cloudflare.com/turnstile"]')) return;
+    turnstileSdkInjected = true;
+    const s = document.createElement('script');
+    s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileReady&render=explicit';
+    s.async = true;
+    s.defer = true;
+    document.head.appendChild(s);
+}
+loadTurnstileSdk();
 
 // DOMContentLoaded 时若 SDK 已就绪则直接初始化
 document.addEventListener('DOMContentLoaded', () => {

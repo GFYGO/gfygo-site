@@ -1,0 +1,125 @@
+<div class="admin-page" data-tab="admin-permissions">
+    <h2>🔐 权限设置</h2>
+
+    <div class="perm-layout">
+        <!-- 左侧：范围选择 -->
+        <div class="perm-sidebar">
+            <div class="perm-tabs">
+                <button class="perm-tab active" data-type="level">等级权限</button>
+                <button class="perm-tab" data-type="user">用户权限</button>
+                <button class="perm-tab" data-type="group">组权限</button>
+                <button class="perm-tab" data-type="content">内容权限</button>
+            </div>
+
+            <div class="perm-scope-section">
+                <div id="levelSelector" class="perm-scope-panel">
+                    <div class="perm-scope-desc">选择等级以编辑该等级的默认权限</div>
+                    <div class="perm-level-grid">
+                        <button class="perm-level-card" data-level="0">
+                            <span class="perm-level-num">Lv0</span>
+                            <span class="perm-level-name">访客</span>
+                        </button>
+                        <button class="perm-level-card" data-level="1">
+                            <span class="perm-level-num">Lv1</span>
+                            <span class="perm-level-name">普通用户</span>
+                        </button>
+                        <button class="perm-level-card" data-level="2">
+                            <span class="perm-level-num">Lv2</span>
+                            <span class="perm-level-name">认证用户</span>
+                        </button>
+                        <button class="perm-level-card" data-level="3">
+                            <span class="perm-level-num">Lv3</span>
+                            <span class="perm-level-name">高级用户</span>
+                        </button>
+                        <button class="perm-level-card" data-level="4">
+                            <span class="perm-level-num">Lv4</span>
+                            <span class="perm-level-name">管理员</span>
+                        </button>
+                        <button class="perm-level-card" data-level="5">
+                            <span class="perm-level-num">Lv5</span>
+                            <span class="perm-level-name">超级管理员</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="userSelector" class="perm-scope-panel" style="display:none">
+                    <div class="perm-scope-desc">选择用户以编辑其个人权限（最高优先级）</div>
+                    <div class="perm-user-search">
+                        <input type="text" id="userSearchInput" placeholder="🔍 搜索用户...">
+                    </div>
+                    <div id="userListContainer" class="perm-user-list">加载中...</div>
+                </div>
+
+                <div id="groupSelector" class="perm-scope-panel" style="display:none">
+                    <div class="perm-scope-desc">选择组以编辑组内所有成员的权限</div>
+                    <div id="groupListContainer" class="perm-group-list">加载中...</div>
+                </div>
+
+                <div id="contentSelector" class="perm-scope-panel" style="display:none">
+                    <div class="perm-scope-desc">选择文档或文件夹以编辑其内容规则（文件夹规则作用于整棵子树）</div>
+                    <div class="perm-ctype-bar">
+                        <button class="perm-ctype-btn active" data-type="document">📄 文档</button>
+                        <button class="perm-ctype-btn" data-type="folder">📁 文件夹</button>
+                    </div>
+                    <div id="contentListContainer" class="perm-content-list">加载中...</div>
+                </div>
+            </div>
+
+            <div class="perm-current-scope" id="currentScopeInfo">
+                <span class="perm-current-label">当前编辑:</span>
+                <span class="perm-current-value" id="currentScopeValue">Lv1 - 普通用户</span>
+            </div>
+        </div>
+
+        <!-- 右侧：权限编辑器 -->
+        <div class="perm-main">
+            <div class="perm-editor-col">
+                <div class="perm-editor-toolbar">
+                    <div class="perm-toolbar-left">
+                        <h3 class="perm-editor-title">权限节点编辑</h3>
+                    </div>
+                    <div class="perm-toolbar-right">
+                        <button id="saveAllBtn" class="btn btn-primary btn-sm" disabled>保存更改</button>
+                        <button id="discardBtn" class="btn btn-secondary btn-sm" disabled>丢弃更改</button>
+                    </div>
+                </div>
+
+                <div id="permPickerContainer" class="perm-picker-container">
+                    <div class="perm-placeholder">请选择左侧的范围开始编辑权限</div>
+                </div>
+            </div>
+
+            <div class="perm-summary" id="permSummary">
+                <div class="perm-summary-header">
+                    <span>📋 变更摘要</span>
+                    <span class="perm-summary-badge" id="permSummaryBadge">0</span>
+                </div>
+                <div class="perm-summary-body" id="permSummaryBody">
+                    <div class="perm-summary-stats">
+                        <div class="perm-stat-item perm-stat--allow">
+                            <span class="perm-stat-num" id="statAllow">0</span>
+                            <span class="perm-stat-label">允许</span>
+                        </div>
+                        <div class="perm-stat-item perm-stat--deny">
+                            <span class="perm-stat-num" id="statDeny">0</span>
+                            <span class="perm-stat-label">禁止</span>
+                        </div>
+                        <div class="perm-stat-item perm-stat--inherit">
+                            <span class="perm-stat-num" id="statInherit">0</span>
+                            <span class="perm-stat-label">未设置</span>
+                        </div>
+                    </div>
+                    <hr class="perm-summary-divider">
+                    <div class="perm-summary-list" id="permSummaryList">
+                        <div class="perm-summary-empty" id="permSummaryEmpty">
+                            <div class="perm-summary-empty-icon">📝</div>
+                            <div class="perm-summary-empty-text">暂无更改<br>编辑权限节点后此处显示变更摘要</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+</div>
