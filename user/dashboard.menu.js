@@ -44,7 +44,7 @@ var ADMIN_MENU = [
 
 // 静态页面资源的缓存版本号：与各 HTML 里的 ?v= 保持一致，
 // 否则 GitHub Pages CDN（默认 max-age≈600s）会让改动延迟生效。
-var PAGE_ASSET_VERSION = '20260911d';
+var PAGE_ASSET_VERSION = '20260912a';
 var PAGE_ASSET_QS = '?v=' + PAGE_ASSET_VERSION;
 // 便于在浏览器控制台一眼确认「当前跑的是哪一版」：
 //   window.__DASHBOARD_BUILD__        → 例如 "20260911c"
@@ -54,6 +54,7 @@ window.__DASHBOARD_BUILD__ = PAGE_ASSET_VERSION;
 let _menuData = null;
 let _pageScriptEl = null;   // 当前动态页面注入的 <script>，切换时先移除
 let _pageLoadSeq = 0;       // 并发保护：只允许最后一次切换写入 DOM
+let _currentTab = null;     // 当前展示的 tab（含 settings/home 这类静态 panel）
 
 /**
  * 当前身份是否具备管理能力。
@@ -196,13 +197,32 @@ function bindTabClick(item) {
 
 async function switchTab(tabKey, opts) {
     opts = opts || {};
-    document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+    _currentTab = tabKey;
 
     // URL 状态同步：用户点击时重置 folder/doc/mode（回到 tab 根），URL 恢复时保留
     if (window.DashUrl) {
         if (opts.reset) window.DashUrl.write({ tab: tabKey, folder: null, doc: null, mode: null });
         else window.DashUrl.write({ tab: tabKey });
     }
+
+    await renderTab(tabKey);
+}
+
+/**
+ * 重新加载当前 tab 的页面内容（不改变 URL 查询参数、不重置 folder/doc/mode）。
+ *
+ * 用途：权限等级切换后，已渲染好的页面仍持有旧等级渲染出来的 DOM 与数据，
+ * 必须重新执行一次「取 html → 注入 → 执行 js」才能让内容与新等级一致。
+ * 若当前 tab 是面板内页面（`panel-<tab>` 存在，如 settings/home），则只重新显示它。
+ */
+async function reloadCurrentTab() {
+    if (!_currentTab) return;
+    await renderTab(_currentTab);
+}
+
+/** 把指定 tab 渲染出来（切换与重载共用同一条路径，避免两处逻辑漂移） */
+async function renderTab(tabKey) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
 
     const dynamicContainer = document.getElementById('dynamicContentContainer');
     if (dynamicContainer) dynamicContainer.innerHTML = '';
@@ -331,9 +351,9 @@ function getCurrentMenuData() {
 }
 
 // ===== ES Module exports =====
-const DashboardMenu = { loadMenu, renderMenu, switchTab, getCurrentMenuData };
+const DashboardMenu = { loadMenu, renderMenu, switchTab, reloadCurrentTab, getCurrentMenuData };
 export default DashboardMenu;
-export { loadMenu, renderMenu, switchTab, getCurrentMenuData, DashboardMenu };
+export { loadMenu, renderMenu, switchTab, reloadCurrentTab, getCurrentMenuData, DashboardMenu };
 
 // ===== 兼容层 =====
 window.DashboardMenu = DashboardMenu;

@@ -21,9 +21,9 @@ var ThemeEngine = window.ThemeEngine;
 const ROLE_NAMES = {
     0: '未登录',
     1: '普通用户',
-    2: '认证用户',
-    3: '高级用户',
-    4: '管理员',
+    2: '一级管理员',
+    3: '二级管理员',
+    4: '三级管理员',
     5: '超级管理员'
 };
 
@@ -189,7 +189,10 @@ function renderPermissionButtons(userInfo) {
     for (let lv = 1; lv <= maxLevel; lv++) {
         const btn = document.createElement('button');
         btn.className = 'perm-btn';
-        if (lv === curLevel) btn.classList.add('perm-btn--active');
+        // ⚠️ 高亮类名必须与 css/components.css 中的 `.perm-btn--current` 一致。
+        // 这里曾误写成 `--active`，CSS 里没有该类 → 任何等级都不高亮，
+        // 用户无法从界面判断「当前是哪一级」。
+        if (lv === curLevel) btn.classList.add('perm-btn--current');
         btn.textContent = lv;
         btn.title = `${ROLE_NAMES[lv]}`;
         if (lv !== curLevel) {
@@ -218,15 +221,33 @@ async function switchLevel(targetLevel) {
         const data = await res.json();
         const np = data.data || {};
         AuthGuard.setToken(np.access_token, np.expires_in);
-        window.__nowPermission = np.now_permission || { level: targetLevel, context: targetLevel >= 4 ? 'admin' : null, nodes: [] };
+
+        // 运行时权限先落盘：等级切换后的所有渲染都必须读这份最新值。
+        // 注意 context 阈值与后端一致是 >= 2（见 services/auth_service.py::switch_permission），
+        // 历史上前端误写成 >= 4，会让 Lv2/Lv3 切完拿不到 admin 上下文。
+        const newLevel = (np.now_permission && np.now_permission.level) || targetLevel;
+        window.__nowPermission = np.now_permission
+            || { level: newLevel, context: newLevel >= 2 ? 'admin' : null, nodes: [] };
 
         Toast.show(`已切换到 Lv.${targetLevel} ${ROLE_NAMES[targetLevel]}`, 'success');
 
+        // 1. 立即按新等级重画按钮：高亮必须在「点完就有反馈」，
+        //    不能等 /user/menu 返回 —— 否则 user_info 慢或失败时高亮会停在旧等级。
+        //    此时还不知道真实最高等级，先按当前等级画，下面用服务端数据补全范围。
+        renderPermissionButtons({ current_level: newLevel, max_level: newLevel });
+
+        // 2. 重新拉一次 user_info（用户名/最高等级/按钮范围），成功则覆盖上面的临时范围
         if (typeof window.renderUserInfo === 'function') {
-            const token = AuthGuard.getToken();
-            if (token) await window.renderUserInfo(token);
+            const freshToken = AuthGuard.getToken();
+            if (freshToken) await window.renderUserInfo(freshToken);
         }
+
+        // 3. 重画侧边栏（管理菜单按新身份显隐）
         await DashboardMenu.loadMenu();
+
+        // 4. ⭐ 重载当前正在看的 Tab —— 否则页面上还留着按旧等级渲染的内容，
+        //    表现为「切了以后页面内容没跟着变」。
+        await DashboardMenu.reloadCurrentTab();
     } catch (e) {
         console.warn('切换权限异常:', e);
         Toast.show('网络错误');
