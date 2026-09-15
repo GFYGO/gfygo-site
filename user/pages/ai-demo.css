@@ -1,6 +1,0 @@
-/**
- * ai-demo.css — 「ai-demo」页面专属样式
- * 该页面暂无专属样式，此文件为占位：dashboard.menu.js 会按 tab_key 探测/加载
- * ./pages/<tab>.css，缺文件会产生一次 404 请求（控制台噪音）。
- * 页面需要的通用样式在 dashboard.css / dashboard-admin.css / dashboard-perms.css 中。
- */

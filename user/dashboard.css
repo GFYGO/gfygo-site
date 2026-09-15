@@ -548,6 +548,24 @@
     background: var(--color-border, #e5e7eb);
 }
 
+/* 动态页面列表加载失败时的侧边栏可见提示（避免「静默空白」只能靠控制台排查） */
+.sidebar__nav-notice {
+    margin: 6px 12px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: rgba(245, 158, 11, 0.12);
+    color: var(--color-text-muted, #9ca3af);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* 页面加载失败时的补充说明（权限不足 / 网络异常等） */
+.empty-state__hint {
+    margin-top: 6px;
+    color: var(--color-text-muted, #9ca3af);
+    font-size: 13px;
+}
+
 .panel-title {
     font-size: 20px;
     margin: 0 0 16px;

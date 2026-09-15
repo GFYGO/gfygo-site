@@ -6,15 +6,17 @@
       CSP：EasyMDE（编辑器）默认会注入 Font Awesome 样式表（maxcdn.bootstrapcdn.com），
       其图标字体来自同一域，因此 style-src / font-src 必须放行该域，否则编辑器工具栏图标不显示。
       img-src 保留 https: 以兼容用户头像/横幅的外链图片。
+      script-src 放行 blob:：动态页面的 JS 由后端下发（/api/v0/user/pages/<tab_key>），
+      前端以 Blob URL + <script src=blob:> 执行 —— 不使用 eval / new Function / 内联脚本。
     -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://maxcdn.bootstrapcdn.com; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net https://maxcdn.bootstrapcdn.com; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://maxcdn.bootstrapcdn.com; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net https://maxcdn.bootstrapcdn.com; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>个人主页 | GWL</title>
-    <link rel="stylesheet" href="./../css/core.css?v=20260912a">
-    <link rel="stylesheet" href="./../css/styles.css?v=20260912a">
-    <link rel="stylesheet" href="./../css/components.css?v=20260912a">
-    <link rel="stylesheet" href="./dashboard.css?v=20260912a">
-    <link rel="stylesheet" href="./dashboard-admin.css?v=20260912a">
+    <link rel="stylesheet" href="./../css/core.css?v=20260920a">
+    <link rel="stylesheet" href="./../css/styles.css?v=20260920a">
+    <link rel="stylesheet" href="./../css/components.css?v=20260920a">
+    <link rel="stylesheet" href="./dashboard.css?v=20260920a">
+    <link rel="stylesheet" href="./dashboard-admin.css?v=20260920a">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.css">
     <link rel="icon" href="./../favicon.png" type="image/png">
 </head>
@@ -242,19 +244,19 @@
 
     <script src="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.js"></script>
     <!-- 共享脚本：普通 <script> 加载，暴露到 window -->
-    <script src="./../js/config.js?v=20260912a"></script>
-    <script src="./../js/sanitize.js?v=20260912a"></script>
-    <script src="./../js/utils.js?v=20260912a"></script>
-    <script src="./../js/toast.js?v=20260912a"></script>
-    <script src="./../js/theme.js?v=20260912a"></script>
-    <script src="./../js/modal.js?v=20260912a"></script>
+    <script src="./../js/config.js?v=20260920a"></script>
+    <script src="./../js/sanitize.js?v=20260920a"></script>
+    <script src="./../js/utils.js?v=20260920a"></script>
+    <script src="./../js/toast.js?v=20260920a"></script>
+    <script src="./../js/theme.js?v=20260920a"></script>
+    <script src="./../js/modal.js?v=20260920a"></script>
     <!-- Dashboard 模块：ES Module 加载 -->
-    <script type="module" src="./dashboard.permission.js?v=20260912a"></script>
-    <script type="module" src="./dashboard.auth.js?v=20260912a"></script>
-    <script type="module" src="./dashboard.checkin.js?v=20260912a"></script>
-    <script type="module" src="./dashboard.deletion.js?v=20260912a"></script>
-    <script type="module" src="./dashboard.menu.js?v=20260912a"></script>
-    <script type="module" src="./dashboard.pdocs.js?v=20260912a"></script>
-    <script type="module" src="./dashboard.js?v=20260912a"></script>
+    <script type="module" src="./dashboard.permission.js?v=20260920a"></script>
+    <script type="module" src="./dashboard.auth.js?v=20260920a"></script>
+    <script type="module" src="./dashboard.checkin.js?v=20260920a"></script>
+    <script type="module" src="./dashboard.deletion.js?v=20260920a"></script>
+    <script type="module" src="./dashboard.menu.js?v=20260920a"></script>
+    <script type="module" src="./dashboard.pdocs.js?v=20260920a"></script>
+    <script type="module" src="./dashboard.js?v=20260920a"></script>
 </body>
 </html>
