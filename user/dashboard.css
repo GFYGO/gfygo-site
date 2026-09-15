@@ -559,6 +559,38 @@
     line-height: 1.5;
 }
 
+/* =========================================
+   空 / 错误 / 加载 状态（动态页面与仪表盘共用）
+   ⚠️ 这三件套此前全站都没有定义，导致 dashboard.menu.js 的「页面不存在或未安装」
+   与 workspace/tools 占位页只有裸 emoji、没有排版。字色规则见 dashboard-admin.css。
+   ========================================= */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 32px 16px;
+    text-align: center;
+}
+
+.empty-state__icon {
+    font-size: 34px;
+    line-height: 1;
+    opacity: 0.9;
+}
+
+/* dashboard-admin.css 里的 .empty-state__text 带 40px 纵向 padding（给独立空态用），
+   放进 .empty-state 容器时要收掉，否则上下会叠出 72px 空白 */
+.empty-state .empty-state__text {
+    padding: 0;
+}
+
+/* 表格内的空/错误态：colspan 行里使用，比独立空态紧凑 */
+.empty-state__text--compact {
+    padding: 24px 0 !important;
+}
+
 /* 页面加载失败时的补充说明（权限不足 / 网络异常等） */
 .empty-state__hint {
     margin-top: 6px;
