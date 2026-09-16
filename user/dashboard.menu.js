@@ -42,7 +42,7 @@ var PRIMARY_MENU = [
 // 构建版本号：便于在浏览器控制台一眼确认「当前跑的是哪一版」
 //   window.__DASHBOARD_BUILD__
 //   document.querySelector('script[src*="dashboard.menu.js"]').src
-var BUILD_VERSION = '20260920b';
+var BUILD_VERSION = '20260920c';
 window.__DASHBOARD_BUILD__ = BUILD_VERSION;
 
 var _menuData = null;
@@ -51,7 +51,8 @@ var _pageScriptEl = null;               // 当前页面注入的 <script>
 var _pageBlobUrl = null;                // 当前页面脚本的 Blob URL
 var _pageLoadSeq = 0;                   // 并发保护：只有最后一次切换可以写 DOM
 var _currentTab = null;
-var _backendListFailed = false;
+var _backendListFailed = false;        // 后端页面列表是否加载失败（用于侧边栏可见提示）
+var _backendListError = '';            // 失败原因（服务端 msg），排查时全靠它
 
 // ============================================================
 // 网络
@@ -91,13 +92,16 @@ function fetchJSON(url) {
 async function loadMenu() {
     var backendItems = [];
     _backendListFailed = false;
+    _backendListError = '';
 
     var res = await fetchJSON('/api/v0/user/pages');
     if (res && res.code === 200 && Array.isArray(res.data)) {
         backendItems = res.data;
     } else {
         _backendListFailed = true;
-        console.warn('[MENU] 动态页面列表加载失败:', res && res.msg);
+        // 把服务端的 msg 一并带出来：线上排查时「列表为什么空」几乎全靠这句话
+        _backendListError = (res && (res.msg || ('code=' + res.code))) || '无响应';
+        console.warn('[MENU] 动态页面列表加载失败:', _backendListError);
     }
 
     // 基础项优先：后端也定义了同名 tab_key 时不重复渲染（内容仍走同一个内容接口）
@@ -121,6 +125,7 @@ async function loadMenu() {
             admin_items: adminItems,
             user_info: (_menuData && _menuData.data && _menuData.data.user_info) || null,
             backend_list_failed: _backendListFailed,
+            backend_list_error: _backendListError,
         },
     };
     renderMenu(_menuData.data);
@@ -140,7 +145,8 @@ function renderMenu(data) {
         baseContainer.innerHTML = menuItemsHtml(baseItems, '')
             + menuItemsHtml(dynamicItems, 'dynamic-only')
             + (data.backend_list_failed
-                ? '<div class="sidebar__nav-notice">动态页面列表加载失败（仅显示基础页面）</div>'
+                ? '<div class="sidebar__nav-notice">动态页面列表加载失败：'
+                    + escapeMenuText(data.backend_list_error || '未知原因') + '</div>'
                 : '');
         baseContainer.querySelectorAll('.sidebar__nav-item').forEach(bindTabClick);
         hasNonAdmin = (baseItems.length + dynamicItems.length) > 0;
