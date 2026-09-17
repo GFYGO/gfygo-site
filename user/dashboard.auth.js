@@ -174,15 +174,44 @@ function renderTopNavAuth(user) {
     }
 }
 
-/** 权限等级按钮渲染 */
+/**
+ * 权限等级按钮渲染。
+ *
+ * ⚠️ 参数兼容两种签名（与 `js/index.js` 的同名函数保持一致）：
+ *   * **对象** `{current_level, max_level}` —— 仪表盘自己的调用方（`initAuthModules`）；
+ *   * **数字** 真实等级 —— `js/index.js::renderAuthStatus` 的调用方（主站页面）。
+ *   两者都挂 `window.renderPermissionButtons`，历史上谁后加载谁生效：
+ *   被主站那份覆盖后，仪表盘传的对象会被当成数字 → `realLevel` 变 NaN → **按钮整个消失**；
+ *   反过来主站传的数字被这份当成对象 → `current_level` 恒 undefined → **高亮永远停在 Lv1**。
+ *   所以这里做一次归一化，任何一份代码被后加载都能正确工作。
+ */
+function normalizePermissionArgs(input) {
+    if (input && typeof input === 'object') {
+        const current = parseInt(input.current_level != null ? input.current_level : input.level, 10);
+        const max = parseInt(input.max_level != null ? input.max_level : input.real_level, 10);
+        return {
+            currentLevel: Number.isFinite(current) ? current : 1,
+            maxLevel: Number.isFinite(max) ? max : 1,
+        };
+    }
+    const real = parseInt(input, 10);
+    const np = window.__nowPermission || {};
+    const current = parseInt(np.level, 10);
+    return {
+        currentLevel: Number.isFinite(current) ? current : 1,
+        maxLevel: Number.isFinite(real) ? real : 1,
+    };
+}
+
 function renderPermissionButtons(userInfo) {
     const container = $('permissionButtons');
     if (!container) return;
 
     container.innerHTML = '';
 
-    const curLevel = userInfo.current_level || 1;
-    const maxLevel = userInfo.max_level || 1;
+    const normalized = normalizePermissionArgs(userInfo);
+    const curLevel = normalized.currentLevel || 1;
+    const maxLevel = normalized.maxLevel || 1;
 
     if (maxLevel <= 1) return;
 
@@ -200,6 +229,18 @@ function renderPermissionButtons(userInfo) {
         }
         container.appendChild(btn);
     }
+}
+
+/**
+ * 主站（`js/index.js`）侧的切换入口。
+ *
+ * `js/index.js::handlePermissionClick` 会调用 `/auth/switch-permission` 然后**整页刷新**。
+ * 仪表盘是单页应用，不需要整页刷新 —— 这里把它接到 `switchLevel()`：
+ * 同一套请求 + 就地重绘 + 重载当前 Tab。这样无论 window 上挂的是哪一份实现，
+ * 点击行为都正确（历史问题：两份实现的签名与刷新语义不同，互相覆盖后行为不一致）。
+ */
+async function handlePermissionClick(level) {
+    await switchLevel(level);
 }
 
 /** 切换等级 */
@@ -456,7 +497,15 @@ async function sendVerificationEmail() {
 }
 
 // ===== ES Module exports =====
-export { initAuthModules, renderUserProfile, renderTopNavAuth, renderPermissionButtons, switchLevel, initSidebarToggle, initSettingsButton, sendVerificationEmail, ROLE_NAMES };
+export {
+    initAuthModules, renderUserProfile, renderTopNavAuth, renderPermissionButtons,
+    switchLevel, initSidebarToggle, initSettingsButton, sendVerificationEmail,
+    handlePermissionClick, normalizePermissionArgs, ROLE_NAMES,
+};
 
 // ===== 兼容层 =====
-window.renderPermissionButtons = renderPermissionButtons;
+// ⚠️ 与 `js/index.js` 一样使用 `||`：**先加载者胜**。
+//    `dashboard.html` 不加载 index.js，所以这里挂上去的就是仪表盘自己的实现；
+//    但这保证了将来若有页面同时加载两者，也不会出现「后加载的把另一份覆盖成签名不兼容的实现」。
+window.renderPermissionButtons = window.renderPermissionButtons || renderPermissionButtons;
+window.handlePermissionClick = window.handlePermissionClick || handlePermissionClick;

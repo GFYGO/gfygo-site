@@ -281,18 +281,46 @@ if (!window.ROLE_NAMES) {
  *  - realLevel（真实等级，来自 /auth/status）<= 1：不显示按钮
  *  - 当前运行时等级来自 window.__nowPermission.level（默认 1，可切换）
  *  - 行为：调用 /auth/switch-permission 真实切换 level（可升可降，不越权 realLevel）
+ *
+ * ⚠️ 兼容两种签名：这里传的是**数字**（真实等级），而
+ *    `user/dashboard.auth.js` 也导出同名函数、传的是**对象** `{current_level, max_level}`。
+ *    两者都挂在 `window.renderPermissionButtons` 上，历史上谁后加载谁生效 →
+ *    在主页面上被调成对象版就会把「数字」当成对象读，`current_level` 恒为 undefined，
+ *    表现为**无论切到哪一级，高亮都停在 Lv1**（切换看着像没生效）。
+ *    因此这里用 `normalizePermissionArgs()` 统一取值：谁后加载都不会读错参数。
  */
-window.renderPermissionButtons = window.renderPermissionButtons || function (realLevel) {
+function normalizePermissionArgs(input) {
+  if (input && typeof input === 'object') {
+    const current = parseInt(input.current_level != null ? input.current_level : input.level, 10);
+    const max = parseInt(input.max_level != null ? input.max_level : input.real_level, 10);
+    return {
+      realLevel: Number.isFinite(max) ? max : 1,
+      currentLevel: Number.isFinite(current) ? current : 1,
+    };
+  }
+  const real = parseInt(input, 10);
+  const np = window.__nowPermission || {};
+  const current = parseInt(np.level, 10);
+  return {
+    realLevel: Number.isFinite(real) ? real : 1,
+    currentLevel: Number.isFinite(current) ? current : 1,
+  };
+}
+
+window.renderPermissionButtons = window.renderPermissionButtons || function (levelOrInfo) {
   const container = document.getElementById('permissionButtons');
   if (!container) return;
 
+  const normalized = normalizePermissionArgs(levelOrInfo);
+  const realLevel = normalized.realLevel;
+
   container.innerHTML = '';
 
+  // 未登录 / 普通用户：没有可切换的等级
   if (!realLevel || realLevel <= 1) return;
 
-  // 当前运行时等级（从 now_permission 读）
-  const np = window.__nowPermission || { level: 1 };
-  const currentLevel = np.level || 1;
+  // 当前运行时等级（优先用参数里的，其次读 now_permission）
+  const currentLevel = normalized.currentLevel || 1;
 
   // 显示等级 1 到真实等级的按钮（可升可降）
   const levels = [1];
@@ -304,6 +332,8 @@ window.renderPermissionButtons = window.renderPermissionButtons || function (rea
     const btn = document.createElement('button');
     btn.className = 'perm-btn';
     if (level === currentLevel) {
+      // ⚠️ 类名契约：CSS 只定义了 `.perm-btn--current`（components.css），
+      //    写成 `--active` 会让任何等级都不高亮（历史 bug，见 PROJECT_MEMORY §0.7）。
       btn.classList.add('perm-btn--current');
     }
     btn.textContent = level;
@@ -314,6 +344,23 @@ window.renderPermissionButtons = window.renderPermissionButtons || function (rea
     container.appendChild(btn);
   });
 };
+
+/**
+ * 切换等级后让按钮高亮立即跟随新等级。
+ *
+ * 之前这里**根本没有重绘**：切完只改了 token 与 `window.__nowPermission`，
+ * 屏幕上的按钮还是按旧等级画的 → 用户看到「点了没反应 / 高亮没变」。
+ * 重绘时以「服务端返回的新等级为当前等级、真实最高等级保持不变」为准。
+ */
+function refreshPermissionButtonsAfterSwitch(newLevel) {
+  const realLevel = parseInt(window.__currentUserPermissionLevel, 10);
+  const max = Number.isFinite(realLevel) && realLevel >= 1 ? realLevel : newLevel;
+  try {
+    window.renderPermissionButtons({ current_level: newLevel, max_level: max });
+  } catch (e) {
+    console.warn('重绘权限按钮失败:', e);
+  }
+}
 
 window.handlePermissionClick = window.handlePermissionClick || async function (level) {
   // 调用切换 API（真实切换 now_permission.level，可升可降）
@@ -334,11 +381,17 @@ window.handlePermissionClick = window.handlePermissionClick || async function (l
     const data = await res.json();
     const np = (data.data || {});
     AuthGuard.setToken(np.access_token, np.expires_in);
-    window.__nowPermission = np.now_permission || { level, context: level >= 4 ? 'admin' : null, nodes: [] };
+    // ⚠️ 前端兜底的 context 阈值必须与后端一致：`services/auth_service.py::switch_permission`
+    //    是 `target_level >= 2 → 'admin'`。历史上这里写成 `>= 4`，
+    //    导致 Lv2/Lv3 切完之后管理接口全被判成「缺少 admin 权限上下文」。
+    window.__nowPermission = np.now_permission || { level, context: level >= 2 ? 'admin' : null, nodes: [] };
   } catch (e) {
     console.warn('切换权限请求异常:', e);
     return;
   }
+
+  // 立即重绘：高亮必须在「点完就有反馈」，不能等下一次整页刷新
+  refreshPermissionButtonsAfterSwitch(level);
 
   // 判断当前页面是否是 dashboard 类页面（需要跳转）
   const isDashboardPage = /\/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname);

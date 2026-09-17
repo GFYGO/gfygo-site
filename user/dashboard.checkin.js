@@ -43,7 +43,7 @@ function isSameDay(a, b) {
         && a.getDate() === b.getDate();
 }
 
-/** 初始化打卡日历 */
+/** 初始化打卡日历（幂等：面板每次显示都会调用，重复绑定会让点击触发多次） */
 function initCheckinCalendar(userId) {
     const calEl = $('calDays');
     const titleEl = $('calTitle');
@@ -51,6 +51,14 @@ function initCheckinCalendar(userId) {
     const nextBtn = $('calNext');
     const checkinBtn = $('checkinBtn');
     if (!calEl || !titleEl || !prevBtn || !nextBtn || !checkinBtn) return;
+
+    if (calendarState && calendarState.userId === userId) {
+        // 已经初始化过（同一个用户）：只重绘，不重新绑事件
+        calendarState.today = new Date();
+        calendarState.records = loadCheckinRecords(userId);
+        renderCalendar();
+        return;
+    }
 
     const today = new Date();
     calendarState = {
@@ -192,3 +200,7 @@ function initCheckinButtons() {
 
 // ===== ES Module exports =====
 export { initCheckinButtons, initCheckinCalendar };
+
+// ===== 兼容层（与其它 dashboard 模块一致：便于控制台排查 / 回归测试直接驱动）=====
+window.initCheckinCalendar = window.initCheckinCalendar || initCheckinCalendar;
+window.initCheckinButtons = window.initCheckinButtons || initCheckinButtons;

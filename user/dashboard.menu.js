@@ -32,7 +32,13 @@ var PAGE_MISSING_HTML = '<div class="empty-state">'
     + '</div>';
 
 // ===== 基础菜单（前端写死，不检查权限，后端不可用时也照常显示）=====
+// ⚠️ `home` 是**静态面板**（`dashboard.html` 里的 `#panel-home`，个人主页 + 打卡日历），
+//    不属于后端动态页面：它没有 `pages/home/` 目录，也不出现在 `/api/v0/user/pages` 里。
+//    `renderTab()` 会先匹配 `#panel-<tabKey>`，命中就显示该面板并跳过内容请求，因此这里写 `home` 即可。
+//    历史上它只挂在侧边栏头像（data-tab="home"）上，而 switchTab() 找不到 `panel-home` 之外的分支
+//    → 点了以后所有面板被隐藏、又去请求不存在的页面 → 个人主页永远打不开。
 var PRIMARY_MENU = [
+    { tab_key: 'home',          label: '个人主页',   icon: '👤' },
     { tab_key: 'workspace',     label: '工作台',     icon: '🏠' },
     { tab_key: 'notifications', label: '通知',       icon: '🔔' },
     { tab_key: 'docs',          label: '个人文档',   icon: '📚' },
@@ -42,7 +48,7 @@ var PRIMARY_MENU = [
 // 构建版本号：便于在浏览器控制台一眼确认「当前跑的是哪一版」
 //   window.__DASHBOARD_BUILD__
 //   document.querySelector('script[src*="dashboard.menu.js"]').src
-var BUILD_VERSION = '20260920c';
+var BUILD_VERSION = '20260920d';
 window.__DASHBOARD_BUILD__ = BUILD_VERSION;
 
 var _menuData = null;
@@ -257,6 +263,9 @@ async function renderTab(tabKey, force) {
     document.querySelectorAll('.sidebar__nav-item').forEach(function (item) {
         item.classList.toggle('active', item.dataset.tab === tabKey);
     });
+    // 侧边栏头像也是「个人主页」的入口（data-tab="home"），同步它的高亮
+    var userTrigger = document.getElementById('sidebarUserTrigger');
+    if (userTrigger) userTrigger.classList.toggle('is-active', tabKey === 'home');
 
     // 面板内静态页（个人主页 / 设置）
     var panel = document.getElementById('panel-' + tabKey);
@@ -267,10 +276,29 @@ async function renderTab(tabKey, force) {
         releasePageScript();
         panel.style.display = '';
         if (tabKey === 'settings') renderDeletionStatus();
+        if (tabKey === 'home') initHomePanel();
+        // 静态面板没有内容接口，但仍要广播事件：外部（dashboard.js 等）统一监听
+        // 'dashboard:tab-switched'，漏发会让它们认为「这个 tab 从没被打开过」。
+        document.dispatchEvent(new CustomEvent('dashboard:tab-switched', {
+            detail: { tabKey: tabKey, page: null },
+        }));
         return;
     }
 
     await loadAndInjectPage(tabKey, force);
+}
+
+/**
+ * 静态面板「个人主页」的初始化（幂等）。
+ *
+ * 打卡日历此前**从未被初始化**：`dashboard.checkin.js::initCheckinButtons()` 只被挂在
+ * `window.initCheckinModule` 上，而没有人在合适的时机调用它 → 日历标题停在硬编码的
+ * 「2026年7月」、日期格子一个都没有。这里在面板真正显示后（元素可见、尺寸可算）初始化。
+ */
+function initHomePanel() {
+    if (typeof window.initCheckinModule === 'function') {
+        try { window.initCheckinModule(); } catch (e) { console.warn('[HOME] 打卡日历初始化失败:', e); }
+    }
 }
 
 // ============================================================

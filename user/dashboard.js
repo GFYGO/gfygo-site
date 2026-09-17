@@ -58,6 +58,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     // 1. 渲染用户信息 + 加载菜单
     const menuData = await renderUserInfo(token);
 
+    // 1b. 注册「个人主页」面板的初始化钩子。
+    //     必须在 switchTab() 之前注册 —— dashboard.menu.js 在渲染 home 面板时会回调它，
+    //     晚注册会让首屏停在「未初始化」的打卡日历上（历史 bug：该函数从来没被调用过）。
+    registerHomePanelHooks();
+
     // 2. 加载并渲染菜单
     await DashboardMenu.loadMenu();
 
@@ -126,6 +131,19 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 });
 
+/**
+ * 注册静态面板的初始化钩子（幂等）。
+ *
+ * `dashboard.menu.js::renderTab()` 在显示 `#panel-<tab>` 时会调用 `window.initCheckinModule()`，
+ * 用它驱动「个人主页」里的打卡日历。**必须在第一次 switchTab 之前调用**，否则首屏的
+ * home 面板拿不到钩子；之后重复调用是安全的（`initCheckinCalendar` 内部有防重入）。
+ */
+function registerHomePanelHooks() {
+    if (typeof window.initCheckinModule !== 'function') {
+        window.initCheckinModule = function() { initCheckinButtons(); };
+    }
+}
+
 /** 绑定设置面板中的主题选择按钮 */
 function bindThemeOptButtons() {
     const buttons = document.querySelectorAll('.theme-opt');
@@ -152,5 +170,5 @@ function bindGlobalEvents() {
 }
 
 // ===== ES Module exports =====
-export { renderUserInfo, bindGlobalEvents };
+export { renderUserInfo, bindGlobalEvents, registerHomePanelHooks };
 window.renderUserInfo = renderUserInfo;
