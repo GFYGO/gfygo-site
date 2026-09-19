@@ -7,7 +7,7 @@ import { initAuthModules, sendVerificationEmail, initSidebarToggle, initSettings
 import DashboardMenu from './dashboard.menu.js';
 import { initCheckinButtons } from './dashboard.checkin.js';
 import { initDeletion, renderDeletionStatus } from './dashboard.deletion.js';
-import { loadPersonalDocs } from './dashboard.pdocs.js';
+import { PDocsState } from './dashboard.pdocs.js';
 
 // ===== 从 window 获取共享资源（config.js / toast.js / theme.js / utils.js 以普通 <script> 加载）=====
 var AuthGuard = window.AuthGuard;
@@ -58,6 +58,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     // 1. 渲染用户信息 + 加载菜单
     const menuData = await renderUserInfo(token);
 
+    // 1a. 把 user id 写进个人文档状态**再**切 Tab。
+    //     `#panel-docs` 是静态面板，切到它时的钩子会立刻拉文件夹（loadPersonalFolders
+    //     需要 currentUserId）—— 晚写会让 ?tab=docs 的首屏跳过文件夹加载（历史坑：
+    //     该状态原本在 switchTab 之后才赋值，靠「先请求页面内容」的延迟蒙对时序）。
+    primePersonalDocsUserId(menuData);
+
     // 1b. 注册「个人主页」面板的初始化钩子。
     //     必须在 switchTab() 之前注册 —— dashboard.menu.js 在渲染 home 面板时会回调它，
     //     晚注册会让首屏停在「未初始化」的打卡日历上（历史 bug：该函数从来没被调用过）。
@@ -78,6 +84,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     // 6. 绑定退出/验证码等全局事件
     bindGlobalEvents();
 
+    // 6b. 个人文档的深链接恢复（?tab=docs&folder=..&doc=..）。
+    //     ⚠️ 必须**在第一次 switchTab 之前**注册：`docs` 是静态面板，它的
+    //     'dashboard:tab-switched' 是在 switchTab 的**同步阶段**派发的（不像动态页要等网络），
+    //     晚注册会漏掉首屏那一次 → 直接打开文档链接只会停在列表页。
+    bindDocsUrlRestore();
+
     // 7. 切换到默认 Tab（若 URL 带 ?tab= 则优先恢复该页）
     const urlState = window.DashUrl ? window.DashUrl.read() : null;
     const initialTab = (urlState && urlState.tab) || 'workspace';
@@ -87,29 +99,20 @@ document.addEventListener('DOMContentLoaded', async function() {
     initDeletion();
     renderDeletionStatus();
 
-    // 初始化个人文档全局引用 & 设置 currentUserId
-    if (menuData && menuData.user_info) {
-        const ui = menuData.user_info;
-        const userObj = ui.id || ui.user_id || (window.getUserId ? window.getUserId() : null) || null;
-        if (userObj) {
-            try {
-                const { initPersonalDocs, PDocsState: pds } = await import('./dashboard.pdocs.js');
-                if (pds) pds.currentUserId = userObj;
-                if (initPersonalDocs) initPersonalDocs();
-            } catch(e) {
-                console.warn('[pdocs] 加载个人文档模块失败:', e);
-                if (window.PDocsState) window.PDocsState.currentUserId = userObj;
-                if (typeof window.initPersonalDocs === 'function') {
-                    window.initPersonalDocs();
-                }
-            }
-        }
+    // 初始化打卡模块全局引用
+    if (typeof window.initCheckinModule !== 'function') {
+        window.initCheckinModule = function() { initCheckinButtons(); };
     }
-    if (typeof window.initPersonalDocs !== 'function') {
-        window.initPersonalDocs = function() { loadPersonalDocs(); };
-    }
+});
 
-    // URL 恢复：动态页（含个人文档）注入完成后，应用 folder/doc 参数
+/**
+ * 注册「个人文档深链接恢复」监听器。
+ *
+ * 个人文档面板的**加载**由 `dashboard.menu.js::STATIC_PANEL_HOOKS` 驱动；
+ * 这里只负责把 URL 里的 `folder` / `doc` / `mode` 还原成视图
+ * （面板常驻 DOM，不再像后端下发时代那样每次注入新 HTML 后重新解析）。
+ */
+function bindDocsUrlRestore() {
     document.addEventListener('dashboard:tab-switched', function onTabSwitched(e) {
         if (!e.detail || e.detail.tabKey !== 'docs') return;
         const st = window.DashUrl ? window.DashUrl.read() : null;
@@ -124,12 +127,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             actions.navigateToFolder(st.folder);
         }
     });
-
-    // 初始化打卡模块全局引用
-    if (typeof window.initCheckinModule !== 'function') {
-        window.initCheckinModule = function() { initCheckinButtons(); };
-    }
-});
+}
 
 /**
  * 注册静态面板的初始化钩子（幂等）。
@@ -142,6 +140,21 @@ function registerHomePanelHooks() {
     if (typeof window.initCheckinModule !== 'function') {
         window.initCheckinModule = function() { initCheckinButtons(); };
     }
+}
+
+/**
+ * 把当前用户 id 写进个人文档状态（`PDocsState.currentUserId`）。
+ *
+ * ⚠️ 必须在**第一次 switchTab 之前**调用：`#panel-docs` 现在是写死在 dashboard.html 里的
+ * 静态面板，切到它的钩子（`initPersonalDocsPanel`）会立刻拉文件夹，而
+ * `loadPersonalFolders()` 在 `currentUserId` 为空时**直接跳过**（只打一条 console.warn）。
+ * 旧实现把这一步放在 switchTab 之后，靠「切 Tab 要先请求页面内容」的网络延迟蒙对时序。
+ */
+function primePersonalDocsUserId(menuData) {
+    const ui = menuData && menuData.user_info;
+    if (!ui) return;
+    const userObj = ui.id || ui.user_id || (window.getUserId ? window.getUserId() : null) || null;
+    if (userObj && PDocsState) PDocsState.currentUserId = userObj;
 }
 
 /** 绑定设置面板中的主题选择按钮 */
@@ -170,5 +183,5 @@ function bindGlobalEvents() {
 }
 
 // ===== ES Module exports =====
-export { renderUserInfo, bindGlobalEvents, registerHomePanelHooks };
+export { renderUserInfo, bindGlobalEvents, registerHomePanelHooks, primePersonalDocsUserId, bindDocsUrlRestore };
 window.renderUserInfo = renderUserInfo;

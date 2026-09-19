@@ -5,12 +5,15 @@
  * ## 菜单来源
  *   - **4 个基础项写死在前端**（工作台/通知/个人文档/第三方工具）：对所有登录用户可见，
  *     且后端页面接口不可用时依然显示（保证侧边栏不会整条空白）；
+ *     ⚠️ 它们的**页面内容也在前端** —— `dashboard.html` 里的 `#panel-<tab_key>` 静态面板
+ *     （`site-back/pages/` 里没有它们，内容不由后端下发，只有数据走接口）。见 `STATIC_PANEL_HOOKS`。
  *   - **其余页面由后端驱动**：`GET /api/v0/user/pages` 只返回**元数据**（标题/图标/排序/分组），
  *     服务端已按权限过滤 —— 前端**不再做二次权限过滤**（历史教训：前端过滤会吃掉服务端已授权的项）。
  *
  * ## 懒加载
  *   1. 列表阶段只取标题（`/user/pages`）；
- *   2. 点击某个标签才取该页内容（`/user/pages/<tab_key>` → html/css/js），
+ *   2. 点击标签：命中 `#panel-<tab_key>`（静态面板：home/settings + 4 个基础项）→ 直接显示并跑
+ *      各自的初始化钩子（**不发内容请求**）；否则取该页内容（`/user/pages/<tab_key>` → html/css/js），
  *      服务端对每个页面**逐页鉴权**（不存在 → 404；无权限 → 403）；
  *   3. html 用 innerHTML 注入 #dynamicContentContainer，css 注入 <style>，
  *      js 以 **Blob URL + <script src=blob:>** 执行（不使用 eval / new Function / 内联脚本）。
@@ -32,8 +35,11 @@ var PAGE_MISSING_HTML = '<div class="empty-state">'
     + '</div>';
 
 // ===== 基础菜单（前端写死，不检查权限，后端不可用时也照常显示）=====
+// ⚠️ 这 4 项的**页面内容也在前端**（`dashboard.html` 里写死的 `#panel-<tab_key>` 静态面板），
+//    **不由后端下发**：只有数据走接口（通知 → /api/v0/notify/global，个人文档 → /api/v0/document/*）。
+//    它们**没有** `pages/<tab_key>/` 目录，也不出现在 `/api/v0/user/pages` 里。
 // ⚠️ `home` 是**静态面板**（`dashboard.html` 里的 `#panel-home`，个人主页 + 打卡日历），
-//    不属于后端动态页面：它没有 `pages/home/` 目录，也不出现在 `/api/v0/user/pages` 里。
+//    同样不属于后端动态页面：它没有 `pages/home/` 目录，也不出现在 `/api/v0/user/pages` 里。
 //    `renderTab()` 会先匹配 `#panel-<tabKey>`，命中就显示该面板并跳过内容请求，因此这里写 `home` 即可。
 //    历史上它只挂在侧边栏头像（data-tab="home"）上，而 switchTab() 找不到 `panel-home` 之外的分支
 //    → 点了以后所有面板被隐藏、又去请求不存在的页面 → 个人主页永远打不开。
@@ -47,7 +53,7 @@ var PRIMARY_MENU = [
 // 构建版本号：便于在浏览器控制台一眼确认「当前跑的是哪一版」
 //   window.__DASHBOARD_BUILD__
 //   document.querySelector('script[src*="dashboard.menu.js"]').src
-var BUILD_VERSION = '20260920e';
+var BUILD_VERSION = '20260920f';
 window.__DASHBOARD_BUILD__ = BUILD_VERSION;
 
 var _menuData = null;
@@ -257,16 +263,36 @@ function getCurrentTab() {
     return _currentTab;
 }
 
-// 静态面板（`dashboard.html` 里写死的 `#panel-<tab>`）：不属于后端页面列表，
-// 各自自带权限处理，因此永远视为「可用」。
+// 静态面板（`dashboard.html` 里写死的 `#panel-<tab>`）：**内容不由后端下发**，
+// 各自的数据/初始化由钩子负责，因此永远视为「可用」。
+//   4 个基础项（workspace/notifications/docs/tools，来自 PRIMARY_MENU）在这里一并登记 ——
+//   它们的菜单与内容都写死在前端，不该因为「不在后端列表里」而被判成不可用。
 var STATIC_TABS = { home: true, settings: true };
+PRIMARY_MENU.forEach(function (item) { STATIC_TABS[item.tab_key] = true; });
+
+/**
+ * 静态面板的初始化钩子：`tab_key` → 挂在 `window` 上的函数名。
+ *
+ * `renderTab()` 显示 `#panel-<tab_key>` 时调用它（幂等性由各自实现保证）：
+ *   * home          → 打卡日历（dashboard.checkin.js::initCheckinButtons）
+ *                     ⚠️ 它此前**从未被初始化**（函数只挂在 window 上，没人调用）→
+ *                     日历标题停在硬编码的「2026年7月」；别让这里再退化成直接调用。
+ *   * notifications → 拉取并渲染通知（dashboard.notifications.js）
+ *   * docs          → 个人文档：复位到列表视图 + 绑定/加载（dashboard.pdocs.js）
+ * settings 的初始化（renderDeletionStatus）走文件顶部的直接 import，不在这里。
+ */
+var STATIC_PANEL_HOOKS = {
+    home: 'initCheckinModule',
+    notifications: 'initNotificationsPanel',
+    docs: 'initPersonalDocsPanel',
+};
 
 /**
  * 该 tab 在当前身份/等级下是否还打得开。
  *
  * 用途：切换权限等级后，原来停留的管理页可能已经不在列表里（例如切到 Lv1）。
  * 那时继续重载只会渲染「权限不足」，不如回到默认页。
- * 判定**只依据服务端此次返回的列表**（含 4 个写死的基础项），不做任何前端权限推断
+ * 判定只依据**服务端此次返回的列表**（外加静态面板白名单 `STATIC_TABS`），不做任何前端权限推断
  * —— 前端二次过滤历史上会吃掉服务端已授权的项（见 PROJECT_MEMORY §0.4）。
  */
 function isTabAvailable(tabKey) {
@@ -298,7 +324,7 @@ async function renderTab(tabKey, force) {
     var userTrigger = document.getElementById('sidebarUserTrigger');
     if (userTrigger) userTrigger.classList.toggle('is-active', tabKey === 'home');
 
-    // 面板内静态页（个人主页 / 设置）
+    // 面板内静态页（个人主页 / 设置 / 4 个基础项）：内容写死在 dashboard.html 里
     var panel = document.getElementById('panel-' + tabKey);
     if (panel) {
         // 作废仍在飞行中的页面请求：否则慢响应回来会把内容写进已清空的容器，
@@ -306,8 +332,7 @@ async function renderTab(tabKey, force) {
         _pageLoadSeq++;
         releasePageScript();
         panel.style.display = '';
-        if (tabKey === 'settings') renderDeletionStatus();
-        if (tabKey === 'home') initHomePanel();
+        runStaticPanelHook(tabKey);
         // 静态面板没有内容接口，但仍要广播事件：外部（dashboard.js 等）统一监听
         // 'dashboard:tab-switched'，漏发会让它们认为「这个 tab 从没被打开过」。
         document.dispatchEvent(new CustomEvent('dashboard:tab-switched', {
@@ -320,15 +345,29 @@ async function renderTab(tabKey, force) {
 }
 
 /**
- * 静态面板「个人主页」的初始化（幂等）。
+ * 静态面板的初始化（幂等；失败只告警，不能让切 Tab 崩掉）。
  *
- * 打卡日历此前**从未被初始化**：`dashboard.checkin.js::initCheckinButtons()` 只被挂在
- * `window.initCheckinModule` 上，而没有人在合适的时机调用它 → 日历标题停在硬编码的
- * 「2026年7月」、日期格子一个都没有。这里在面板真正显示后（元素可见、尺寸可算）初始化。
+ * 钩子名见 `STATIC_PANEL_HOOKS`，实现在各自的模块里（`dashboard.checkin.js` /
+ * `dashboard.notifications.js` / `dashboard.pdocs.js`）。
+ * ⚠️ 钩子可能还没注册（脚本加载顺序 / 模块加载失败）：那就跳过，
+ * 但**面板本身照常显示** —— 静态内容是 dashboard.html 里的 HTML，不依赖钩子。
  */
-function initHomePanel() {
-    if (typeof window.initCheckinModule === 'function') {
-        try { window.initCheckinModule(); } catch (e) { console.warn('[HOME] 打卡日历初始化失败:', e); }
+function runStaticPanelHook(tabKey) {
+    if (tabKey === 'settings') {
+        renderDeletionStatus();
+        return;
+    }
+    var hookName = STATIC_PANEL_HOOKS[tabKey];
+    if (!hookName) return;
+    var hook = window[hookName];
+    if (typeof hook !== 'function') {
+        console.warn('[MENU] 静态面板初始化钩子未就绪:', tabKey, hookName);
+        return;
+    }
+    try {
+        hook();
+    } catch (e) {
+        console.warn('[MENU] 静态面板初始化失败:', tabKey, e);
     }
 }
 

@@ -140,6 +140,25 @@ function initPdocsEasyMDE() {
     }
 }
 
+/**
+ * 静态面板「个人文档」的进入钩子（由 dashboard.menu.js 在切到 docs 时调用）。
+ *
+ * 面板现在写死在 `dashboard.html`（`#panel-docs`），不再由后端下发 ——
+ * 而「后端下发」时代每次进入都会注入一份**全新的 HTML**，视图自然会回到列表页。
+ * 面板常驻 DOM 之后必须显式复位，否则上次离开时停在「浏览 / 编辑器 / 回收站」，
+ * 再点「个人文档」会看到那个旧视图。
+ *
+ * ⚠️ 只切视图、**不写 URL**：深链接（?tab=docs&doc=…）要在随后的
+ * `dashboard:tab-switched` 事件里由 dashboard.js 恢复，这里清 URL 会把参数吃掉。
+ */
+function initPersonalDocsPanel() {
+    ['list', 'browse', 'editor', 'trash'].forEach((v) => {
+        const el = $('pdocs-view-' + v);
+        if (el) el.style.display = (v === 'list') ? '' : 'none';
+    });
+    initPersonalDocs();
+}
+
 function initPersonalDocs() {
     const bind = (id, handler) => {
         const el = $(id);
@@ -793,10 +812,14 @@ async function movePersonalDoc(docId, folderId) {
 }
 
 // ===== ES Module exports =====
-export { initPersonalDocs, loadPersonalDocs, PDocsState };
+export { initPersonalDocs, initPersonalDocsPanel, loadPersonalDocs, PDocsState };
 
-// ===== 兼容层：挂载完整初始化函数到 window（page/docs.html 动态注入后调用） =====
+// ===== 兼容层：挂载初始化函数到 window =====
+//   initPersonalDocs      —— 绑定 + 加载（幂等），任何调用方都可用
+//   initPersonalDocsPanel  —— 静态面板（#panel-docs）每次进入时调用：
+//                             复位到列表视图 + 初始化（见 dashboard.menu.js::STATIC_PANEL_HOOKS）
 window.initPersonalDocs = initPersonalDocs;
+window.initPersonalDocsPanel = initPersonalDocsPanel;
 window.loadPersonalDocs = loadPersonalDocs;
 
 // ===== 导出导航动作（供 dashboard.js 从 URL 恢复时调用） =====
