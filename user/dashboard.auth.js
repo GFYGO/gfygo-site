@@ -283,12 +283,22 @@ async function switchLevel(targetLevel) {
             if (freshToken) await window.renderUserInfo(freshToken);
         }
 
-        // 3. 重画侧边栏（管理菜单按新身份显隐）
+        // 3. 重画侧边栏（管理菜单按新身份显隐）。
+        //    ⚠️ 必须在重载 Tab **之前**：列表决定了当前 Tab 在新等级下还打不打得开。
         await DashboardMenu.loadMenu();
 
         // 4. ⭐ 重载当前正在看的 Tab —— 否则页面上还留着按旧等级渲染的内容，
         //    表现为「切了以后页面内容没跟着变」。
-        await DashboardMenu.reloadCurrentTab();
+        //    若该页面在新等级下已不在列表里（例如切到 Lv1 时正停在管理页），
+        //    继续重载只会得到 403「权限不足」，所以改落到默认页（工作台）。
+        //    等级按钮始终可见，随时可以再切回去，不会「切了就回不来」。
+        const currentTab = DashboardMenu.getCurrentTab ? DashboardMenu.getCurrentTab() : null;
+        if (currentTab && DashboardMenu.isTabAvailable && !DashboardMenu.isTabAvailable(currentTab)) {
+            // force=true：与 reloadCurrentTab 一致，按新等级重新取一次内容（不吃旧缓存）。
+            await DashboardMenu.switchTab('workspace', { reset: false, force: true });
+        } else {
+            await DashboardMenu.reloadCurrentTab();
+        }
     } catch (e) {
         console.warn('切换权限异常:', e);
         Toast.show('网络错误');

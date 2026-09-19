@@ -47,7 +47,7 @@ var PRIMARY_MENU = [
 // 构建版本号：便于在浏览器控制台一眼确认「当前跑的是哪一版」
 //   window.__DASHBOARD_BUILD__
 //   document.querySelector('script[src*="dashboard.menu.js"]').src
-var BUILD_VERSION = '20260920d';
+var BUILD_VERSION = '20260920e';
 window.__DASHBOARD_BUILD__ = BUILD_VERSION;
 
 var _menuData = null;
@@ -252,6 +252,38 @@ async function reloadCurrentTab() {
     await renderTab(_currentTab, true);
 }
 
+/** 当前正在展示的 tab（权限切换后要判断它在新等级下是否还打得开） */
+function getCurrentTab() {
+    return _currentTab;
+}
+
+// 静态面板（`dashboard.html` 里写死的 `#panel-<tab>`）：不属于后端页面列表，
+// 各自自带权限处理，因此永远视为「可用」。
+var STATIC_TABS = { home: true, settings: true };
+
+/**
+ * 该 tab 在当前身份/等级下是否还打得开。
+ *
+ * 用途：切换权限等级后，原来停留的管理页可能已经不在列表里（例如切到 Lv1）。
+ * 那时继续重载只会渲染「权限不足」，不如回到默认页。
+ * 判定**只依据服务端此次返回的列表**（含 4 个写死的基础项），不做任何前端权限推断
+ * —— 前端二次过滤历史上会吃掉服务端已授权的项（见 PROJECT_MEMORY §0.4）。
+ */
+function isTabAvailable(tabKey) {
+    if (!tabKey) return true;
+    if (STATIC_TABS[tabKey]) return true;
+    var data = _menuData ? _menuData.data : null;
+    if (!data) return true;      // 列表还没加载：不做判断，避免误跳
+    var groups = [data.base_items, data.dynamic_items, data.admin_items];
+    for (var i = 0; i < groups.length; i++) {
+        var items = groups[i] || [];
+        for (var j = 0; j < items.length; j++) {
+            if (items[j] && items[j].tab_key === tabKey) return true;
+        }
+    }
+    return false;
+}
+
 /** 把指定 tab 渲染出来（切换与重载共用同一条路径，避免两处逻辑漂移） */
 async function renderTab(tabKey, force) {
     document.querySelectorAll('.tab-panel').forEach(function (p) { p.style.display = 'none'; });
@@ -435,11 +467,13 @@ function clearPageCache() {
 // ===== ES Module exports =====
 const DashboardMenu = {
     loadMenu, renderMenu, switchTab, reloadCurrentTab,
+    getCurrentTab, isTabAvailable,
     getCurrentMenuData, clearPageCache, BUILD_VERSION,
 };
 export default DashboardMenu;
 export {
     loadMenu, renderMenu, switchTab, reloadCurrentTab,
+    getCurrentTab, isTabAvailable,
     getCurrentMenuData, clearPageCache, DashboardMenu,
 };
 
