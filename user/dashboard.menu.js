@@ -38,7 +38,6 @@ var PAGE_MISSING_HTML = '<div class="empty-state">'
 //    历史上它只挂在侧边栏头像（data-tab="home"）上，而 switchTab() 找不到 `panel-home` 之外的分支
 //    → 点了以后所有面板被隐藏、又去请求不存在的页面 → 个人主页永远打不开。
 var PRIMARY_MENU = [
-    { tab_key: 'home',          label: '个人主页',   icon: '👤' },
     { tab_key: 'workspace',     label: '工作台',     icon: '🏠' },
     { tab_key: 'notifications', label: '通知',       icon: '🔔' },
     { tab_key: 'docs',          label: '个人文档',   icon: '📚' },
