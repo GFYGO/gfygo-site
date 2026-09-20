@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!--
+      CSP：
+        * `script-src ... blob:` —— 后端下发的**功能按钮页面**（pages/ 里 org_scope=org 的那些）
+          的 JS 由 /api/v0/org/class/<cid>/pages/<tab_key> 返回，前端以 Blob URL + <script src=blob:> 执行
+          （不使用 eval / new Function / 内联脚本）。
+        * `connect-src` 必须放行 `https://back.gwl.net.cn` —— 组织页是**独立页面**
+          （不是 user/ 那一套），共享的 `window.apiRequest` 用的是绝对地址 API_BASE_URL，
+          不放行的话所有接口都会被 CSP 拦掉（与 dashboard 同款配置）。
+        * `frame-src` 不放行后端域：动态页面是 innerHTML 注入，页面里的链接应新窗口打开，
+          不允许把后端域嵌成 iframe。
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com https://back.gwl.net.cn; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>组织 | GWL</title>
+    <link rel="stylesheet" href="./../css/core.css?v=20260911e">
+    <link rel="stylesheet" href="./../css/styles.css?v=20260911e">
+    <link rel="stylesheet" href="./../css/components.css?v=20260911e">
+    <link rel="stylesheet" href="./org.css?v=20260921a">
+    <link rel="icon" href="./../favicon.png" type="image/png">
+</head>
+<body>
+<div class="org-layout">
+
+    <!-- ============ 顶栏 ============ -->
+    <header class="org-header">
+        <div class="org-header__left">
+            <!-- ① 已打开页面管理（弹出卡片）：上导航栏左侧 -->
+            <div class="org-popwrap" id="tabsWrap">
+                <button class="org-header__btn" id="tabsToggle" aria-haspopup="dialog" aria-expanded="false">
+                    <span aria-hidden="true">🗂️</span>
+                    <span class="org-header__btn-text">已打开页面</span>
+                    <span class="org-badge" id="tabsCount">0</span>
+                </button>
+                <div class="org-popcard" id="tabsCard" role="dialog" aria-label="已打开页面" hidden>
+                    <div class="org-popcard__head">
+                        <span>已打开页面</span>
+                        <button class="org-popcard__close" id="tabsCardClose" aria-label="关闭">&times;</button>
+                    </div>
+                    <div class="org-popcard__body" id="tabsList" aria-live="polite">
+                        <p class="org-muted">还没有打开任何页面。</p>
+                    </div>
+                    <div class="org-popcard__foot">
+                        <button class="org-btn org-btn--ghost" id="closeAllPages">全部关闭</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="org-header__logo">GWL <span>组织</span></div>
+        </div>
+
+        <nav class="org-header__nav header__nav" id="headerNav">
+            <a href="./../index.html">首页</a>
+            <a href="./../document.html">文档</a>
+            <a href="./index.html" style="color: var(--color-primary); font-weight: 600;">组织</a>
+            <a href="./../login.html">登录</a>
+            <a href="./../register.html">注册</a>
+        </nav>
+
+        <div class="org-header__right">
+            <div id="global-notifications-container" class="notification-toast"></div>
+            <div id="auth-container"></div>
+            <div class="permission-buttons" id="permissionButtons"></div>
+        </div>
+    </header>
+
+    <div class="org-body">
+
+        <!-- ============ 左导航 ============ -->
+        <aside class="org-sidebar">
+            <!-- ① 最上方：切换组织 -->
+            <div class="org-sidebar__section">
+                <div class="org-sidebar__title">切换组织</div>
+                <div class="org-popwrap org-popwrap--block">
+                    <button class="org-orgswitch" id="orgSwitchBtn" aria-haspopup="listbox" aria-expanded="false">
+                        <span class="org-orgswitch__id" id="orgCurrentId">---</span>
+                        <span class="org-orgswitch__name" id="orgCurrentName">加载中…</span>
+                        <span class="org-orgswitch__caret" aria-hidden="true">▾</span>
+                    </button>
+                    <div class="org-popcard org-popcard--block" id="orgSwitchCard" role="listbox" aria-label="选择组织" hidden>
+                        <div class="org-popcard__body" id="orgSwitchList"></div>
+                    </div>
+                </div>
+                <div class="org-orgmeta" id="orgMeta"></div>
+            </div>
+
+            <!-- ② 我加入的组 -->
+            <div class="org-sidebar__section">
+                <div class="org-sidebar__title">我加入的组</div>
+                <div id="groupList" class="org-grouplist" aria-live="polite">
+                    <p class="org-muted">加载中…</p>
+                </div>
+            </div>
+
+            <!-- ③ 组类功能按钮（一行 4 个，来自后端） -->
+            <div class="org-sidebar__section org-sidebar__section--grow">
+                <div class="org-sidebar__title">
+                    功能
+                    <span class="org-sidebar__title-hint" id="featureScopeHint"></span>
+                </div>
+                <div id="featureGrid" class="org-featuregrid" aria-live="polite" aria-busy="false">
+                    <p class="org-muted">加载中…</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ============ 中间内容区（可 2 / 4 分屏） ============ -->
+        <main class="org-main" id="orgMain">
+            <!-- 右上角（不是上导航栏）：视图编辑弹出卡片 -->
+            <div class="org-popwrap org-vieweditor" id="viewWrap">
+                <button class="org-vieweditor__btn" id="viewToggle" aria-haspopup="dialog" aria-expanded="false">
+                    <span aria-hidden="true">⚙️</span> 视图
+                </button>
+                <div class="org-popcard" id="viewCard" role="dialog" aria-label="视图设置" hidden>
+                    <div class="org-popcard__head">
+                        <span>视图设置</span>
+                        <button class="org-popcard__close" id="viewCardClose" aria-label="关闭">&times;</button>
+                    </div>
+                    <div class="org-popcard__body">
+                        <div class="org-field">
+                            <label class="org-field__label">分屏</label>
+                            <div class="org-splitpick" id="splitPick" role="radiogroup" aria-label="分屏方式">
+                                <button class="org-splitpick__opt" data-split="1" role="radio" aria-checked="false">单屏</button>
+                                <button class="org-splitpick__opt" data-split="2" role="radio" aria-checked="false">左右 2 屏</button>
+                                <button class="org-splitpick__opt" data-split="4" role="radio" aria-checked="false">四宫格 4 屏</button>
+                            </div>
+                        </div>
+                        <div class="org-field">
+                            <label class="org-field__label">当前格（新打开的页面放这里）</label>
+                            <div class="org-slotpick" id="slotPick" role="radiogroup" aria-label="当前格"></div>
+                        </div>
+                        <p class="org-hint" id="viewHint"></p>
+                    </div>
+                    <div class="org-popcard__foot">
+                        <button class="org-btn org-btn--ghost" id="closeCurrentSlot">关闭当前格</button>
+                        <button class="org-btn org-btn--ghost" id="resetView">复位视图</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 分屏容器：格数由 JS 按视图设置渲染 -->
+            <div class="org-panes" id="orgPanes" data-split="1"></div>
+
+            <!-- 一个页面都没打开时的占位（与分屏容器互斥显示） -->
+            <div class="org-welcome" id="orgWelcome">
+                <div class="empty-state">
+                    <div class="empty-state__icon">🏢</div>
+                    <p class="empty-state__text">从左侧功能里选一个页面打开</p>
+                    <p class="empty-state__hint">
+                        页面会在当前格中打开；用右上角「⚙️ 视图」可以把内容区分成 2 屏或 4 屏，
+                        用左上角「🗂️ 已打开页面」可以切换、关闭已打开的页面。
+                    </p>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!--
+  脚本加载顺序：共享层（config/utils/toast/modal）→ 本页逻辑。
+  共享层提供的全局：window.apiRequest / window.AuthGuard / window.showToast / window.Modal / window.escapeHtml
+-->
+<script src="./../js/config.js?v=20260911e"></script>
+<script src="./../js/utils.js?v=20260911e"></script>
+<script src="./../js/toast.js?v=20260911e"></script>
+<script src="./../js/modal.js?v=20260911e"></script>
+<script src="./../js/index.js?v=20260911e"></script>
+<script src="./org.js?v=20260921a"></script>
+</body>
+</html>

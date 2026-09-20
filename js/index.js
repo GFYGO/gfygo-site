@@ -77,8 +77,9 @@ function initMobileSidebar() {
  * 任务 FE-JS-03: 处理 /api/v0/notify/global 的响应并渲染
  */
 async function fetchGlobalNotifications() {
-  // dashboard 页面有自己的通知加载逻辑，此处跳过
-  if (/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname)) {
+  // dashboard / 组织页 有自己的通知加载逻辑，此处跳过
+  if (/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname)
+      || /\/org\/index\.html$/i.test(window.location.pathname)) {
     return;
   }
   try {
@@ -101,6 +102,10 @@ async function fetchGlobalNotifications() {
 async function fetchAuthStatus() {
   // 所有 dashboard 类页面由 dashboard.js 独立处理认证状态，避免重复渲染冲突
   if (/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname)) {
+    return;
+  }
+  // 组织页自己渲染顶栏用户区（org.js::renderOrgAuthArea），这里跳过以免两套逻辑互相覆盖
+  if (/\/org\/index\.html$/i.test(window.location.pathname)) {
     return;
   }
 

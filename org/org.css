@@ -1,0 +1,764 @@
+/* =========================================
+   org.css — 组织页（gfygo-site/org/index.html）
+   ⚠️ 本文件是组织页的**唯一样式来源**：组织页只加载
+      core.css + styles.css + components.css + org.css
+      （**不加载** user/dashboard.css、js/feature-grid.css）。
+   因此下面「空 / 错误 / 加载状态」那一段是 dashboard.css 里同名类的
+   **刻意副本**（由 tools/test-org-page.mjs 断言两处内容一致）——
+   若哪天改为共享一个文件，请同步删掉这里的副本与那条断言。
+   ========================================= */
+
+/* =========================================
+   1. 总体布局：顶栏 + (左导航 | 内容区)
+   ========================================= */
+.org-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    background: var(--color-bg-body);
+}
+
+.org-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 0 0 auto;
+    height: var(--header-height);
+    padding: 0 16px;
+    background: var(--color-bg-white);
+    border-bottom: 1px solid var(--color-border);
+    position: relative;
+    z-index: 40;
+}
+
+.org-header__left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 0 0 auto;
+    position: relative;
+}
+
+.org-header__logo {
+    font-weight: 700;
+    color: var(--color-text-main);
+    white-space: nowrap;
+}
+
+.org-header__logo span {
+    color: var(--color-primary);
+}
+
+.org-header__nav {
+    flex: 1 1 auto;
+    display: flex;
+    gap: 4px;
+}
+
+.org-header__right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+}
+
+.org-header__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-main);
+    font-size: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.org-header__btn:hover {
+    background: var(--color-bg-hover);
+}
+
+.org-badge {
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--color-primary);
+    color: #fff;
+    font-size: 11px;
+    line-height: 18px;
+    text-align: center;
+}
+
+.org-body {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+}
+
+/* =========================================
+   2. 左导航
+   ========================================= */
+.org-sidebar {
+    flex: 0 0 260px;
+    width: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 14px;
+    overflow-y: auto;
+    background: var(--color-bg-white);
+    border-right: 1px solid var(--color-border);
+}
+
+.org-sidebar__section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.org-sidebar__section--grow {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.org-sidebar__title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+}
+
+.org-sidebar__title-hint {
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    opacity: 0.85;
+}
+
+/* --- 切换组织 --- */
+.org-orgswitch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-main);
+    cursor: pointer;
+    text-align: left;
+}
+
+.org-orgswitch:hover {
+    border-color: var(--color-primary);
+}
+
+.org-orgswitch__id {
+    flex: 0 0 auto;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    background: var(--color-primary);
+    color: #fff;
+    text-transform: lowercase;
+}
+
+.org-orgswitch__name {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.org-orgswitch__caret {
+    flex: 0 0 auto;
+    opacity: 0.6;
+}
+
+.org-orgmeta {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+}
+
+.org-orgmeta .org-tag {
+    display: inline-block;
+    margin-right: 6px;
+}
+
+.org-tag {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    line-height: 18px;
+    background: var(--color-bg-section-alt);
+    color: var(--color-text-sub);
+    border: 1px solid var(--color-border);
+}
+
+.org-tag--owner {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+}
+
+.org-tag--kind {
+    font-family: var(--font-mono);
+    text-transform: lowercase;
+}
+
+/* --- 我加入的组 --- */
+.org-grouplist {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.org-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text-main);
+    cursor: pointer;
+    text-align: left;
+    font-size: 14px;
+}
+
+.org-group:hover {
+    background: var(--color-bg-hover);
+}
+
+.org-group.is-active {
+    background: var(--color-bg-section-alt);
+    border-color: var(--color-primary);
+    font-weight: 600;
+}
+
+.org-group__id {
+    flex: 0 0 auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    opacity: 0.75;
+}
+
+.org-group__name {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* --- 功能按钮：一行 4 个 --- */
+.org-featuregrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    align-content: start;
+}
+
+.org-feature {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 4px;
+    padding: 10px 4px;
+    min-height: 68px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-main);
+    cursor: pointer;
+    text-align: center;
+}
+
+.org-feature:hover {
+    border-color: var(--color-primary);
+    transform: translateY(-1px);
+}
+
+.org-feature.is-open {
+    border-color: var(--color-primary);
+    box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+
+.org-feature__icon {
+    font-size: 20px;
+    line-height: 1;
+}
+
+.org-feature__label {
+    font-size: 11px;
+    line-height: 1.25;
+    word-break: break-word;
+}
+
+/* =========================================
+   3. 弹出卡片（两个入口共用一套外观）
+   ========================================= */
+.org-popwrap {
+    position: relative;
+}
+
+.org-popwrap--block {
+    display: block;
+}
+
+.org-popcard {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 60;
+    width: 320px;
+    max-width: calc(100vw - 32px);
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+}
+
+.org-popcard--block {
+    left: 0;
+    right: 0;
+    width: auto;
+    max-height: 280px;
+}
+
+.org-popcard__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--color-border);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--color-text-main);
+}
+
+.org-popcard__close {
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+}
+
+.org-popcard__body {
+    padding: 10px 12px;
+    overflow-y: auto;
+    max-height: 320px;
+}
+
+.org-popcard__foot {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding: 8px 12px;
+    border-top: 1px solid var(--color-border);
+}
+
+.org-popcard[hidden] {
+    display: none;
+}
+
+/* --- 已打开页面列表 --- */
+.org-tablist {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.org-tabrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-secondary);
+}
+
+.org-tabrow.is-active {
+    outline: 1px solid var(--color-primary);
+}
+
+.org-tabrow__slot {
+    flex: 0 0 auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-text-muted);
+}
+
+.org-tabrow__label {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+}
+
+.org-tabrow__btn {
+    flex: 0 0 auto;
+    border: none;
+    background: transparent;
+    color: var(--color-text-sub);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 4px;
+}
+
+.org-tabrow__btn:hover {
+    color: var(--color-primary);
+}
+
+/* =========================================
+   4. 内容区与分屏
+   ========================================= */
+.org-main {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 14px;
+    overflow: hidden;
+}
+
+.org-vieweditor {
+    position: absolute;
+    top: 14px;
+    right: 20px;
+    z-index: 50;
+}
+
+.org-vieweditor__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-bg-white);
+    color: var(--color-text-main);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.org-vieweditor__btn:hover {
+    border-color: var(--color-primary);
+}
+
+.org-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.org-field__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+}
+
+.org-splitpick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.org-splitpick__opt {
+    padding: 5px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-main);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.org-splitpick__opt[aria-checked="true"] {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.org-slotpick {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.org-slotpick__opt {
+    padding: 6px 0;
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-main);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.org-slotpick__opt[aria-checked="true"] {
+    border-style: solid;
+    border-color: var(--color-primary);
+    box-shadow: inset 0 0 0 1px var(--color-primary);
+    font-weight: 700;
+}
+
+.org-slotpick__opt:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.org-hint {
+    margin: 0;
+    font-size: 12px;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+}
+
+/* --- 分屏容器 --- */
+.org-panes {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    gap: 12px;
+    padding-top: 40px;   /* 给右上角的「视图」按钮让出位置 */
+}
+
+.org-panes[data-split="1"] {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+}
+
+.org-panes[data-split="2"] {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;
+}
+
+.org-panes[data-split="4"] {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+}
+
+.org-panes[hidden],
+.org-welcome[hidden] {
+    display: none;
+}
+
+.org-pane {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    background: var(--color-bg-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.org-pane.is-drop {
+    border-color: var(--color-primary);
+    box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+
+.org-pane__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+    padding: 6px 10px;
+    background: var(--color-bg-section-alt);
+    border-bottom: 1px solid var(--color-border);
+    font-size: 13px;
+}
+
+.org-pane__head.is-empty {
+    color: var(--color-text-muted);
+}
+
+.org-pane__icon {
+    flex: 0 0 auto;
+}
+
+.org-pane__title {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    color: var(--color-text-main);
+}
+
+.org-pane__close {
+    flex: 0 0 auto;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+}
+
+.org-pane__close:hover {
+    color: var(--color-primary);
+}
+
+.org-pane__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: 14px;
+}
+
+.org-welcome {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 40px;
+}
+
+/* =========================================
+   5. 空 / 错误 / 加载状态
+   ⚠️ 与 user/dashboard.css 的同名类**必须逐字一致**（见文件头说明）；
+      tools/test-org-page.mjs 会断言这一段没有被改歪。
+   ========================================= */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 32px 16px;
+    text-align: center;
+}
+
+.empty-state__icon {
+    font-size: 34px;
+    line-height: 1;
+    opacity: 0.9;
+}
+
+.empty-state .empty-state__text {
+    padding: 0;
+}
+
+.empty-state__text--compact {
+    padding: 24px 0 !important;
+}
+
+.empty-state__hint {
+    margin-top: 6px;
+    color: var(--color-text-muted, #9ca3af);
+    font-size: 13px;
+}
+
+.panel-title {
+    font-size: 20px;
+    margin: 0 0 16px;
+    color: var(--color-text-main);
+}
+
+.loading-text {
+    color: var(--color-text-muted);
+    font-size: 14px;
+    padding: 16px 0;
+}
+
+/* --- 本页自有的小工具类 --- */
+.org-muted {
+    margin: 4px 0;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.org-btn {
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-main);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.org-btn--ghost:hover {
+    border-color: var(--color-primary);
+}
+
+.org-notice {
+    margin: 0 0 10px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-section-alt);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-sub);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* =========================================
+   6. 响应式：窄屏折叠左导航
+   ========================================= */
+@media (max-width: 860px) {
+    .org-header__btn-text,
+    .org-header__logo {
+        display: none;
+    }
+
+    .org-body {
+        flex-direction: column;
+    }
+
+    .org-sidebar {
+        flex: 0 0 auto;
+        width: auto;
+        max-height: 42vh;
+        border-right: none;
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    .org-panes[data-split="2"],
+    .org-panes[data-split="4"] {
+        grid-template-columns: 1fr;
+        grid-template-rows: none;
+        grid-auto-rows: minmax(0, 1fr);
+    }
+}
+
+/* 主题里的深色背景下，弹出卡片要明显亮于内容区 */
+[data-theme="dark_green"] .org-popcard,
+[data-theme="gray"] .org-popcard {
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}

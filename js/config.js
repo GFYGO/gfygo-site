@@ -5,7 +5,8 @@
  */
 
 const API_BASE_URL = "https://back.gwl.net.cn";
-const BASE_PATH = (window.location.pathname.match(/\/(user|model)\//) ? '..' : '.');
+// 二级目录页面（user/ 仪表盘、model/ 模型样例、org/ 组织页）需要 `..` 回到站点根
+const BASE_PATH = (window.location.pathname.match(/\/(user|model|org)\//) ? '..' : '.');
 const TOKEN_KEY = 'auth_token';
 // 无法判定有效期时的保守兜底：后端签发 token 的默认寿命（50 小时），绝不视为「永不过期」
 const DEFAULT_TOKEN_TTL_MS = 50 * 60 * 60 * 1000;
