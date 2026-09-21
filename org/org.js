@@ -414,7 +414,13 @@
     function renderGroupList() {
         var groups = state.classes.filter(function (c) { return c.kind === 'group'; });
         if (!groups.length) {
-            setHtml('groupList', '<p class="org-muted">你还没有加入任何组。</p>');
+            // 文案要能区分"真的没组"和"后端没给"：后者通常是我不属于任何组，
+            // 或者组类清单接口失败（见 renderClassesError）。
+            setHtml('groupList', '<p class="org-muted">'
+                + '这里还没有组。<br>'
+                + '进入一个组织（左上方「切换组织」）后，你是该组织 owner 时，'
+                + '它下辖的**全部组**都会列在这里；否则只列你加入的组与你是 owner 的组。'
+                + '</p>');
             return;
         }
         var html = groups.map(function (g) {
