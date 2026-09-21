@@ -52,8 +52,23 @@
         activeSlot: 0,      // 「当前格」：新页面打开在这里
         panes: [],          // 每格：null 或 {tabKey, label, icon}
         pageCache: Object.create(null),
-        booted: false
+        pendingPage: Object.create(null),   // tabKey → Promise：同一页面并发只请求一次
+        booted: false,
+        pagesFor: null      // state.pages 属于哪个组类（未加载为 null）—— 防止旧组类按钮残留
     };
+
+    /**
+     * 单调递增的请求令牌：判断一个异步响应是否已经过时。
+     * ⚠️ 不能用「挂在 pane 对象上的计数器」：切组类/重渲染会把 pane 换成新对象，
+     * 计数从 1 重新开始，于是上一个组类的在途响应会被误认为当前响应，把 A 组类身份下
+     * 拿到的页面内容注入到 B 组类的格子里。全局单调递增 + 身份比对才挡得住。
+     */
+    var reqSeq = 0;
+    function nextSeq() { reqSeq += 1; return reqSeq; }
+
+    function sameClass(cid) {
+        return !!cid && cid === state.activeClass;
+    }
 
     function pageBase() {
         return (window.API_BASE_URL || '');
@@ -73,14 +88,25 @@
     function orgFetch(path, opts) {
         opts = opts || {};
         var headers = orgHeaders(opts.headers);
-        return window.apiRequest(path, {
-            method: opts.method || 'GET',
-            headers: headers,
-            body: opts.body,
-            silent: opts.silent
-        }).then(function (res) {
+        var req;
+        try {
+            req = window.apiRequest(path, {
+                method: opts.method || 'GET',
+                headers: headers,
+                body: opts.body,
+                silent: opts.silent
+            });
+        } catch (e) {
+            req = Promise.reject(e);
+        }
+        return req.then(function (res) {
             if (res === null) return { code: 500, msg: '网络异常或登录已失效' };
             return res;
+        }).catch(function (err) {
+            // 兜底：把 reject 归一成响应对象，调用方不必各自写 catch
+            // （否则左侧栏/功能格会永久停在「加载中...」）
+            console.error('[ORG] 请求失败:', path, err);
+            return { code: 500, msg: '网络异常或登录已失效' };
         });
     }
 
@@ -128,7 +154,7 @@
 
         on('tabsCardClose', 'click', function () { hideCard('tabsCard', 'tabsToggle'); });
         on('viewCardClose', 'click', function () { hideCard('viewCard', 'viewToggle'); });
-        on('closeAllPages', 'click', closeAllPages);
+        on('closeAllPages', 'click', function () { closeAllPages(false); });
 
         // 分屏选择
         var splitPick = document.getElementById('splitPick');
@@ -325,10 +351,21 @@
         state.activeClass = cid;
         rememberClass(cid);
         hideCard('orgSwitchCard', 'orgSwitchBtn');
+        // ⚠️ 先把「当前组类的功能按钮 / 组类详情」清空再重渲染：
+        //    否则 closeAllPages() 内部的 renderFeatures() 会拿**上一个组类**的
+        //    state.pages 画按钮（还配上新 cid 的提示），而且那些按钮点下去会以
+        //    新 X-Org-Class 请求旧 tab_key（403/404）。旧组类数据一律不留在屏幕上。
+        state.pages = [];
+        state.pagesFor = null;
+        state.classMeta = null;
         closeAllPages(true);
+        renderFeatures();
 
         renderClassShell();
+        // 身份守卫只认「回调执行时 activeClass 还是不是我」——切走再切回同一组类时，
+        // 旧请求的结果依然有效（内容同一个组类，重复渲染无害），不需要令牌。
         orgFetch('/api/v0/org/class/' + encodeURIComponent(cid)).then(function (res) {
+            if (!sameClass(cid)) return;   // 期间已切到别的组类 → 丢弃这次响应
             if (res && res.code === 200 && res.data) {
                 state.classMeta = res.data;
             } else {
@@ -466,29 +503,49 @@
 
     function loadFeatures() {
         var grid = document.getElementById('featureGrid');
+        var cid = state.activeClass;
+        if (!cid) {
+            // 没有当前组类：明确收尾，别把网格留在「加载中...」+ aria-busy=true
+            state.pages = [];
+            state.pagesFor = null;
+            if (grid) {
+                grid.setAttribute('aria-busy', 'false');
+                grid.innerHTML = '';
+            }
+            renderFeatures();
+            return;
+        }
         if (grid) {
             grid.setAttribute('aria-busy', 'true');
             grid.innerHTML = '<p class="loading-text" role="status">加载中...</p>';
         }
-        var cid = state.activeClass;
-        if (!cid) return;
         orgFetch('/api/v0/org/class/' + encodeURIComponent(cid) + '/pages').then(function (res) {
+            // ⭐ 身份守卫：响应回来时已经切到别的组类 → 整段丢弃
+            //    （否则 A 组类的按钮会带着新组类的提示渲染出来，点击必然 403/404）
+            if (!sameClass(cid)) return;
             if (grid) grid.setAttribute('aria-busy', 'false');
             if (!res || res.code !== 200 || !res.data) {
-                setHtml('featureGrid', '<p class="org-muted">'
-                    + esc((res && res.msg) || '功能列表加载失败') + '</p>');
+                // 失败也要清空：留着旧组类的 buttons 比空列表更糟
+                state.pages = [];
+                state.pagesFor = null;
+                renderFeatures((res && res.msg) || '功能列表加载失败');
                 return;
             }
             if (res.data.class && !state.classMeta) state.classMeta = res.data.class;
             state.pages = Array.isArray(res.data.pages) ? res.data.pages : [];
+            state.pagesFor = cid;
             renderFeatures();
             renderClassHeader();
         });
     }
 
-    function renderFeatures() {
+    function renderFeatures(errorText) {
         var hint = document.getElementById('featureScopeHint');
         if (hint) hint.textContent = state.activeClass ? ('@' + state.activeClass) : '';
+        if (errorText) {
+            setHtml('featureGrid', '<p class="org-muted">' + esc(errorText) + '</p>');
+            return;
+        }
         if (!state.pages.length) {
             setHtml('featureGrid', '<p class="org-muted">'
                 + '这个组类下暂无可用的功能。<br>'
@@ -600,16 +657,28 @@
         var welcome = document.getElementById('orgWelcome');
         if (welcome) welcome.hidden = any;
 
+        // ⚠️ 这里是**整块重建** DOM：每个格子的 body 都是新建的空壳。
+        //    因此重建后必须对有内容的格子重新灌一次内容，否则任何重渲染
+        //    （改分屏 / 开新页 / 关一格 / 全部关闭）都会把其它格子的正文清空 ——
+        //    这正是「分屏看起来能用、其实一改分屏就只剩标题」的根因。
+        //    loadPaneContent 走 pageCache，不会重复请求；在途请求也会被令牌拦住。
+        var reload = [];
         container.innerHTML = '';
         for (var i = 0; i < state.split; i++) {
             container.appendChild(buildPaneEl(i));
+            if (state.panes[i]) reload.push(i);
         }
+        reload.forEach(function (slot) {
+            loadPaneContent(slot, state.panes[slot].tabKey, false);
+        });
     }
 
     function buildPaneEl(slot) {
         var pane = state.panes[slot];
         var el = document.createElement('section');
-        el.className = 'org-pane' + (pane ? '' : ' is-drop') + (slot === state.activeSlot ? ' is-drop' : '');
+        // is-drop 只表示「当前格」这一种高亮（拖放机制已废弃：功能按钮没有 draggable，
+        // 全文件也没有 dragstart —— 之前空格也挂 is-drop 只是把两种含义混在一起）
+        el.className = 'org-pane' + (slot === state.activeSlot ? ' is-drop' : '');
         el.dataset.slot = String(slot);
 
         var head = document.createElement('div');
@@ -649,6 +718,11 @@
                 + '<p class="empty-state__hint">点左侧功能把它填进来；'
                 + '用右上角「⚙️ 视图」可以把这一格设为「当前格」。</p>'
                 + '</div>';
+        } else {
+            // 有内容（或正在加载）：先给"加载中"占位，renderPanes 会立刻触发真实加载，
+            // 不让重建后的格子出现空白无反馈的一帧。
+            body.setAttribute('aria-busy', 'true');
+            body.innerHTML = '<p class="loading-text" role="status">加载中...</p>';
         }
         el.appendChild(body);
 
@@ -656,14 +730,6 @@
             state.activeSlot = slot;
             renderViewCard();
             markActivePane();
-        });
-        el.addEventListener('dragover', function (e) { e.preventDefault(); el.classList.add('is-drop'); });
-        el.addEventListener('dragleave', function () { el.classList.remove('is-drop'); });
-        el.addEventListener('drop', function (e) {
-            e.preventDefault();
-            el.classList.remove('is-drop');
-            var tabKey = e.dataTransfer ? e.dataTransfer.getData('text/plain') : '';
-            if (tabKey) openPage(tabKey, slot);
         });
         return el;
     }
@@ -776,6 +842,10 @@
 
         var slot = typeof slotOverride === 'number' && slotOverride >= 0 && slotOverride < state.split
             ? slotOverride : targetSlotFor();
+        // 覆盖一个已占用的格子前，先释放它占的资源（脚本元素 / Blob URL / 该格的 <style>）。
+        // 早先直接覆盖 state.panes[slot]：旧 pane 的 styleId 从此无人引用，
+        // 那份 CSS 永久留在 <head> 里污染后面打开的页面。
+        if (state.panes[slot]) releasePane(slot);
         state.activeSlot = slot;
         state.panes[slot] = {
             tabKey: tabKey,
@@ -805,13 +875,19 @@
             state.panes[i] = null;
         }
         state.pageCache = Object.create(null);
+        state.pendingPage = Object.create(null);
         renderPanes();
         renderViewCard();
         renderFeatures();
         if (!silent) toast('已关闭全部页面', 'info');
     }
 
-    /** 释放一格占用的资源（脚本元素 + Blob URL + 页面样式） */
+    /** 释放一格占用的资源（脚本元素 + Blob URL + 页面样式）
+     *
+     * ⚠️ 样式节点按**格子**编号（orgPageStyle-<slot>）并记在 pane.styleId 上：
+     * 早先按 tab_key 命名，同一页面被换到别的格子后旧 styleId 就再也没人删得掉，
+     * 那份 CSS 会永久留在 <head> 里污染后开的页面。
+     */
     function releasePane(slot) {
         var pane = state.panes[slot];
         var old = document.getElementById('orgPageScript-' + slot);
@@ -819,36 +895,45 @@
         if (pane && pane.blobUrl) {
             try { URL.revokeObjectURL(pane.blobUrl); } catch (e) { /* 忽略 */ }
         }
-        if (pane && pane.styleId) {
-            var style = document.getElementById(pane.styleId);
-            if (style && style.parentNode) style.parentNode.removeChild(style);
-        }
+        var styleId = (pane && pane.styleId) || ('orgPageStyle-' + slot);
+        var style = document.getElementById(styleId);
+        if (style && style.parentNode) style.parentNode.removeChild(style);
+        if (pane) pane.styleId = null;
     }
 
     function loadPaneContent(slot, tabKey, force) {
         var body = document.getElementById('orgPaneBody-' + slot);
         if (!body) return;
+        var pane = state.panes[slot];
+        if (!pane || pane.tabKey !== tabKey) return;
+        // 每次加载领一个**全局单调递增**令牌，回调里比对 pane 上的令牌。
+        // 不能用挂在 pane 上的计数器自增：切组类会把 pane 换成新对象、计数从 1 重来，
+        // 上一个组类的在途响应就会被误判成"当前响应"，把别组内容注进这一格。
+        var token = nextSeq();
+        pane.loadToken = token;
+        body.setAttribute('aria-busy', 'true');
         body.innerHTML = '<p class="loading-text" role="status">加载中...</p>';
-        var seq = (state.panes[slot] || {}).seq = ((state.panes[slot] || {}).seq || 0) + 1;
 
         fetchPage(tabKey, force).then(function (page) {
-            var pane = state.panes[slot];
-            if (!pane || pane.tabKey !== tabKey || pane.seq !== seq) return;   // 期间已切换
+            var paneNow = state.panes[slot];
+            if (!paneNow || paneNow.tabKey !== tabKey || paneNow.loadToken !== token) return;  // 期间已切换
             var bodyNow = document.getElementById('orgPaneBody-' + slot);
             if (!bodyNow) return;
+            bodyNow.setAttribute('aria-busy', 'false');
 
             if (page.__error) {
                 bodyNow.innerHTML = pageErrorHtml(page);
                 return;
             }
-            pane.label = page.label || pane.label;
-            pane.icon = page.icon || pane.icon;
+            paneNow.label = page.label || paneNow.label;
+            paneNow.icon = page.icon || paneNow.icon;
             bodyNow.innerHTML = page.html || '<div class="empty-state">'
                 + '<div class="empty-state__icon">📄</div>'
                 + '<p class="empty-state__text">这个页面没有内容</p></div>';
 
             if (page.css) {
-                var styleId = 'orgPageStyle-' + tabKey;
+                // 每格一份样式，并记在 pane 上 → releasePane / 覆盖该格时能删干净
+                var styleId = 'orgPageStyle-' + slot;
                 var style = document.getElementById(styleId);
                 if (!style) {
                     style = document.createElement('style');
@@ -856,12 +941,12 @@
                     document.head.appendChild(style);
                 }
                 if (style.textContent !== page.css) style.textContent = page.css;
-                pane.styleId = styleId;
+                paneNow.styleId = styleId;
             }
 
             runPaneScript(slot, tabKey, page.js || '').then(function () {
                 var head = document.querySelector('.org-pane[data-slot="' + slot + '"] .org-pane__title');
-                if (head) head.textContent = pane.label;
+                if (head) head.textContent = paneNow.label;
                 renderTabsCard();
                 renderFeatures();
             });
@@ -874,9 +959,18 @@
 
     function fetchPage(tabKey, force) {
         if (!force && state.pageCache[tabKey]) return Promise.resolve(state.pageCache[tabKey]);
+        // 单飞：同一页面的并发请求合成一次（renderPanes 会对多格同时补内容）
+        var pending = state.pendingPage[tabKey];
+        if (pending) return pending;
         var url = '/api/v0/org/class/' + encodeURIComponent(state.activeClass)
             + '/pages/' + encodeURIComponent(tabKey);
-        return orgFetch(url).then(function (res) {
+        var req;
+        try {
+            req = orgFetch(url);
+        } catch (e) {
+            req = Promise.reject(e);
+        }
+        var p = req.then(function (res) {
             if (res && res.code === 200 && res.data) {
                 state.pageCache[tabKey] = res.data;
                 return res.data;
@@ -886,7 +980,16 @@
                 code: (res && res.code) || 500,
                 msg: (res && res.msg) || '页面加载失败'
             };
+        }).catch(function (err) {
+            // 兜底：不让 reject 冒到调用方（否则格子永久停在「加载中...」）
+            console.error('[ORG] 页面内容请求失败:', tabKey, err);
+            return { __error: true, code: 500, msg: '页面加载失败' };
+        }).then(function (out) {
+            delete state.pendingPage[tabKey];
+            return out;
         });
+        state.pendingPage[tabKey] = p;
+        return p;
     }
 
     function pageErrorHtml(page) {
