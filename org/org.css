@@ -330,8 +330,12 @@
     z-index: 60;
     width: 320px;
     max-width: calc(100vw - 32px);
+    /* ⚠️ 高度必须一起收敛：只限 max-width 的话，已打开页面一多，
+       卡片会从顶栏一路长到屏幕外面（下面的「全部关闭」点不到）。
+       三段式：head/foot 不压缩，只有 body 滚动。 */
     display: flex;
     flex-direction: column;
+    max-height: var(--org-popcard-max-h, calc(100vh - 140px));
     background: var(--color-bg-white);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
@@ -343,7 +347,7 @@
     left: 0;
     right: 0;
     width: auto;
-    max-height: 280px;
+    max-height: min(280px, var(--org-popcard-max-h, 60vh));
 }
 
 .org-popcard__head {
@@ -351,6 +355,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+    flex: 0 0 auto;
     padding: 10px 12px;
     border-bottom: 1px solid var(--color-border);
     font-weight: 600;
@@ -369,15 +374,19 @@
 }
 
 .org-popcard__body {
+    flex: 1 1 auto;
+    min-height: 0;                    /* 配合父级 max-height 才能真正滚动 */
     padding: 10px 12px;
     overflow-y: auto;
-    max-height: 320px;
+    overscroll-behavior: contain;     /* 滚到底不要连带把页面/卡片外滚走 */
+    max-height: min(320px, var(--org-popcard-max-h, 60vh));
 }
 
 .org-popcard__foot {
     display: flex;
     gap: 8px;
     justify-content: flex-end;
+    flex: 0 0 auto;
     padding: 8px 12px;
     border-top: 1px solid var(--color-border);
 }
@@ -407,6 +416,16 @@
 
 .org-tabrow.is-active {
     outline: 1px solid var(--color-primary);
+}
+
+/* 单屏下被新页面挤到后台的页面：**没关**，点一下换回前台（见 org.js::toggleHiddenPage） */
+.org-tabrow--hidden {
+    background: transparent;
+    border: 1px dashed var(--color-border);
+}
+
+.org-tabrow--hidden .org-tabrow__slot {
+    opacity: 0.75;
 }
 
 .org-tabrow__slot {
@@ -566,6 +585,24 @@
 }
 
 .org-panes[data-split="4"] {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+}
+
+/* --- 分屏方向：上下（data-orient="vertical"） ---
+   与上面的列定义一一对应；【选择器顺序决定优先级】—— 上下规则写在同一优先级之后，
+   所以 [data-split="2"][data-orient="vertical"] 能稳定压过 [data-split="2"]。 */
+.org-panes[data-split="1"][data-orient="vertical"] {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+}
+
+.org-panes[data-split="2"][data-orient="vertical"] {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+}
+
+.org-panes[data-split="4"][data-orient="vertical"] {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
 }
@@ -749,11 +786,19 @@
         border-bottom: 1px solid var(--color-border);
     }
 
+    /* 窄屏一律竖排（视觉顺序就是槽位顺序），上下方向本来就是竖排所以不受影响 */
     .org-panes[data-split="2"],
-    .org-panes[data-split="4"] {
+    .org-panes[data-split="4"],
+    .org-panes[data-split="2"][data-orient="vertical"],
+    .org-panes[data-split="4"][data-orient="vertical"] {
         grid-template-columns: 1fr;
         grid-template-rows: none;
         grid-auto-rows: minmax(0, 1fr);
+    }
+
+    /* 窄屏下卡片贴着屏幕边缘：把可用高度放宽一点 */
+    .org-popcard {
+        --org-popcard-max-h: calc(100vh - 90px);
     }
 }
 

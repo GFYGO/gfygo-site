@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="./../css/core.css?v=20260911e">
     <link rel="stylesheet" href="./../css/styles.css?v=20260911e">
     <link rel="stylesheet" href="./../css/components.css?v=20260911e">
-    <link rel="stylesheet" href="./org.css?v=20260921b">
+    <link rel="stylesheet" href="./org.css?v=20260922a">
     <link rel="icon" href="./../favicon.png" type="image/png">
 </head>
 <body>
@@ -129,6 +129,13 @@
                             </div>
                         </div>
                         <div class="org-field">
+                            <label class="org-field__label">方向（分屏时生效）</label>
+                            <div class="org-splitpick" id="orientPick" role="radiogroup" aria-label="分屏方向">
+                                <button class="org-splitpick__opt" data-orient="horizontal" role="radio" aria-checked="false">左右</button>
+                                <button class="org-splitpick__opt" data-orient="vertical" role="radio" aria-checked="false">上下</button>
+                            </div>
+                        </div>
+                        <div class="org-field">
                             <label class="org-field__label">当前格（新打开的页面放这里）</label>
                             <div class="org-slotpick" id="slotPick" role="radiogroup" aria-label="当前格"></div>
                         </div>
@@ -150,8 +157,9 @@
                     <div class="empty-state__icon">🏢</div>
                     <p class="empty-state__text">从左侧功能里选一个页面打开</p>
                     <p class="empty-state__hint">
-                        页面会在当前格中打开；用右上角「⚙️ 视图」可以把内容区分成 2 屏或 4 屏，
+                        页面会在当前格中打开；用右上角「⚙️ 视图」可以把内容区分成 2 屏（左右 / 上下）或 4 屏，
                         用左上角「🗂️ 已打开页面」可以切换、关闭已打开的页面。
+                        已打开的页面与分屏方式会**记住在当前组类上**，刷新或下次进来照旧。
                     </p>
                 </div>
             </div>
@@ -168,6 +176,6 @@
 <script src="./../js/toast.js?v=20260911e"></script>
 <script src="./../js/modal.js?v=20260911e"></script>
 <script src="./../js/index.js?v=20260911e"></script>
-<script src="./org.js?v=20260921b"></script>
+<script src="./org.js?v=20260922a"></script>
 </body>
 </html>

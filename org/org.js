@@ -36,6 +36,13 @@
     var TAB_KEY_RE = /^[a-zA-Z0-9_-]{1,50}$/;
     var LS_LAST_CLASS = 'org_last_class_id';
     var LS_SPLIT = 'org_view_split';
+    var LS_ORIENT = 'org_view_orient';
+    //: 每个组类的「已打开页面 + 分屏方式」：{ "<组类id>": {split, orient, pages:[tabKey,...]} }
+    //: 用户要求「页面没点 x 就一直保留」→ 关掉浏览器/刷新后照旧打开。
+    //: 单屏把当前页挤掉时也走这里记住（见 toggleHiddenPage），下次还回得来。
+    var LS_LAYOUT = 'org_layout_v1';
+    //: 单屏下被挤掉、但**不算关闭**的页面（用户仍能在「已打开页面」卡片里一键换回来）
+    var LS_HIDDEN = 'org_hidden_pages_v1';
 
     // ============================================================
     // 状态
@@ -48,11 +55,17 @@
         activeClass: null,  // 当前组类 id
         classMeta: null,    // 当前组类详情（来自 /class/<cid>）
         pages: [],          // 当前组类的功能按钮（后端下发）
+        canView: true,      // 后端说我在本组类下有没有 org.view（空列表要区分原因）
+        orient: 'horizontal', // 分屏方向：horizontal（左右）| vertical（上下）
         split: 1,           // 1 | 2 | 4
         activeSlot: 0,      // 「当前格」：新页面打开在这里
         panes: [],          // 每格：null 或 {tabKey, label, icon}
         pageCache: Object.create(null),
         pendingPage: Object.create(null),   // tabKey → Promise：同一页面并发只请求一次
+        hiddenPages: [],    // 单屏下被挤掉、但仍「已打开」的页面（不算关闭）
+        pendingRestore: false,  // 本次选组类是"自动选中"（刷新进来）→ 要恢复上次的页面
+        restoreLeft: 0,     // 还要恢复几个（每个成功打开后 --）
+        clonedEntry: false, // 本次布局来自存档副本（恢复期间禁止写存档，见 saveLayout）
         booted: false,
         pagesFor: null      // state.pages 属于哪个组类（未加载为 null）—— 防止旧组类按钮残留
     };
@@ -68,6 +81,76 @@
 
     function sameClass(cid) {
         return !!cid && cid === state.activeClass;
+    }
+
+    // ============================================================
+    // 持久化：每个组类记住「已打开页面 + 分屏方式」
+    //   用户要求：没点 × 的页面就一直保留（含刷新 / 下次进来）。
+    //   按组类分开存：A 组织的页面布局不会串到 B 组织。
+    // ============================================================
+
+    function readJson(key, fallback) {
+        try {
+            var raw = window.localStorage.getItem(key);
+            if (!raw) return fallback;
+            var val = JSON.parse(raw);
+            return (val && typeof val === 'object') ? val : fallback;
+        } catch (e) {
+            return fallback;
+        }
+    }
+
+    function writeJson(key, value) {
+        try { window.localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* 忽略 */ }
+    }
+
+    function readLayout(cid) {
+        var all = readJson(LS_LAYOUT, {});
+        var entry = all[cid];
+        return (entry && typeof entry === 'object') ? entry : null;
+    }
+
+    /** 存档深拷一份：恢复期间屏幕上还没有页面，绝不能拿它去覆盖存档。 */
+    function cloneLayoutEntry(entry) {
+        if (!entry) return null;
+        return {
+            split: entry.split,
+            orient: entry.orient,
+            pages: Array.isArray(entry.pages) ? entry.pages.slice(0) : []
+        };
+    }
+
+    /** 记住当前组类的分屏方式与已打开页面（每次布局变化都调一次）。 */
+    function saveLayout() {
+        if (!state.activeClass) return;
+        // 恢复期间：**不动存档**。屏幕上此刻是空的（刚 closeAllPages），
+        // 写下去会把"已打开页面"与"后台页面"两份名单一起抹掉。
+        if (state.clonedEntry || state.restoreLeft) return;
+        var all = readJson(LS_LAYOUT, {});
+        all[state.activeClass] = {
+            split: state.split,
+            orient: state.orient,
+            pages: state.panes.filter(Boolean).map(function (p) { return p.tabKey; })
+        };
+        writeJson(LS_LAYOUT, all);
+        saveHidden();
+    }
+
+    function saveHidden() {
+        if (!state.activeClass) return;
+        // ⚠️ 刷新后的首次进入：`selectClass` 会先 `closeAllPages`（格子本来就是空的），
+        //    此刻写下去会把存档里"被挤到后台"的名单整个抹掉 —— 而 restorePages()
+        //    还没读到它。所以恢复期间一律不写，等恢复完（restoreLeft 归零）再写。
+        if (state.clonedEntry || state.pendingRestore || state.restoreLeft) return;
+        var all = readJson(LS_HIDDEN, {});
+        all[state.activeClass] = state.hiddenPages.slice(0, 8);
+        writeJson(LS_HIDDEN, all);
+    }
+
+    function readHidden(cid) {
+        var all = readJson(LS_HIDDEN, {});
+        var list = all[cid];
+        return Array.isArray(list) ? list.filter(function (k) { return typeof k === 'string'; }) : [];
     }
 
     function pageBase() {
@@ -163,6 +246,15 @@
                 var btn = e.target.closest('[data-split]');
                 if (!btn) return;
                 setSplit(parseInt(btn.dataset.split, 10), true);
+            });
+        }
+        // 分屏方向（左右 / 上下）
+        var orientPick = document.getElementById('orientPick');
+        if (orientPick) {
+            orientPick.addEventListener('click', function (e) {
+                var btn = e.target.closest('[data-orient]');
+                if (!btn) return;
+                setOrient(btn.dataset.orient, true);
             });
         }
         on('closeCurrentSlot', 'click', function () { closeSlot(state.activeSlot); });
@@ -306,7 +398,7 @@
             var firstOrg = state.classes.filter(function (c) { return c.kind === 'org'; })[0];
             wanted = (firstOrg || state.classes[0]).id;
         }
-        selectClass(wanted);
+        selectClass(wanted, true);   // 自动选中（URL / 上次记住的 / 第一个）→ 恢复该组类上次的布局
     }
 
     function readClassFromUrl() {
@@ -340,14 +432,20 @@
      * 切换当前组类。
      * 会清空已打开的页面 —— 那些页面是按**上一个组类**的权限拉下来的，
      * 留在屏幕上等于展示越权内容（宁可不留，也不要用错权限渲染的残留）。
+     *
+     * `restoreLayout=true`（仅"自动选中"＝刷新进来时）表示要恢复**该组类上次**的
+     * 已打开页面与分屏方式；手动切换组类时不恢复（沿用当前分屏，页面从空开始）。
      */
-    function selectClass(cid) {
+    function selectClass(cid, restoreLayout) {
         if (!cid || !/^[a-zA-Z]{3}$/.test(cid)) return;
         cid = cid.toLowerCase();
         if (state.activeClass === cid && state.booted) {
             hideCard('orgSwitchCard', 'orgSwitchBtn');
             return;
         }
+        // 切走之前先保存**旧组类**的布局，否则那批页面就白开了
+        if (state.activeClass && state.activeClass !== cid) saveLayout();
+
         state.activeClass = cid;
         rememberClass(cid);
         hideCard('orgSwitchCard', 'orgSwitchBtn');
@@ -357,9 +455,19 @@
         //    新 X-Org-Class 请求旧 tab_key（403/404）。旧组类数据一律不留在屏幕上。
         state.pages = [];
         state.pagesFor = null;
+        state.canView = true;
         state.classMeta = null;
+        // ⚠️ 顺序：先读存档 → 再关掉全部页面（closeAllPages 会 saveLayout，
+        //    那时必须已经在"恢复中"状态，否则会把新组类的空布局写进存档）
+        var entry = restoreLayout ? cloneLayoutEntry(readLayout(cid)) : null;
+        state.pendingRestore = !!restoreLayout;
+        state.restoreLeft = 0;
+        state.clonedEntry = !!entry;
+        state.hiddenPages = [];
         closeAllPages(true);
+        applySavedView(entry);
         renderFeatures();
+        renderTabsCard();
 
         renderClassShell();
         // 身份守卫只认「回调执行时 activeClass 还是不是我」——切走再切回同一组类时，
@@ -374,7 +482,7 @@
             renderOrgList();
             renderGroupList();
             renderClassHeader();
-            loadFeatures();
+            loadFeatures(entry);
             state.booted = true;
         });
     }
@@ -501,13 +609,14 @@
     // 功能按钮（一行 4 个，后端下发）
     // ============================================================
 
-    function loadFeatures() {
+    function loadFeatures(restoreEntry) {
         var grid = document.getElementById('featureGrid');
         var cid = state.activeClass;
         if (!cid) {
             // 没有当前组类：明确收尾，别把网格留在「加载中...」+ aria-busy=true
             state.pages = [];
             state.pagesFor = null;
+            state.canView = true;
             if (grid) {
                 grid.setAttribute('aria-busy', 'false');
                 grid.innerHTML = '';
@@ -528,14 +637,21 @@
                 // 失败也要清空：留着旧组类的 buttons 比空列表更糟
                 state.pages = [];
                 state.pagesFor = null;
+                state.canView = true;
                 renderFeatures((res && res.msg) || '功能列表加载失败');
                 return;
             }
             if (res.data.class && !state.classMeta) state.classMeta = res.data.class;
             state.pages = Array.isArray(res.data.pages) ? res.data.pages : [];
+            state.canView = res.data.can_view !== false;   // 老后端没有这个字段 → 按有权限处理
             state.pagesFor = cid;
             renderFeatures();
             renderClassHeader();
+            // ⭐ 恢复上次打开的页面：必须等页面清单到手（要按 state.pages 校验 tab_key）
+            if (state.pendingRestore) {
+                state.pendingRestore = false;
+                restorePages(cid, restoreEntry || null);
+            }
         });
     }
 
@@ -547,11 +663,19 @@
             return;
         }
         if (!state.pages.length) {
-            setHtml('featureGrid', '<p class="org-muted">'
-                + '这个组类下暂无可用的功能。<br>'
-                + '（功能按钮由后端 `pages/` 目录里 `org_scope=org` 的页面决定；'
-                + '若你是本组类的 owner，权限设置不会挡住你 —— 说明确实还没有这样的页面。）'
-                + '</p>');
+            // 两种空态文案必须分开：没有 org.view 的成员看到「暂无可用的功能」
+            // 会以为页面被删了，实际是需要别人给他配一条 view 规则。
+            setHtml('featureGrid', state.canView
+                ? ('<p class="org-muted">'
+                    + '这个组类下暂无可用的功能。<br>'
+                    + '（功能按钮由后端 `pages/` 目录里 `org_scope=org` 的页面决定；'
+                    + '若你是本组类的 owner，权限设置不会挡住你 —— 说明确实还没有这样的页面。）'
+                    + '</p>')
+                : ('<p class="org-muted">'
+                    + '当前组类下你没有查看权限（<code>org.view</code>），所以功能按钮被收起了。<br>'
+                    + '请让本组类的 owner 或平台超管配置一条 '
+                    + '<code>&lt;组类id&gt;.&lt;你的角色&gt;.org.view.allow</code> 规则。'
+                    + '</p>'));
             return;
         }
         var html = state.pages.map(function (p) {
@@ -620,7 +744,110 @@
         if (state.activeSlot >= n) state.activeSlot = n - 1;
         try { window.localStorage.setItem(LS_SPLIT, String(n)); } catch (e) { /* 忽略 */ }
         renderPanes();
+        markActivePane();
         renderViewCard();
+        renderFeatures();
+        saveLayout();
+    }
+
+    function clampOrient(value) {
+        return value === 'vertical' ? 'vertical' : 'horizontal';
+    }
+
+    function setOrient(value, userAction) {
+        var next = clampOrient(value);
+        if (state.orient === next) {
+            renderViewCard();
+            return;
+        }
+        state.orient = next;
+        try { window.localStorage.setItem(LS_ORIENT, next); } catch (e) { /* 忽略 */ }
+        renderPanes();                  // 只改 grid 方向：内容会被 renderPanes 自动补回
+        renderViewCard();
+        if (userAction) {
+            toast(next === 'vertical' ? '已切换为上下分屏' : '已切换为左右分屏', 'success');
+        }
+        saveLayout();
+    }
+
+    /** 从存档恢复分屏方式（只动 split/orient，不碰已打开的页面）。
+     *
+     * `entry` 由调用方一次读出并同时交给 `restorePages` —— 本函数内部会
+     * `setSplit(..., false)`，它**不会**写存档；但为避免任何时序意外，
+     * 恢复用的那份数据始终以调用方读到的为准。
+     */
+    function applySavedView(entry) {
+        if (entry) {
+            state.split = clampSplit(parseInt(entry.split, 10));
+            state.orient = clampOrient(entry.orient);
+            state.panes = [];
+            while (state.panes.length < state.split) state.panes.push(null);
+            if (state.activeSlot >= state.split) state.activeSlot = state.split - 1;
+            renderPanes();
+            markActivePane();
+            renderViewCard();
+            renderFeatures();
+            return;
+        }
+        // 没有该组类的存档 → 用全局默认（旧键），方向默认左右
+        setSplit(readSavedSplit(), false);
+        setOrient(readSavedOrient(), false);
+    }
+
+    /**
+     * 恢复上次的「已打开页面」。
+     * 调用时机：**功能列表加载成功之后** —— 要按 `state.pages` 校验 tab_key
+     * （页面被删掉/停用后，存档里的 tab_key 应该被安静丢掉，而不是恢复成一个空壳）。
+     * 恢复是渐进的：`restoreLeft` 期间不覆盖存档，全部开完再写一次。
+     */
+    function restorePages(cid, entry) {
+        var known = {};
+        state.pages.forEach(function (p) { known[p.tab_key] = true; });
+        var keys = ((entry && Array.isArray(entry.pages)) ? entry.pages : [])
+            .filter(function (k) {
+                return typeof k === 'string' && TAB_KEY_RE.test(k) && known[k];
+            })
+            .slice(0, state.split);
+
+        state.hiddenPages = readHidden(cid).filter(function (k) {
+            return keys.indexOf(k) < 0 && known[k];
+        });
+        if (!keys.length) {
+            // 存档里没有要在前台恢复的页面（可能全是"后台页面"，也可能什么都没有）。
+            // 写回一次：把屏幕上本来就不存在的东西从名单里剔干净。
+            state.restoreLeft = 0;
+            state.clonedEntry = false;
+            renderTabsCard();
+            saveLayout();
+            return;
+        }
+        state.restoreLeft = keys.length;
+        state.clonedEntry = false;   // 恢复真正开始 → 之后 saveLayout 一律以屏幕为准
+        keys.forEach(function (key, idx) {
+            setTimeout(function () {
+                if (!sameClass(cid)) {          // 期间切走了 → 中止恢复
+                    state.restoreLeft = 0;
+                    return;
+                }
+                openPage(key, idx);             // 各自落回原来的槽位
+                state.restoreLeft -= 1;
+                renderTabsCard();
+                if (state.restoreLeft <= 0) {
+                    state.restoreLeft = 0;
+                    // ⚠️ 归零之后才写：saveHidden 在恢复期间是静默的（见其注释）
+                    saveLayout();
+                }
+            }, 0);
+        });
+    }
+
+    function readSavedOrient() {
+        try {
+            var v = window.localStorage.getItem(LS_ORIENT);
+            return v === 'vertical' ? 'vertical' : 'horizontal';
+        } catch (e) {
+            return 'horizontal';
+        }
     }
 
     function readSavedSplit() {
@@ -651,6 +878,7 @@
         var container = document.getElementById('orgPanes');
         if (!container) return;
         container.dataset.split = String(state.split);
+        container.dataset.orient = state.orient;   // 左右 / 上下（CSS 见 org.css 的 [data-orient]）
 
         var any = state.panes.some(Boolean);
         container.hidden = !any;
@@ -752,6 +980,12 @@
                 btn.setAttribute('aria-checked', on ? 'true' : 'false');
             });
         }
+        var orientPick = document.getElementById('orientPick');
+        if (orientPick) {
+            orientPick.querySelectorAll('[data-orient]').forEach(function (btn) {
+                btn.setAttribute('aria-checked', btn.dataset.orient === state.orient ? 'true' : 'false');
+            });
+        }
         var slotPick = document.getElementById('slotPick');
         if (slotPick) {
             var html = '';
@@ -774,9 +1008,13 @@
         var hint = document.getElementById('viewHint');
         if (hint) {
             var used = state.panes.filter(Boolean).length;
-            hint.textContent = '当前 ' + state.split + ' 格，已用 ' + used + ' 格；'
+            hint.textContent = '当前 ' + state.split + ' 格（'
+                + (state.orient === 'vertical' ? '上下' : '左右') + '），已用 ' + used + ' 格；'
                 + '新页面会开在「当前格」（第 ' + (state.activeSlot + 1) + ' 格）——'
-                + '当前格已占用时优先找空格，全满则替换当前格。';
+                + '当前格已占用时优先找空格，全满则替换当前格。'
+                + (state.hiddenPages.length
+                    ? ('另有 ' + state.hiddenPages.length + ' 个页面被挤到「已打开页面」卡片里（没丢）。')
+                    : '');
         }
         renderTabsCard();
     }
@@ -784,9 +1022,9 @@
     function renderTabsCard() {
         var list = document.getElementById('tabsList');
         var count = state.panes.filter(Boolean).length;
-        setText('tabsCount', String(count));
+        setText('tabsCount', String(count + state.hiddenPages.length));
         if (!list) return;
-        if (!count) {
+        if (!count && !state.hiddenPages.length) {
             list.innerHTML = '<p class="org-muted">还没有打开任何页面。</p>';
             return;
         }
@@ -803,11 +1041,28 @@
                 + '<button type="button" class="org-tabrow__btn" data-act="close" aria-label="关闭">&times;</button>'
                 + '</li>');
         }
+        // 单屏下被新页面挤走的页面：**不算关闭**，点一下就换回前台（用户要求"没点 × 就一直在"）
+        state.hiddenPages.forEach(function (tabKey) {
+            var meta = findPage(tabKey);
+            if (!meta) return;
+            rows.push('<li class="org-tabrow org-tabrow--hidden" data-hidden="' + esc(tabKey) + '">'
+                + '<span class="org-tabrow__slot">后台</span>'
+                + '<span class="org-tabrow__label">' + esc(meta.icon || '📄') + ' '
+                + esc(meta.label) + '</span>'
+                + '<button type="button" class="org-tabrow__btn" data-act="show">切到前台</button>'
+                + '</li>');
+        });
         list.innerHTML = '<ul class="org-tablist">' + rows.join('') + '</ul>';
         list.querySelectorAll('.org-tabrow').forEach(function (row) {
             var slot = parseInt(row.dataset.slot, 10);
+            var hiddenKey = row.dataset.hidden || '';
             row.addEventListener('click', function (e) {
                 var act = e.target && e.target.dataset ? e.target.dataset.act : '';
+                if (hiddenKey) {
+                    e.stopPropagation();
+                    toggleHiddenPage(hiddenKey);
+                    return;
+                }
                 if (act === 'close') {
                     e.stopPropagation();
                     closeSlot(slot);
@@ -845,18 +1100,55 @@
         // 覆盖一个已占用的格子前，先释放它占的资源（脚本元素 / Blob URL / 该格的 <style>）。
         // 早先直接覆盖 state.panes[slot]：旧 pane 的 styleId 从此无人引用，
         // 那份 CSS 永久留在 <head> 里污染后面打开的页面。
-        if (state.panes[slot]) releasePane(slot);
+        var replaced = state.panes[slot];
+        if (replaced) {
+            releasePane(slot);
+            // 单屏（只有一格）时新页面必然挤掉旧的：那不算"用户关掉了它"，
+            // 记进 hiddenPages —— 用户仍能在「已打开页面」卡片里一键换回来。
+            if (state.split === 1 && replaced.tabKey !== tabKey) {
+                rememberHidden(replaced.tabKey);
+            }
+        }
         state.activeSlot = slot;
         state.panes[slot] = {
             tabKey: tabKey,
             label: meta ? meta.label : tabKey,
             icon: meta ? (meta.icon || '📄') : '📄'
         };
+        // 重新打开了同一个页面 → 从"被挤掉"名单里移除
+        state.hiddenPages = state.hiddenPages.filter(function (k) { return k !== tabKey; });
         renderPanes();
-        renderViewCard();
         markActivePane();
+        renderViewCard();
         renderFeatures();
         loadPaneContent(slot, tabKey, false);
+        saveLayout();
+    }
+
+    /** 记下"被挤掉但没关"的页面（最多 8 个，最近的在前）。 */
+    function rememberHidden(tabKey) {
+        if (!tabKey) return;
+        state.hiddenPages = [tabKey].concat(
+            state.hiddenPages.filter(function (k) { return k !== tabKey; })
+        ).slice(0, 8);
+    }
+
+    /**
+     * 在单屏下把某个页面切到前台（或从"被挤掉"名单里彻底移除）。
+     * 「已打开页面」卡片里的隐藏项点一下就换回来 —— 这正是"没点 × 就一直在"的落点。
+     */
+    function toggleHiddenPage(tabKey) {
+        if (state.split > 1) {
+            // 多屏时没有"被挤掉"概念：直接打开到空格/当前格
+            openPage(tabKey);
+            return;
+        }
+        // 单屏：把当前页挤下去，目标页拿到唯一的格子
+        var current = state.panes[0];
+        if (current && current.tabKey === tabKey) return;
+        if (current) rememberHidden(current.tabKey);
+        state.hiddenPages = state.hiddenPages.filter(function (k) { return k !== tabKey; });
+        openPage(tabKey, 0);
     }
 
     function closeSlot(slot) {
@@ -867,6 +1159,7 @@
         renderViewCard();
         markActivePane();
         renderFeatures();
+        saveLayout();
     }
 
     function closeAllPages(silent) {
@@ -876,9 +1169,12 @@
         }
         state.pageCache = Object.create(null);
         state.pendingPage = Object.create(null);
+        // 「全部关闭」是用户的明确意图：连"被挤掉"的名单一起清掉
+        state.hiddenPages = [];
         renderPanes();
         renderViewCard();
         renderFeatures();
+        saveLayout();
         if (!silent) toast('已关闭全部页面', 'info');
     }
 
@@ -1057,7 +1353,10 @@
     // ============================================================
 
     function start() {
-        setSplit(readSavedSplit(), false);
+        // 分屏方式与已打开页面**按组类**存档，等选中组类后由 selectClass(restoreLayout=true)
+        // 一次性恢复（见 applySavedView / restorePages）。这里不用旧的全局值初始化，
+        // 否则会先渲染一遍错误的格数，再被存档覆盖（闪一下）。
+        setOrient(readSavedOrient(), false);
         boot();
     }
 
@@ -1075,7 +1374,13 @@
         closeSlot: closeSlot,
         closeAllPages: closeAllPages,
         setSplit: setSplit,
+        setOrient: setOrient,
+        toggleHiddenPage: toggleHiddenPage,
+        restorePages: restorePages,
+        saveLayout: saveLayout,
+        readLayout: readLayout,
         renderViewCard: renderViewCard,
+        renderTabsCard: renderTabsCard,
         loadFeatures: loadFeatures
     };
 })();
