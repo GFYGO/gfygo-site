@@ -46,8 +46,6 @@ jobs:
             --exclude 'debug.log' \
             --exclude 'scp-ai.txt' \
             --exclude 'model/debug.html' \
-            --exclude 'model/test.html' \
-            --exclude 'model/test.js' \
             --exclude 'model/favicon.ico' \
             --exclude '.venv*' \
             --exclude 'node_modules/' \
