@@ -21,8 +21,10 @@
  *
  * ## 组类身份怎么传给后端
  *   每个请求都带 `X-Org-Class: <3字母id>`。后端据此把该组类写进
- *   `now_permission.class_id`，于是权限节点 `<组类id>.<角色名>.<类别>.<权限>`
- *   得以匹配（组类的 owner 直接放行 —— 该组类的权限设置对其无效）。
+ *   `now_permission.class_id`，于是 `class_permissions` 里
+ *   `<组类id>.<角色>.<类别>.<权限>.<状态>` 这套规则（**完整 5 段**）得以匹配。
+ *   ⚠️ owner **没有**硬编码旁路：它靠初始化播种的 `*.owner.*.allow` 规则拿到能力；
+ *   只有平台超管（`users.permission_level >= 5`）恒放行。
  *   ⚠️ 后端会**校验我是否属于这个组类**；不属于则身份不会被采用（等价于没有组类身份）。
  *
  * ## 刻意不做的事
@@ -55,7 +57,7 @@
         activeClass: null,  // 当前组类 id
         classMeta: null,    // 当前组类详情（来自 /class/<cid>）
         pages: [],          // 当前组类的功能按钮（后端下发）
-        canView: true,      // 后端说我在本组类下有没有 org.view（空列表要区分原因）
+        canView: true,      // 后端说我在本组类下有没有任一功能可见（空列表要区分原因）
         orient: 'horizontal', // 分屏方向：horizontal（左右）| vertical（上下）
         split: 1,           // 1 | 2 | 4
         activeSlot: 0,      // 「当前格」：新页面打开在这里
@@ -663,18 +665,18 @@
             return;
         }
         if (!state.pages.length) {
-            // 两种空态文案必须分开：没有 org.view 的成员看到「暂无可用的功能」
-            // 会以为页面被删了，实际是需要别人给他配一条 view 规则。
+            // 两种空态文案必须分开：没有功能可见度的成员看到「暂无可用的功能」
+            // 会以为页面被删了，实际是需要别人给他配一条 func_view 规则。
             setHtml('featureGrid', state.canView
                 ? ('<p class="org-muted">'
                     + '这个组类下暂无可用的功能。<br>'
-                    + '（功能按钮由后端 `pages/` 目录里 `org_scope=org` 的页面决定；'
-                    + '若你是本组类的 owner，权限设置不会挡住你 —— 说明确实还没有这样的页面。）'
+                    + '（功能按钮由后端 `org-func/` 目录里 `org_scope=org` 的页面决定；'
+                    + '若你是本组类的 owner，说明确实还没有这样的页面。）'
                     + '</p>')
                 : ('<p class="org-muted">'
-                    + '当前组类下你没有查看权限（<code>org.view</code>），所以功能按钮被收起了。<br>'
-                    + '请让本组类的 owner 或平台超管配置一条 '
-                    + '<code>&lt;组类id&gt;.&lt;你的角色&gt;.org.view.allow</code> 规则。'
+                    + '当前组类下你没有功能可见度（<code>func_view</code>），所以功能按钮被收起了。<br>'
+                    + '请让本组类的 owner 或平台超管在「组管理 / 组织管理」里配置一条 '
+                    + '<code>&lt;组类id&gt;.&lt;你的角色&gt;.func_view.&lt;页面&gt;.allow</code> 规则。'
                     + '</p>'));
             return;
         }
