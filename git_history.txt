@@ -1,0 +1,4235 @@
+commit 17e15cfc68b2f4ab69d909f7677f5bb13876d655
+Author: GFYGO <gfygo_@outlook.com>
+Date:   Wed Sep 23 01:11:56 2026 +0800
+
+    -
+
+diff --git a/js/login.js b/js/login.js
+index 71401f6..67525a4 100644
+--- a/js/login.js
++++ b/js/login.js
+@@ -15,6 +15,9 @@ window.onTurnstileReady = function() {
+ 
+ // 回调定义完成后再动态注入 Turnstile SDK，避免 SDK 先加载完成导致回调丢失
+ let turnstileSdkInjected = false;
++// SDK / widget 加载失败的标记（扩展拦截、网络不通、挑战失败等）
++let turnstileFailed = false;
++
+ function loadTurnstileSdk() {
+     // 防止重复注入（同一页面已存在 SDK 脚本时直接跳过）
+     if (turnstileSdkInjected) return;
+@@ -24,7 +27,13 @@ function loadTurnstileSdk() {
+     s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileReady&render=explicit';
+     s.async = true;
+     s.defer = true;
++    // 脚本加载失败（被扩展/网络拦截）→ 标记，提交时给出明确提示而不是发空 token
++    s.onerror = () => { turnstileFailed = true; };
+     document.head.appendChild(s);
++    // 兜底：SDK 迟迟不触发 onTurnstileReady（既没成功也没触发 onerror）也算失败
++    setTimeout(() => {
++        if (!window.turnstile) turnstileFailed = true;
++    }, 10000);
+ }
+ loadTurnstileSdk();
+ 
+@@ -39,17 +48,49 @@ document.addEventListener('DOMContentLoaded', () => {
+ 
+ function renderWidget() {
+     const container = document.getElementById('turnstile-widget-login');
+-    if (!container) return;
++    // 容器不存在 / SDK 未就绪 → 保持 turnstileFailed=true，提交时会被拦下
++    if (!container || !window.turnstile) { turnstileFailed = true; return; }
+     // 清空容器（防止缓存页面中残留旧 widget DOM）
+     container.innerHTML = '';
+     if (widgetId) {
+         try { window.turnstile.remove(widgetId); } catch (_) {}
+         widgetId = null;
+     }
+-    widgetId = window.turnstile.render(container, {
+-        sitekey: SITEKEY,
+-        theme: 'auto'
+-    });
++    try {
++        widgetId = window.turnstile.render(container, {
++            sitekey: SITEKEY,
++            theme: 'auto'
++        });
++    } catch (e) {
++        // SDK 在但渲染抛错（如挑战初始化失败）→ 同样视为不可用
++        widgetId = null;
++        turnstileFailed = true;
++        return;
++    }
++    // render 返回 falsy 说明 widget 没真正建起来
++    turnstileFailed = !widgetId;
++}
++
++/**
++ * 前置检查：返回可提交的 cf token，或 null（并已经给出提示）。
++ * 覆盖三种"人机验证不可用"的情形，避免把空 token 发给后端后
++ * 只收到一句含糊的「登录失败」：
++ *   1. SDK / widget 没加载成功（扩展拦截、网络不通、挑战失败 300* 等）
++ *   2. 用户还没完成验证
++ */
++function requireCfToken() {
++    if (turnstileFailed || !window.turnstile || !widgetId) {
++        if (typeof Toast !== 'undefined') {
++            Toast.show('人机验证未加载：请关闭广告拦截类扩展后刷新页面重试');
++        }
++        return null;
++    }
++    const token = window.turnstile.getResponse(widgetId) || '';
++    if (!token) {
++        if (typeof Toast !== 'undefined') Toast.show('请完成人机验证');
++        return null;
++    }
++    return token;
+ }
+ 
+ function bindForm() {
+@@ -68,11 +109,8 @@ function bindForm() {
+             return;
+         }
+ 
+-        const cfToken = widgetId ? (window.turnstile?.getResponse(widgetId) || '') : '';
+-        if (!cfToken && window.turnstile) {
+-            if (typeof Toast !== 'undefined') Toast.show('请完成人机验证');
+-            return;
+-        }
++        const cfToken = requireCfToken();
++        if (cfToken === null) return;
+ 
+         try {
+             const response = await fetch(`${API_BASE_URL}/api/v0/auth/login`, {
+diff --git a/js/register.js b/js/register.js
+index fe31b98..edb0ec0 100644
+--- a/js/register.js
++++ b/js/register.js
+@@ -15,6 +15,9 @@ window.onTurnstileReady = function() {
+ 
+ // 回调定义完成后再动态注入 Turnstile SDK，避免 SDK 先加载完成导致回调丢失
+ let turnstileSdkInjected = false;
++// SDK / widget 加载失败的标记（扩展拦截、网络不通、挑战失败等）
++let turnstileFailed = false;
++
+ function loadTurnstileSdk() {
+     // 防止重复注入（同一页面已存在 SDK 脚本时直接跳过）
+     if (turnstileSdkInjected) return;
+@@ -24,7 +27,13 @@ function loadTurnstileSdk() {
+     s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileReady&render=explicit';
+     s.async = true;
+     s.defer = true;
++    // 脚本加载失败（被扩展/网络拦截）→ 标记，提交时给出明确提示而不是发空 token
++    s.onerror = () => { turnstileFailed = true; };
+     document.head.appendChild(s);
++    // 兜底：SDK 迟迟不触发 onTurnstileReady（既没成功也没触发 onerror）也算失败
++    setTimeout(() => {
++        if (!window.turnstile) turnstileFailed = true;
++    }, 10000);
+ }
+ loadTurnstileSdk();
+ 
+@@ -46,15 +55,25 @@ function initRegisterPage() {
+ // ====== Turnstile ======
+ function renderTurnstile(tabName) {
+     const container = document.getElementById('turnstile-widget-' + tabName);
+-    if (!container || !window.turnstile) return;
++    // 容器不存在 / SDK 未就绪 → 保持 turnstileFailed=true，提交时会被拦下
++    if (!container || !window.turnstile) { turnstileFailed = true; return; }
+     container.innerHTML = '';
+     if (widgetIds[tabName]) {
+         try { window.turnstile.remove(widgetIds[tabName]); } catch (_) {}
+     }
+-    widgetIds[tabName] = window.turnstile.render(container, {
+-        sitekey: SITEKEY,
+-        theme: 'auto'
+-    });
++    try {
++        widgetIds[tabName] = window.turnstile.render(container, {
++            sitekey: SITEKEY,
++            theme: 'auto'
++        });
++    } catch (e) {
++        // SDK 在但渲染抛错（如挑战初始化失败）→ 同样视为不可用
++        widgetIds[tabName] = null;
++        turnstileFailed = true;
++        return;
++    }
++    // render 返回 falsy 说明 widget 没真正建起来
++    turnstileFailed = !widgetIds[tabName];
+ }
+ 
+ function getCfToken() {
+@@ -137,9 +156,20 @@ function bindForms() {
+     }
+ }
+ 
++/**
++ * 前置检查：返回可提交的 cf token，或 null（并已经给出提示）。
++ * 覆盖三种"人机验证不可用"的情形，避免把空 token 发给后端后
++ * 只收到一句含糊的失败提示：
++ *   1. SDK / widget 没加载成功（扩展拦截、网络不通、挑战失败 300* 等）
++ *   2. 用户还没完成验证
++ */
+ function checkCfOrReturn() {
++    if (turnstileFailed || !window.turnstile || !widgetIds[currentTab]) {
++        Toast.show('人机验证未加载：请关闭广告拦截类扩展后刷新页面重试');
++        return null;
++    }
+     const cfToken = getCfToken();
+-    if (!cfToken && window.turnstile) {
++    if (!cfToken) {
+         Toast.show('请完成人机验证');
+         return null;
+     }
+
+commit f6261d446739a309c7bbcd13a2c9b803884464ef
+Author: GFYGO <gfygo_@outlook.com>
+Date:   Wed Sep 23 00:47:07 2026 +0800
+
+    Update 404.html
+
+diff --git a/404.html b/404.html
+index be897ec..3981619 100644
+--- a/404.html
++++ b/404.html
+@@ -5,10 +5,10 @@
+     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <title>404 - 页面未找到 | GWL</title>
+-    <link rel="stylesheet" href="./css/core.css?v=20260911d">
+-    <link rel="stylesheet" href="./css/styles.css?v=20260911d">
+-    <link rel="stylesheet" href="./css/components.css?v=20260911d">
+-    <link rel="icon" href="./favicon.png" type="image/png">
++    <link rel="stylesheet" href="/css/core.css?v=20260911d">
++    <link rel="stylesheet" href="/css/styles.css?v=20260911d">
++    <link rel="stylesheet" href="/css/components.css?v=20260911d">
++    <link rel="icon" href="/favicon.png" type="image/png">
+     <style>
+         .error-page {
+             min-height: calc(100vh - var(--header-height));
+@@ -93,9 +93,9 @@
+     <!-- 主题切换悬浮按钮 -->
+     <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
+ 
+-    <script src="./js/config.js?v=20260911d"></script>
+-    <script src="./js/theme.js?v=20260911d"></script>
+-    <script src="./js/toast.js?v=20260911d"></script>
+-    <script src="./js/index.js?v=20260911e"></script>
++    <script src="/js/config.js?v=20260911d"></script>
++    <script src="/js/theme.js?v=20260911d"></script>
++    <script src="/js/toast.js?v=20260911d"></script>
++    <script src="/js/index.js?v=20260911e"></script>
+ </body>
+ </html>
+\ No newline at end of file
+
+commit ab21d4cd7ef24638b8e23ea02e1bf158986e644b
+Author: GFYGO <gfygo_@outlook.com>
+Date:   Wed Sep 23 00:41:04 2026 +0800
+
+    Update static.yml
+
+diff --git a/.github/workflows/static.yml b/.github/workflows/static.yml
+index b24eee8..5ae82ef 100644
+--- a/.github/workflows/static.yml
++++ b/.github/workflows/static.yml
+@@ -46,8 +46,6 @@ jobs:
+             --exclude 'debug.log' \
+             --exclude 'scp-ai.txt' \
+             --exclude 'model/debug.html' \
+-            --exclude 'model/test.html' \
+-            --exclude 'model/test.js' \
+             --exclude 'model/favicon.ico' \
+             --exclude '.venv*' \
+             --exclude 'node_modules/' \
+
+commit 280b7e5e322390ce8ce53bbae67c25c7cf76ea6a
+Author: GFYGO <gfygo_@outlook.com>
+Date:   Mon Sep 21 23:25:12 2026 +0800
+
+    org
+
+diff --git a/org/index.html b/org/index.html
+index 9387470..9c3e64a 100644
+--- a/org/index.html
++++ b/org/index.html
+@@ -19,7 +19,7 @@
+     <link rel="stylesheet" href="./../css/core.css?v=20260911e">
+     <link rel="stylesheet" href="./../css/styles.css?v=20260911e">
+     <link rel="stylesheet" href="./../css/components.css?v=20260911e">
+-    <link rel="stylesheet" href="./org.css?v=20260921b">
++    <link rel="stylesheet" href="./org.css?v=20260922a">
+     <link rel="icon" href="./../favicon.png" type="image/png">
+ </head>
+ <body>
+@@ -128,6 +128,13 @@
+                                 <button class="org-splitpick__opt" data-split="4" role="radio" aria-checked="false">四宫格 4 屏</button>
+                             </div>
+                         </div>
++                        <div class="org-field">
++                            <label class="org-field__label">方向（分屏时生效）</label>
++                            <div class="org-splitpick" id="orientPick" role="radiogroup" aria-label="分屏方向">
++                                <button class="org-splitpick__opt" data-orient="horizontal" role="radio" aria-checked="false">左右</button>
++                                <button class="org-splitpick__opt" data-orient="vertical" role="radio" aria-checked="false">上下</button>
++                            </div>
++                        </div>
+                         <div class="org-field">
+                             <label class="org-field__label">当前格（新打开的页面放这里）</label>
+                             <div class="org-slotpick" id="slotPick" role="radiogroup" aria-label="当前格"></div>
+@@ -150,8 +157,9 @@
+                     <div class="empty-state__icon">🏢</div>
+                     <p class="empty-state__text">从左侧功能里选一个页面打开</p>
+                     <p class="empty-state__hint">
+-                        页面会在当前格中打开；用右上角「⚙️ 视图」可以把内容区分成 2 屏或 4 屏，
++                        页面会在当前格中打开；用右上角「⚙️ 视图」可以把内容区分成 2 屏（左右 / 上下）或 4 屏，
+                         用左上角「🗂️ 已打开页面」可以切换、关闭已打开的页面。
++                        已打开的页面与分屏方式会**记住在当前组类上**，刷新或下次进来照旧。
+                     </p>
+                 </div>
+             </div>
+@@ -168,6 +176,6 @@
+ <script src="./../js/toast.js?v=20260911e"></script>
+ <script src="./../js/modal.js?v=20260911e"></script>
+ <script src="./../js/index.js?v=20260911e"></script>
+-<script src="./org.js?v=20260921b"></script>
++<script src="./org.js?v=20260922a"></script>
+ </body>
+ </html>
+diff --git a/org/org.css b/org/org.css
+index d2178e4..e3baab4 100644
+--- a/org/org.css
++++ b/org/org.css
+@@ -330,8 +330,12 @@
+     z-index: 60;
+     width: 320px;
+     max-width: calc(100vw - 32px);
++    /* ⚠️ 高度必须一起收敛：只限 max-width 的话，已打开页面一多，
++       卡片会从顶栏一路长到屏幕外面（下面的「全部关闭」点不到）。
++       三段式：head/foot 不压缩，只有 body 滚动。 */
+     display: flex;
+     flex-direction: column;
++    max-height: var(--org-popcard-max-h, calc(100vh - 140px));
+     background: var(--color-bg-white);
+     border: 1px solid var(--color-border);
+     border-radius: var(--radius-lg);
+@@ -343,7 +347,7 @@
+     left: 0;
+     right: 0;
+     width: auto;
+-    max-height: 280px;
++    max-height: min(280px, var(--org-popcard-max-h, 60vh));
+ }
+ 
+ .org-popcard__head {
+@@ -351,6 +355,7 @@
+     align-items: center;
+     justify-content: space-between;
+     gap: 8px;
++    flex: 0 0 auto;
+     padding: 10px 12px;
+     border-bottom: 1px solid var(--color-border);
+     font-weight: 600;
+@@ -369,15 +374,19 @@
+ }
+ 
+ .org-popcard__body {
++    flex: 1 1 auto;
++    min-height: 0;                    /* 配合父级 max-height 才能真正滚动 */
+     padding: 10px 12px;
+     overflow-y: auto;
+-    max-height: 320px;
++    overscroll-behavior: contain;     /* 滚到底不要连带把页面/卡片外滚走 */
++    max-height: min(320px, var(--org-popcard-max-h, 60vh));
+ }
+ 
+ .org-popcard__foot {
+     display: flex;
+     gap: 8px;
+     justify-content: flex-end;
++    flex: 0 0 auto;
+     padding: 8px 12px;
+     border-top: 1px solid var(--color-border);
+ }
+@@ -409,6 +418,16 @@
+     outline: 1px solid var(--color-primary);
+ }
+ 
++/* 单屏下被新页面挤到后台的页面：**没关**，点一下换回前台（见 org.js::toggleHiddenPage） */
++.org-tabrow--hidden {
++    background: transparent;
++    border: 1px dashed var(--color-border);
++}
++
++.org-tabrow--hidden .org-tabrow__slot {
++    opacity: 0.75;
++}
++
+ .org-tabrow__slot {
+     flex: 0 0 auto;
+     font-family: var(--font-mono);
+@@ -570,6 +589,24 @@
+     grid-template-rows: 1fr 1fr;
+ }
+ 
++/* --- 分屏方向：上下（data-orient="vertical"） ---
++   与上面的列定义一一对应；【选择器顺序决定优先级】—— 上下规则写在同一优先级之后，
++   所以 [data-split="2"][data-orient="vertical"] 能稳定压过 [data-split="2"]。 */
++.org-panes[data-split="1"][data-orient="vertical"] {
++    grid-template-columns: 1fr;
++    grid-template-rows: 1fr;
++}
++
++.org-panes[data-split="2"][data-orient="vertical"] {
++    grid-template-columns: 1fr;
++    grid-template-rows: 1fr 1fr;
++}
++
++.org-panes[data-split="4"][data-orient="vertical"] {
++    grid-template-columns: 1fr 1fr;
++    grid-template-rows: 1fr 1fr;
++}
++
+ .org-panes[hidden],
+ .org-welcome[hidden] {
+     display: none;
+@@ -749,12 +786,20 @@
+         border-bottom: 1px solid var(--color-border);
+     }
+ 
++    /* 窄屏一律竖排（视觉顺序就是槽位顺序），上下方向本来就是竖排所以不受影响 */
+     .org-panes[data-split="2"],
+-    .org-panes[data-split="4"] {
++    .org-panes[data-split="4"],
++    .org-panes[data-split="2"][data-orient="vertical"],
++    .org-panes[data-split="4"][data-orient="vertical"] {
+         grid-template-columns: 1fr;
+         grid-template-rows: none;
+         grid-auto-rows: minmax(0, 1fr);
+     }
++
++    /* 窄屏下卡片贴着屏幕边缘：把可用高度放宽一点 */
++    .org-popcard {
++        --org-popcard-max-h: calc(100vh - 90px);
++    }
+ }
+ 
+ /* 主题里的深色背景下，弹出卡片要明显亮于内容区 */
+diff --git a/org/org.js b/org/org.js
+index 620c488..a9b3bac 100644
+--- a/org/org.js
++++ b/org/org.js
+@@ -36,6 +36,13 @@
+     var TAB_KEY_RE = /^[a-zA-Z0-9_-]{1,50}$/;
+     var LS_LAST_CLASS = 'org_last_class_id';
+     var LS_SPLIT = 'org_view_split';
++    var LS_ORIENT = 'org_view_orient';
++    //: 每个组类的「已打开页面 + 分屏方式」：{ "<组类id>": {split, orient, pages:[tabKey,...]} }
++    //: 用户要求「页面没点 x 就一直保留」→ 关掉浏览器/刷新后照旧打开。
++    //: 单屏把当前页挤掉时也走这里记住（见 toggleHiddenPage），下次还回得来。
++    var LS_LAYOUT = 'org_layout_v1';
++    //: 单屏下被挤掉、但**不算关闭**的页面（用户仍能在「已打开页面」卡片里一键换回来）
++    var LS_HIDDEN = 'org_hidden_pages_v1';
+ 
+     // ============================================================
+     // 状态
+@@ -48,11 +55,17 @@
+         activeClass: null,  // 当前组类 id
+         classMeta: null,    // 当前组类详情（来自 /class/<cid>）
+         pages: [],          // 当前组类的功能按钮（后端下发）
++        canView: true,      // 后端说我在本组类下有没有 org.view（空列表要区分原因）
++        orient: 'horizontal', // 分屏方向：horizontal（左右）| vertical（上下）
+         split: 1,           // 1 | 2 | 4
+         activeSlot: 0,      // 「当前格」：新页面打开在这里
+         panes: [],          // 每格：null 或 {tabKey, label, icon}
+         pageCache: Object.create(null),
+         pendingPage: Object.create(null),   // tabKey → Promise：同一页面并发只请求一次
++        hiddenPages: [],    // 单屏下被挤掉、但仍「已打开」的页面（不算关闭）
++        pendingRestore: false,  // 本次选组类是"自动选中"（刷新进来）→ 要恢复上次的页面
++        restoreLeft: 0,     // 还要恢复几个（每个成功打开后 --）
++        clonedEntry: false, // 本次布局来自存档副本（恢复期间禁止写存档，见 saveLayout）
+         booted: false,
+         pagesFor: null      // state.pages 属于哪个组类（未加载为 null）—— 防止旧组类按钮残留
+     };
+@@ -70,6 +83,76 @@
+         return !!cid && cid === state.activeClass;
+     }
+ 
++    // ============================================================
++    // 持久化：每个组类记住「已打开页面 + 分屏方式」
++    //   用户要求：没点 × 的页面就一直保留（含刷新 / 下次进来）。
++    //   按组类分开存：A 组织的页面布局不会串到 B 组织。
++    // ============================================================
++
++    function readJson(key, fallback) {
++        try {
++            var raw = window.localStorage.getItem(key);
++            if (!raw) return fallback;
++            var val = JSON.parse(raw);
++            return (val && typeof val === 'object') ? val : fallback;
++        } catch (e) {
++            return fallback;
++        }
++    }
++
++    function writeJson(key, value) {
++        try { window.localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* 忽略 */ }
++    }
++
++    function readLayout(cid) {
++        var all = readJson(LS_LAYOUT, {});
++        var entry = all[cid];
++        return (entry && typeof entry === 'object') ? entry : null;
++    }
++
++    /** 存档深拷一份：恢复期间屏幕上还没有页面，绝不能拿它去覆盖存档。 */
++    function cloneLayoutEntry(entry) {
++        if (!entry) return null;
++        return {
++            split: entry.split,
++            orient: entry.orient,
++            pages: Array.isArray(entry.pages) ? entry.pages.slice(0) : []
++        };
++    }
++
++    /** 记住当前组类的分屏方式与已打开页面（每次布局变化都调一次）。 */
++    function saveLayout() {
++        if (!state.activeClass) return;
++        // 恢复期间：**不动存档**。屏幕上此刻是空的（刚 closeAllPages），
++        // 写下去会把"已打开页面"与"后台页面"两份名单一起抹掉。
++        if (state.clonedEntry || state.restoreLeft) return;
++        var all = readJson(LS_LAYOUT, {});
++        all[state.activeClass] = {
++            split: state.split,
++            orient: state.orient,
++            pages: state.panes.filter(Boolean).map(function (p) { return p.tabKey; })
++        };
++        writeJson(LS_LAYOUT, all);
++        saveHidden();
++    }
++
++    function saveHidden() {
++        if (!state.activeClass) return;
++        // ⚠️ 刷新后的首次进入：`selectClass` 会先 `closeAllPages`（格子本来就是空的），
++        //    此刻写下去会把存档里"被挤到后台"的名单整个抹掉 —— 而 restorePages()
++        //    还没读到它。所以恢复期间一律不写，等恢复完（restoreLeft 归零）再写。
++        if (state.clonedEntry || state.pendingRestore || state.restoreLeft) return;
++        var all = readJson(LS_HIDDEN, {});
++        all[state.activeClass] = state.hiddenPages.slice(0, 8);
++        writeJson(LS_HIDDEN, all);
++    }
++
++    function readHidden(cid) {
++        var all = readJson(LS_HIDDEN, {});
++        var list = all[cid];
++        return Array.isArray(list) ? list.filter(function (k) { return typeof k === 'string'; }) : [];
++    }
++
+     function pageBase() {
+         return (window.API_BASE_URL || '');
+     }
+@@ -165,6 +248,15 @@
+                 setSplit(parseInt(btn.dataset.split, 10), true);
+             });
+         }
++        // 分屏方向（左右 / 上下）
++        var orientPick = document.getElementById('orientPick');
++        if (orientPick) {
++            orientPick.addEventListener('click', function (e) {
++                var btn = e.target.closest('[data-orient]');
++                if (!btn) return;
++                setOrient(btn.dataset.orient, true);
++            });
++        }
+         on('closeCurrentSlot', 'click', function () { closeSlot(state.activeSlot); });
+         on('resetView', 'click', function () {
+             setSplit(1, true);
+@@ -306,7 +398,7 @@
+             var firstOrg = state.classes.filter(function (c) { return c.kind === 'org'; })[0];
+             wanted = (firstOrg || state.classes[0]).id;
+         }
+-        selectClass(wanted);
++        selectClass(wanted, true);   // 自动选中（URL / 上次记住的 / 第一个）→ 恢复该组类上次的布局
+     }
+ 
+     function readClassFromUrl() {
+@@ -340,14 +432,20 @@
+      * 切换当前组类。
+      * 会清空已打开的页面 —— 那些页面是按**上一个组类**的权限拉下来的，
+      * 留在屏幕上等于展示越权内容（宁可不留，也不要用错权限渲染的残留）。
++     *
++     * `restoreLayout=true`（仅"自动选中"＝刷新进来时）表示要恢复**该组类上次**的
++     * 已打开页面与分屏方式；手动切换组类时不恢复（沿用当前分屏，页面从空开始）。
+      */
+-    function selectClass(cid) {
++    function selectClass(cid, restoreLayout) {
+         if (!cid || !/^[a-zA-Z]{3}$/.test(cid)) return;
+         cid = cid.toLowerCase();
+         if (state.activeClass === cid && state.booted) {
+             hideCard('orgSwitchCard', 'orgSwitchBtn');
+             return;
+         }
++        // 切走之前先保存**旧组类**的布局，否则那批页面就白开了
++        if (state.activeClass && state.activeClass !== cid) saveLayout();
++
+         state.activeClass = cid;
+         rememberClass(cid);
+         hideCard('orgSwitchCard', 'orgSwitchBtn');
+@@ -357,9 +455,19 @@
+         //    新 X-Org-Class 请求旧 tab_key（403/404）。旧组类数据一律不留在屏幕上。
+         state.pages = [];
+         state.pagesFor = null;
++        state.canView = true;
+         state.classMeta = null;
++        // ⚠️ 顺序：先读存档 → 再关掉全部页面（closeAllPages 会 saveLayout，
++        //    那时必须已经在"恢复中"状态，否则会把新组类的空布局写进存档）
++        var entry = restoreLayout ? cloneLayoutEntry(readLayout(cid)) : null;
++        state.pendingRestore = !!restoreLayout;
++        state.restoreLeft = 0;
++        state.clonedEntry = !!entry;
++        state.hiddenPages = [];
+         closeAllPages(true);
++        applySavedView(entry);
+         renderFeatures();
++        renderTabsCard();
+ 
+         renderClassShell();
+         // 身份守卫只认「回调执行时 activeClass 还是不是我」——切走再切回同一组类时，
+@@ -374,7 +482,7 @@
+             renderOrgList();
+             renderGroupList();
+             renderClassHeader();
+-            loadFeatures();
++            loadFeatures(entry);
+             state.booted = true;
+         });
+     }
+@@ -501,13 +609,14 @@
+     // 功能按钮（一行 4 个，后端下发）
+     // ============================================================
+ 
+-    function loadFeatures() {
++    function loadFeatures(restoreEntry) {
+         var grid = document.getElementById('featureGrid');
+         var cid = state.activeClass;
+         if (!cid) {
+             // 没有当前组类：明确收尾，别把网格留在「加载中...」+ aria-busy=true
+             state.pages = [];
+             state.pagesFor = null;
++            state.canView = true;
+             if (grid) {
+                 grid.setAttribute('aria-busy', 'false');
+                 grid.innerHTML = '';
+@@ -528,14 +637,21 @@
+                 // 失败也要清空：留着旧组类的 buttons 比空列表更糟
+                 state.pages = [];
+                 state.pagesFor = null;
++                state.canView = true;
+                 renderFeatures((res && res.msg) || '功能列表加载失败');
+                 return;
+             }
+             if (res.data.class && !state.classMeta) state.classMeta = res.data.class;
+             state.pages = Array.isArray(res.data.pages) ? res.data.pages : [];
++            state.canView = res.data.can_view !== false;   // 老后端没有这个字段 → 按有权限处理
+             state.pagesFor = cid;
+             renderFeatures();
+             renderClassHeader();
++            // ⭐ 恢复上次打开的页面：必须等页面清单到手（要按 state.pages 校验 tab_key）
++            if (state.pendingRestore) {
++                state.pendingRestore = false;
++                restorePages(cid, restoreEntry || null);
++            }
+         });
+     }
+ 
+@@ -547,11 +663,19 @@
+             return;
+         }
+         if (!state.pages.length) {
+-            setHtml('featureGrid', '<p class="org-muted">'
+-                + '这个组类下暂无可用的功能。<br>'
+-                + '（功能按钮由后端 `pages/` 目录里 `org_scope=org` 的页面决定；'
+-                + '若你是本组类的 owner，权限设置不会挡住你 —— 说明确实还没有这样的页面。）'
+-                + '</p>');
++            // 两种空态文案必须分开：没有 org.view 的成员看到「暂无可用的功能」
++            // 会以为页面被删了，实际是需要别人给他配一条 view 规则。
++            setHtml('featureGrid', state.canView
++                ? ('<p class="org-muted">'
++                    + '这个组类下暂无可用的功能。<br>'
++                    + '（功能按钮由后端 `pages/` 目录里 `org_scope=org` 的页面决定；'
++                    + '若你是本组类的 owner，权限设置不会挡住你 —— 说明确实还没有这样的页面。）'
++                    + '</p>')
++                : ('<p class="org-muted">'
++                    + '当前组类下你没有查看权限（<code>org.view</code>），所以功能按钮被收起了。<br>'
++                    + '请让本组类的 owner 或平台超管配置一条 '
++                    + '<code>&lt;组类id&gt;.&lt;你的角色&gt;.org.view.allow</code> 规则。'
++                    + '</p>'));
+             return;
+         }
+         var html = state.pages.map(function (p) {
+@@ -620,7 +744,110 @@
+         if (state.activeSlot >= n) state.activeSlot = n - 1;
+         try { window.localStorage.setItem(LS_SPLIT, String(n)); } catch (e) { /* 忽略 */ }
+         renderPanes();
++        markActivePane();
++        renderViewCard();
++        renderFeatures();
++        saveLayout();
++    }
++
++    function clampOrient(value) {
++        return value === 'vertical' ? 'vertical' : 'horizontal';
++    }
++
++    function setOrient(value, userAction) {
++        var next = clampOrient(value);
++        if (state.orient === next) {
++            renderViewCard();
++            return;
++        }
++        state.orient = next;
++        try { window.localStorage.setItem(LS_ORIENT, next); } catch (e) { /* 忽略 */ }
++        renderPanes();                  // 只改 grid 方向：内容会被 renderPanes 自动补回
+         renderViewCard();
++        if (userAction) {
++            toast(next === 'vertical' ? '已切换为上下分屏' : '已切换为左右分屏', 'success');
++        }
++        saveLayout();
++    }
++
++    /** 从存档恢复分屏方式（只动 split/orient，不碰已打开的页面）。
++     *
++     * `entry` 由调用方一次读出并同时交给 `restorePages` —— 本函数内部会
++     * `setSplit(..., false)`，它**不会**写存档；但为避免任何时序意外，
++     * 恢复用的那份数据始终以调用方读到的为准。
++     */
++    function applySavedView(entry) {
++        if (entry) {
++            state.split = clampSplit(parseInt(entry.split, 10));
++            state.orient = clampOrient(entry.orient);
++            state.panes = [];
++            while (state.panes.length < state.split) state.panes.push(null);
++            if (state.activeSlot >= state.split) state.activeSlot = state.split - 1;
++            renderPanes();
++            markActivePane();
++            renderViewCard();
++            renderFeatures();
++            return;
++        }
++        // 没有该组类的存档 → 用全局默认（旧键），方向默认左右
++        setSplit(readSavedSplit(), false);
++        setOrient(readSavedOrient(), false);
++    }
++
++    /**
++     * 恢复上次的「已打开页面」。
++     * 调用时机：**功能列表加载成功之后** —— 要按 `state.pages` 校验 tab_key
++     * （页面被删掉/停用后，存档里的 tab_key 应该被安静丢掉，而不是恢复成一个空壳）。
++     * 恢复是渐进的：`restoreLeft` 期间不覆盖存档，全部开完再写一次。
++     */
++    function restorePages(cid, entry) {
++        var known = {};
++        state.pages.forEach(function (p) { known[p.tab_key] = true; });
++        var keys = ((entry && Array.isArray(entry.pages)) ? entry.pages : [])
++            .filter(function (k) {
++                return typeof k === 'string' && TAB_KEY_RE.test(k) && known[k];
++            })
++            .slice(0, state.split);
++
++        state.hiddenPages = readHidden(cid).filter(function (k) {
++            return keys.indexOf(k) < 0 && known[k];
++        });
++        if (!keys.length) {
++            // 存档里没有要在前台恢复的页面（可能全是"后台页面"，也可能什么都没有）。
++            // 写回一次：把屏幕上本来就不存在的东西从名单里剔干净。
++            state.restoreLeft = 0;
++            state.clonedEntry = false;
++            renderTabsCard();
++            saveLayout();
++            return;
++        }
++        state.restoreLeft = keys.length;
++        state.clonedEntry = false;   // 恢复真正开始 → 之后 saveLayout 一律以屏幕为准
++        keys.forEach(function (key, idx) {
++            setTimeout(function () {
++                if (!sameClass(cid)) {          // 期间切走了 → 中止恢复
++                    state.restoreLeft = 0;
++                    return;
++                }
++                openPage(key, idx);             // 各自落回原来的槽位
++                state.restoreLeft -= 1;
++                renderTabsCard();
++                if (state.restoreLeft <= 0) {
++                    state.restoreLeft = 0;
++                    // ⚠️ 归零之后才写：saveHidden 在恢复期间是静默的（见其注释）
++                    saveLayout();
++                }
++            }, 0);
++        });
++    }
++
++    function readSavedOrient() {
++        try {
++            var v = window.localStorage.getItem(LS_ORIENT);
++            return v === 'vertical' ? 'vertical' : 'horizontal';
++        } catch (e) {
++            return 'horizontal';
++        }
+     }
+ 
+     function readSavedSplit() {
+@@ -651,6 +878,7 @@
+         var container = document.getElementById('orgPanes');
+         if (!container) return;
+         container.dataset.split = String(state.split);
++        container.dataset.orient = state.orient;   // 左右 / 上下（CSS 见 org.css 的 [data-orient]）
+ 
+         var any = state.panes.some(Boolean);
+         container.hidden = !any;
+@@ -752,6 +980,12 @@
+                 btn.setAttribute('aria-checked', on ? 'true' : 'false');
+             });
+         }
++        var orientPick = document.getElementById('orientPick');
++        if (orientPick) {
++            orientPick.querySelectorAll('[data-orient]').forEach(function (btn) {
++                btn.setAttribute('aria-checked', btn.dataset.orient === state.orient ? 'true' : 'false');
++            });
++        }
+         var slotPick = document.getElementById('slotPick');
+         if (slotPick) {
+             var html = '';
+@@ -774,9 +1008,13 @@
+         var hint = document.getElementById('viewHint');
+         if (hint) {
+             var used = state.panes.filter(Boolean).length;
+-            hint.textContent = '当前 ' + state.split + ' 格，已用 ' + used + ' 格；'
++            hint.textContent = '当前 ' + state.split + ' 格（'
++                + (state.orient === 'vertical' ? '上下' : '左右') + '），已用 ' + used + ' 格；'
+                 + '新页面会开在「当前格」（第 ' + (state.activeSlot + 1) + ' 格）——'
+-                + '当前格已占用时优先找空格，全满则替换当前格。';
++                + '当前格已占用时优先找空格，全满则替换当前格。'
++                + (state.hiddenPages.length
++                    ? ('另有 ' + state.hiddenPages.length + ' 个页面被挤到「已打开页面」卡片里（没丢）。')
++                    : '');
+         }
+         renderTabsCard();
+     }
+@@ -784,9 +1022,9 @@
+     function renderTabsCard() {
+         var list = document.getElementById('tabsList');
+         var count = state.panes.filter(Boolean).length;
+-        setText('tabsCount', String(count));
++        setText('tabsCount', String(count + state.hiddenPages.length));
+         if (!list) return;
+-        if (!count) {
++        if (!count && !state.hiddenPages.length) {
+             list.innerHTML = '<p class="org-muted">还没有打开任何页面。</p>';
+             return;
+         }
+@@ -803,11 +1041,28 @@
+                 + '<button type="button" class="org-tabrow__btn" data-act="close" aria-label="关闭">&times;</button>'
+                 + '</li>');
+         }
++        // 单屏下被新页面挤走的页面：**不算关闭**，点一下就换回前台（用户要求"没点 × 就一直在"）
++        state.hiddenPages.forEach(function (tabKey) {
++            var meta = findPage(tabKey);
++            if (!meta) return;
++            rows.push('<li class="org-tabrow org-tabrow--hidden" data-hidden="' + esc(tabKey) + '">'
++                + '<span class="org-tabrow__slot">后台</span>'
++                + '<span class="org-tabrow__label">' + esc(meta.icon || '📄') + ' '
++                + esc(meta.label) + '</span>'
++                + '<button type="button" class="org-tabrow__btn" data-act="show">切到前台</button>'
++                + '</li>');
++        });
+         list.innerHTML = '<ul class="org-tablist">' + rows.join('') + '</ul>';
+         list.querySelectorAll('.org-tabrow').forEach(function (row) {
+             var slot = parseInt(row.dataset.slot, 10);
++            var hiddenKey = row.dataset.hidden || '';
+             row.addEventListener('click', function (e) {
+                 var act = e.target && e.target.dataset ? e.target.dataset.act : '';
++                if (hiddenKey) {
++                    e.stopPropagation();
++                    toggleHiddenPage(hiddenKey);
++                    return;
++                }
+                 if (act === 'close') {
+                     e.stopPropagation();
+                     closeSlot(slot);
+@@ -845,18 +1100,55 @@
+         // 覆盖一个已占用的格子前，先释放它占的资源（脚本元素 / Blob URL / 该格的 <style>）。
+         // 早先直接覆盖 state.panes[slot]：旧 pane 的 styleId 从此无人引用，
+         // 那份 CSS 永久留在 <head> 里污染后面打开的页面。
+-        if (state.panes[slot]) releasePane(slot);
++        var replaced = state.panes[slot];
++        if (replaced) {
++            releasePane(slot);
++            // 单屏（只有一格）时新页面必然挤掉旧的：那不算"用户关掉了它"，
++            // 记进 hiddenPages —— 用户仍能在「已打开页面」卡片里一键换回来。
++            if (state.split === 1 && replaced.tabKey !== tabKey) {
++                rememberHidden(replaced.tabKey);
++            }
++        }
+         state.activeSlot = slot;
+         state.panes[slot] = {
+             tabKey: tabKey,
+             label: meta ? meta.label : tabKey,
+             icon: meta ? (meta.icon || '📄') : '📄'
+         };
++        // 重新打开了同一个页面 → 从"被挤掉"名单里移除
++        state.hiddenPages = state.hiddenPages.filter(function (k) { return k !== tabKey; });
+         renderPanes();
+-        renderViewCard();
+         markActivePane();
++        renderViewCard();
+         renderFeatures();
+         loadPaneContent(slot, tabKey, false);
++        saveLayout();
++    }
++
++    /** 记下"被挤掉但没关"的页面（最多 8 个，最近的在前）。 */
++    function rememberHidden(tabKey) {
++        if (!tabKey) return;
++        state.hiddenPages = [tabKey].concat(
++            state.hiddenPages.filter(function (k) { return k !== tabKey; })
++        ).slice(0, 8);
++    }
++
++    /**
++     * 在单屏下把某个页面切到前台（或从"被挤掉"名单里彻底移除）。
++     * 「已打开页面」卡片里的隐藏项点一下就换回来 —— 这正是"没点 × 就一直在"的落点。
++     */
++    function toggleHiddenPage(tabKey) {
++        if (state.split > 1) {
++            // 多屏时没有"被挤掉"概念：直接打开到空格/当前格
++            openPage(tabKey);
++            return;
++        }
++        // 单屏：把当前页挤下去，目标页拿到唯一的格子
++        var current = state.panes[0];
++        if (current && current.tabKey === tabKey) return;
++        if (current) rememberHidden(current.tabKey);
++        state.hiddenPages = state.hiddenPages.filter(function (k) { return k !== tabKey; });
++        openPage(tabKey, 0);
+     }
+ 
+     function closeSlot(slot) {
+@@ -867,6 +1159,7 @@
+         renderViewCard();
+         markActivePane();
+         renderFeatures();
++        saveLayout();
+     }
+ 
+     function closeAllPages(silent) {
+@@ -876,9 +1169,12 @@
+         }
+         state.pageCache = Object.create(null);
+         state.pendingPage = Object.create(null);
++        // 「全部关闭」是用户的明确意图：连"被挤掉"的名单一起清掉
++        state.hiddenPages = [];
+         renderPanes();
+         renderViewCard();
+         renderFeatures();
++        saveLayout();
+         if (!silent) toast('已关闭全部页面', 'info');
+     }
+ 
+@@ -1057,7 +1353,10 @@
+     // ============================================================
+ 
+     function start() {
+-        setSplit(readSavedSplit(), false);
++        // 分屏方式与已打开页面**按组类**存档，等选中组类后由 selectClass(restoreLayout=true)
++        // 一次性恢复（见 applySavedView / restorePages）。这里不用旧的全局值初始化，
++        // 否则会先渲染一遍错误的格数，再被存档覆盖（闪一下）。
++        setOrient(readSavedOrient(), false);
+         boot();
+     }
+ 
+@@ -1075,7 +1374,13 @@
+         closeSlot: closeSlot,
+         closeAllPages: closeAllPages,
+         setSplit: setSplit,
++        setOrient: setOrient,
++        toggleHiddenPage: toggleHiddenPage,
++        restorePages: restorePages,
++        saveLayout: saveLayout,
++        readLayout: readLayout,
+         renderViewCard: renderViewCard,
++        renderTabsCard: renderTabsCard,
+         loadFeatures: loadFeatures
+     };
+ })();
+
+commit b0da115b4dbeef1a1333c8d12d9f3c264cf18c1d
+Author: GFYGO <gfygo_@outlook.com>
+Date:   Mon Sep 21 22:50:55 2026 +0800
+
+    Update org.js
+
+diff --git a/org/org.js b/org/org.js
+index ede9c8f..620c488 100644
+--- a/org/org.js
++++ b/org/org.js
+@@ -52,9 +52,24 @@
+         activeSlot: 0,      // 「当前格」：新页面打开在这里
+         panes: [],          // 每格：null 或 {tabKey, label, icon}
+         pageCache: Object.create(null),
+-        booted: false
++        pendingPage: Object.create(null),   // tabKey → Promise：同一页面并发只请求一次
++        booted: false,
++        pagesFor: null      // state.pages 属于哪个组类（未加载为 null）—— 防止旧组类按钮残留
+     };
+ 
++    /**
++     * 单调递增的请求令牌：判断一个异步响应是否已经过时。
++     * ⚠️ 不能用「挂在 pane 对象上的计数器」：切组类/重渲染会把 pane 换成新对象，
++     * 计数从 1 重新开始，于是上一个组类的在途响应会被误认为当前响应，把 A 组类身份下
++     * 拿到的页面内容注入到 B 组类的格子里。全局单调递增 + 身份比对才挡得住。
++     */
++    var reqSeq = 0;
++    function nextSeq() { reqSeq += 1; return reqSeq; }
++
++    function sameClass(cid) {
++        return !!cid && cid === state.activeClass;
++    }
++
+     function pageBase() {
+         return (window.API_BASE_URL || '');
+     }
+@@ -73,14 +88,25 @@
+     function orgFetch(path, opts) {
+         opts = opts || {};
+         var headers = orgHeaders(opts.headers);
+-        return window.apiRequest(path, {
+-            method: opts.method || 'GET',
+-            headers: headers,
+-            body: opts.body,
+-            silent: opts.silent
+-        }).then(function (res) {
++        var req;
++        try {
++            req = window.apiRequest(path, {
++                method: opts.method || 'GET',
++                headers: headers,
++                body: opts.body,
++                silent: opts.silent
++            });
++        } catch (e) {
++            req = Promise.reject(e);
++        }
++        return req.then(function (res) {
+             if (res === null) return { code: 500, msg: '网络异常或登录已失效' };
+             return res;
++        }).catch(function (err) {
++            // 兜底：把 reject 归一成响应对象，调用方不必各自写 catch
++            // （否则左侧栏/功能格会永久停在「加载中...」）
++            console.error('[ORG] 请求失败:', path, err);
++            return { code: 500, msg: '网络异常或登录已失效' };
+         });
+     }
+ 
+@@ -128,7 +154,7 @@
+ 
+         on('tabsCardClose', 'click', function () { hideCard('tabsCard', 'tabsToggle'); });
+         on('viewCardClose', 'click', function () { hideCard('viewCard', 'viewToggle'); });
+-        on('closeAllPages', 'click', closeAllPages);
++        on('closeAllPages', 'click', function () { closeAllPages(false); });
+ 
+         // 分屏选择
+         var splitPick = document.getElementById('splitPick');
+@@ -325,10 +351,21 @@
+         state.activeClass = cid;
+         rememberClass(cid);
+         hideCard('orgSwitchCard', 'orgSwitchBtn');
++        // ⚠️ 先把「当前组类的功能按钮 / 组类详情」清空再重渲染：
++        //    否则 closeAllPages() 内部的 renderFeatures() 会拿**上一个组类**的
++        //    state.pages 画按钮（还配上新 cid 的提示），而且那些按钮点下去会以
++        //    新 X-Org-Class 请求旧 tab_key（403/404）。旧组类数据一律不留在屏幕上。
++        state.pages = [];
++        state.pagesFor = null;
++        state.classMeta = null;
+         closeAllPages(true);
++        renderFeatures();
+ 
+         renderClassShell();
++        // 身份守卫只认「回调执行时 activeClass 还是不是我」——切走再切回同一组类时，
++        // 旧请求的结果依然有效（内容同一个组类，重复渲染无害），不需要令牌。
+         orgFetch('/api/v0/org/class/' + encodeURIComponent(cid)).then(function (res) {
++            if (!sameClass(cid)) return;   // 期间已切到别的组类 → 丢弃这次响应
+             if (res && res.code === 200 && res.data) {
+                 state.classMeta = res.data;
+             } else {
+@@ -466,29 +503,49 @@
+ 
+     function loadFeatures() {
+         var grid = document.getElementById('featureGrid');
++        var cid = state.activeClass;
++        if (!cid) {
++            // 没有当前组类：明确收尾，别把网格留在「加载中...」+ aria-busy=true
++            state.pages = [];
++            state.pagesFor = null;
++            if (grid) {
++                grid.setAttribute('aria-busy', 'false');
++                grid.innerHTML = '';
++            }
++            renderFeatures();
++            return;
++        }
+         if (grid) {
+             grid.setAttribute('aria-busy', 'true');
+             grid.innerHTML = '<p class="loading-text" role="status">加载中...</p>';
+         }
+-        var cid = state.activeClass;
+-        if (!cid) return;
+         orgFetch('/api/v0/org/class/' + encodeURIComponent(cid) + '/pages').then(function (res) {
++            // ⭐ 身份守卫：响应回来时已经切到别的组类 → 整段丢弃
++            //    （否则 A 组类的按钮会带着新组类的提示渲染出来，点击必然 403/404）
++            if (!sameClass(cid)) return;
+             if (grid) grid.setAttribute('aria-busy', 'false');
+             if (!res || res.code !== 200 || !res.data) {
+-                setHtml('featureGrid', '<p class="org-muted">'
+-                    + esc((res && res.msg) || '功能列表加载失败') + '</p>');
++                // 失败也要清空：留着旧组类的 buttons 比空列表更糟
++                state.pages = [];
++                state.pagesFor = null;
++                renderFeatures((res && res.msg) || '功能列表加载失败');
+                 return;
+             }
+             if (res.data.class && !state.classMeta) state.classMeta = res.data.class;
+             state.pages = Array.isArray(res.data.pages) ? res.data.pages : [];
++            state.pagesFor = cid;
+             renderFeatures();
+             renderClassHeader();
+         });
+     }
+ 
+-    function renderFeatures() {
++    function renderFeatures(errorText) {
+         var hint = document.getElementById('featureScopeHint');
+         if (hint) hint.textContent = state.activeClass ? ('@' + state.activeClass) : '';
++        if (errorText) {
++            setHtml('featureGrid', '<p class="org-muted">' + esc(errorText) + '</p>');
++            return;
++        }
+         if (!state.pages.length) {
+             setHtml('featureGrid', '<p class="org-muted">'
+                 + '这个组类下暂无可用的功能。<br>'
+@@ -600,16 +657,28 @@
+         var welcome = document.getElementById('orgWelcome');
+         if (welcome) welcome.hidden = any;
+ 
++        // ⚠️ 这里是**整块重建** DOM：每个格子的 body 都是新建的空壳。
++        //    因此重建后必须对有内容的格子重新灌一次内容，否则任何重渲染
++        //    （改分屏 / 开新页 / 关一格 / 全部关闭）都会把其它格子的正文清空 ——
++        //    这正是「分屏看起来能用、其实一改分屏就只剩标题」的根因。
++        //    loadPaneContent 走 pageCache，不会重复请求；在途请求也会被令牌拦住。
++        var reload = [];
+         container.innerHTML = '';
+         for (var i = 0; i < state.split; i++) {
+             container.appendChild(buildPaneEl(i));
++            if (state.panes[i]) reload.push(i);
+         }
++        reload.forEach(function (slot) {
++            loadPaneContent(slot, state.panes[slot].tabKey, false);
++        });
+     }
+ 
+     function buildPaneEl(slot) {
+         var pane = state.panes[slot];
+         var el = document.createElement('section');
+-        el.className = 'org-pane' + (pane ? '' : ' is-drop') + (slot === state.activeSlot ? ' is-drop' : '');
++        // is-drop 只表示「当前格」这一种高亮（拖放机制已废弃：功能按钮没有 draggable，
++        // 全文件也没有 dragstart —— 之前空格也挂 is-drop 只是把两种含义混在一起）
++        el.className = 'org-pane' + (slot === state.activeSlot ? ' is-drop' : '');
+         el.dataset.slot = String(slot);
+ 
+         var head = document.createElement('div');
+@@ -649,6 +718,11 @@
+                 + '<p class="empty-state__hint">点左侧功能把它填进来；'
+                 + '用右上角「⚙️ 视图」可以把这一格设为「当前格」。</p>'
+                 + '</div>';
++        } else {
++            // 有内容（或正在加载）：先给"加载中"占位，renderPanes 会立刻触发真实加载，
++            // 不让重建后的格子出现空白无反馈的一帧。
++            body.setAttribute('aria-busy', 'true');
++            body.innerHTML = '<p class="loading-text" role="status">加载中...</p>';
+         }
+         el.appendChild(body);
+ 
+@@ -657,14 +731,6 @@
+             renderViewCard();
+             markActivePane();
+         });
+-        el.addEventListener('dragover', function (e) { e.preventDefault(); el.classList.add('is-drop'); });
+-        el.addEventListener('dragleave', function () { el.classList.remove('is-drop'); });
+-        el.addEventListener('drop', function (e) {
+-            e.preventDefault();
+-            el.classList.remove('is-drop');
+-            var tabKey = e.dataTransfer ? e.dataTransfer.getData('text/plain') : '';
+-            if (tabKey) openPage(tabKey, slot);
+-        });
+         return el;
+     }
+ 
+@@ -776,6 +842,10 @@
+ 
+         var slot = typeof slotOverride === 'number' && slotOverride >= 0 && slotOverride < state.split
+             ? slotOverride : targetSlotFor();
++        // 覆盖一个已占用的格子前，先释放它占的资源（脚本元素 / Blob URL / 该格的 <style>）。
++        // 早先直接覆盖 state.panes[slot]：旧 pane 的 styleId 从此无人引用，
++        // 那份 CSS 永久留在 <head> 里污染后面打开的页面。
++        if (state.panes[slot]) releasePane(slot);
+         state.activeSlot = slot;
+         state.panes[slot] = {
+             tabKey: tabKey,
+@@ -805,13 +875,19 @@
+             state.panes[i] = null;
+         }
+         state.pageCache = Object.create(null);
++        state.pendingPage = Object.create(null);
+         renderPanes();
+         renderViewCard();
+         renderFeatures();
+         if (!silent) toast('已关闭全部页面', 'info');
+     }
+ 
+-    /** 释放一格占用的资源（脚本元素 + Blob URL + 页面样式） */
++    /** 释放一格占用的资源（脚本元素 + Blob URL + 页面样式）
++     *
++     * ⚠️ 样式节点按**格子**编号（orgPageStyle-<slot>）并记在 pane.styleId 上：
++     * 早先按 tab_key 命名，同一页面被换到别的格子后旧 styleId 就再也没人删得掉，
++     * 那份 CSS 会永久留在 <head> 里污染后开的页面。
++     */
+     function releasePane(slot) {
+         var pane = state.panes[slot];
+         var old = document.getElementById('orgPageScript-' + slot);
+@@ -819,36 +895,45 @@
+         if (pane && pane.blobUrl) {
+             try { URL.revokeObjectURL(pane.blobUrl); } catch (e) { /* 忽略 */ }
+         }
+-        if (pane && pane.styleId) {
+-            var style = document.getElementById(pane.styleId);
+-            if (style && style.parentNode) style.parentNode.removeChild(style);
+-        }
++        var styleId = (pane && pane.styleId) || ('orgPageStyle-' + slot);
++        var style = document.getElementById(styleId);
++        if (style && style.parentNode) style.parentNode.removeChild(style);
++        if (pane) pane.styleId = null;
+     }
+ 
+     function loadPaneContent(slot, tabKey, force) {
+         var body = document.getElementById('orgPaneBody-' + slot);
+         if (!body) return;
++        var pane = state.panes[slot];
++        if (!pane || pane.tabKey !== tabKey) return;
++        // 每次加载领一个**全局单调递增**令牌，回调里比对 pane 上的令牌。
++        // 不能用挂在 pane 上的计数器自增：切组类会把 pane 换成新对象、计数从 1 重来，
++        // 上一个组类的在途响应就会被误判成"当前响应"，把别组内容注进这一格。
++        var token = nextSeq();
++        pane.loadToken = token;
++        body.setAttribute('aria-busy', 'true');
+         body.innerHTML = '<p class="loading-text" role="status">加载中...</p>';
+-        var seq = (state.panes[slot] || {}).seq = ((state.panes[slot] || {}).seq || 0) + 1;
+ 
+         fetchPage(tabKey, force).then(function (page) {
+-            var pane = state.panes[slot];
+-            if (!pane || pane.tabKey !== tabKey || pane.seq !== seq) return;   // 期间已切换
++            var paneNow = state.panes[slot];
++            if (!paneNow || paneNow.tabKey !== tabKey || paneNow.loadToken !== token) return;  // 期间已切换
+             var bodyNow = document.getElementById('orgPaneBody-' + slot);
+             if (!bodyNow) return;
++            bodyNow.setAttribute('aria-busy', 'false');
+ 
+             if (page.__error) {
+                 bodyNow.innerHTML = pageErrorHtml(page);
+                 return;
+             }
+-            pane.label = page.label || pane.label;
+-            pane.icon = page.icon || pane.icon;
++            paneNow.label = page.label || paneNow.label;
++            paneNow.icon = page.icon || paneNow.icon;
+             bodyNow.innerHTML = page.html || '<div class="empty-state">'
+                 + '<div class="empty-state__icon">📄</div>'
+                 + '<p class="empty-state__text">这个页面没有内容</p></div>';
+ 
+             if (page.css) {
+-                var styleId = 'orgPageStyle-' + tabKey;
++                // 每格一份样式，并记在 pane 上 → releasePane / 覆盖该格时能删干净
++                var styleId = 'orgPageStyle-' + slot;
+                 var style = document.getElementById(styleId);
+                 if (!style) {
+                     style = document.createElement('style');
+@@ -856,12 +941,12 @@
+                     document.head.appendChild(style);
+                 }
+                 if (style.textContent !== page.css) style.textContent = page.css;
+-                pane.styleId = styleId;
++                paneNow.styleId = styleId;
+             }
+ 
+             runPaneScript(slot, tabKey, page.js || '').then(function () {
+                 var head = document.querySelector('.org-pane[data-slot="' + slot + '"] .org-pane__title');
+-                if (head) head.textContent = pane.label;
++                if (head) head.textContent = paneNow.label;
+                 renderTabsCard();
+                 renderFeatures();
+             });
+@@ -874,9 +959,18 @@
+ 
+     function fetchPage(tabKey, force) {
+         if (!force && state.pageCache[tabKey]) return Promise.resolve(state.pageCache[tabKey]);
++        // 单飞：同一页面的并发请求合成一次（renderPanes 会对多格同时补内容）
++        var pending = state.pendingPage[tabKey];
++        if (pending) return pending;
+         var url = '/api/v0/org/class/' + encodeURIComponent(state.activeClass)
+             + '/pages/' + encodeURIComponent(tabKey);
+-        return orgFetch(url).then(function (res) {
++        var req;
++        try {
++            req = orgFetch(url);
++        } catch (e) {
++            req = Promise.reject(e);
++        }
++        var p = req.then(function (res) {
+             if (res && res.code === 200 && res.data) {
+                 state.pageCache[tabKey] = res.data;
+                 return res.data;
+@@ -886,7 +980,16 @@
+                 code: (res && res.code) || 500,
+                 msg: (res && res.msg) || '页面加载失败'
+             };
++        }).catch(function (err) {
++            // 兜底：不让 reject 冒到调用方（否则格子永久停在「加载中...」）
++            console.error('[ORG] 页面内容请求失败:', tabKey, err);
++            return { __error: true, code: 500, msg: '页面加载失败' };
++        }).then(function (out) {
++            delete state.pendingPage[tabKey];
++            return out;
+         });
++        state.pendingPage[tabKey] = p;
++        return p;
+     }
+ 
+     function pageErrorHtml(page) {
+
+commit 33a3930029b48d2d19931e2d81f1fdf36b570c75
+Author: GFYGO <gfygo_@outlook.com>
+Date:   Mon Sep 21 22:37:48 2026 +0800
+
+    org
+
+diff --git a/org/index.html b/org/index.html
+index e39b3b6..9387470 100644
+--- a/org/index.html
++++ b/org/index.html
+@@ -19,7 +19,7 @@
+     <link rel="stylesheet" href="./../css/core.css?v=20260911e">
+     <link rel="stylesheet" href="./../css/styles.css?v=20260911e">
+     <link rel="stylesheet" href="./../css/components.css?v=20260911e">
+-    <link rel="stylesheet" href="./org.css?v=20260921a">
++    <link rel="stylesheet" href="./org.css?v=20260921b">
+     <link rel="icon" href="./../favicon.png" type="image/png">
+ </head>
+ <body>
+@@ -168,6 +168,6 @@
+ <script src="./../js/toast.js?v=20260911e"></script>
+ <script src="./../js/modal.js?v=20260911e"></script>
+ <script src="./../js/index.js?v=20260911e"></script>
+-<script src="./org.js?v=20260921a"></script>
++<script src="./org.js?v=20260921b"></script>
+ </body>
+ </html>
+diff --git a/org/org.js b/org/org.js
+index 54970df..ede9c8f 100644
+--- a/org/org.js
++++ b/org/org.js
+@@ -414,7 +414,13 @@
+     function renderGroupList() {
+         var groups = state.classes.filter(function (c) { return c.kind === 'group'; });
+         if (!groups.length) {
+-            setHtml('groupList', '<p class="org-muted">你还没有加入任何组。</p>');
++            // 文案要能区分"真的没组"和"后端没给"：后者通常是我不属于任何组，
++            // 或者组类清单接口失败（见 renderClassesError）。
++            setHtml('groupList', '<p class="org-muted">'
++                + '这里还没有组。<br>'
++                + '进入一个组织（左上方「切换组织」）后，你是该组织 owner 时，'
++                + '它下辖的**全部组**都会列在这里；否则只列你加入的组与你是 owner 的组。'
++                + '</p>');
+             return;
+         }
+         var html = groups.map(function (g) {
+
+commit fa50f92c347eb68d821e58910dba219642126f72
+Author: GFYGO <gfygo_@outlook.com>
+Date:   Sun Sep 20 23:36:37 2026 +0800
+
+    ORG
+
+diff --git a/404.html b/404.html
+index 3ee861d..be897ec 100644
+--- a/404.html
++++ b/404.html
+@@ -39,6 +39,7 @@
+         <nav class="header__nav" id="headerNav">
+             <a href="./index.html">首页</a>
+             <a href="./document.html">文档</a>
++            <a href="./org/index.html">组织</a>
+             <a href="./login.html">登录</a>
+             <a href="./register.html">注册</a>
+         </nav>
+diff --git a/document.html b/document.html
+index 7089710..839e875 100644
+--- a/document.html
++++ b/document.html
+@@ -18,6 +18,7 @@
+     <nav class="header__nav" id="headerNav">
+       <a href="./index.html">首页</a>
+       <a href="./document.html" style="color: var(--color-primary); font-weight: 600;">文档</a>
++      <a href="./org/index.html">组织</a>
+       <a href="./login.html">登录</a>
+       <a href="./register.html">注册</a>
+     </nav>
+diff --git a/index.html b/index.html
+index c75b6c2..be70956 100644
+--- a/index.html
++++ b/index.html
+@@ -23,6 +23,7 @@
+     <nav class="header__nav" id="headerNav">
+         <a href="./index.html">首页</a>
+         <a href="./document.html">文档</a>
++        <a href="./org/index.html">组织</a>
+         <a href="./login.html">登录</a>
+         <a href="./register.html">注册</a>
+     </nav>
+diff --git a/js/config.js b/js/config.js
+index bc39ec2..5a5928b 100644
+--- a/js/config.js
++++ b/js/config.js
+@@ -5,7 +5,8 @@
+  */
+ 
+ const API_BASE_URL = "https://back.gwl.net.cn";
+-const BASE_PATH = (window.location.pathname.match(/\/(user|model)\//) ? '..' : '.');
++// 二级目录页面（user/ 仪表盘、model/ 模型样例、org/ 组织页）需要 `..` 回到站点根
++const BASE_PATH = (window.location.pathname.match(/\/(user|model|org)\//) ? '..' : '.');
+ const TOKEN_KEY = 'auth_token';
+ // 无法判定有效期时的保守兜底：后端签发 token 的默认寿命（50 小时），绝不视为「永不过期」
+ const DEFAULT_TOKEN_TTL_MS = 50 * 60 * 60 * 1000;
+diff --git a/js/index.js b/js/index.js
+index d441562..658a264 100644
+--- a/js/index.js
++++ b/js/index.js
+@@ -77,8 +77,9 @@ function initMobileSidebar() {
+  * 任务 FE-JS-03: 处理 /api/v0/notify/global 的响应并渲染
+  */
+ async function fetchGlobalNotifications() {
+-  // dashboard 页面有自己的通知加载逻辑，此处跳过
+-  if (/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname)) {
++  // dashboard / 组织页 有自己的通知加载逻辑，此处跳过
++  if (/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname)
++      || /\/org\/index\.html$/i.test(window.location.pathname)) {
+     return;
+   }
+   try {
+@@ -103,6 +104,10 @@ async function fetchAuthStatus() {
+   if (/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname)) {
+     return;
+   }
++  // 组织页自己渲染顶栏用户区（org.js::renderOrgAuthArea），这里跳过以免两套逻辑互相覆盖
++  if (/\/org\/index\.html$/i.test(window.location.pathname)) {
++    return;
++  }
+ 
+   // 访客视角预览模式：跳过 API 调用，直接渲染未登录状态
+   if (localStorage.getItem('guest_view_mode') === 'true') {
+diff --git a/login.html b/login.html
+index 3409cd6..fccb173 100644
+--- a/login.html
++++ b/login.html
+@@ -23,6 +23,7 @@
+         <nav class="header__nav" id="headerNav">
+             <a href="./index.html">首页</a>
+             <a href="./document.html">文档</a>
++            <a href="./org/index.html">组织</a>
+             <a href="./login.html" style="color: var(--color-primary); font-weight: 600;">登录</a>
+             <a href="./register.html">注册</a>
+         </nav>
+diff --git a/model/index.html b/model/index.html
+index 6d1a976..92bf891 100644
+--- a/model/index.html
++++ b/model/index.html
+@@ -27,6 +27,7 @@
+     <nav class="header__nav" id="headerNav">
+       <a href="../index.html">首页</a>
+       <a href="../document.html">文档</a>
++      <a href="../org/index.html">组织</a>
+       <a href="../login.html">登录</a>
+       <a href="../register.html">注册</a>
+     </nav>
+diff --git a/model/template.html b/model/template.html
+index 073e0a1..c6df66e 100644
+--- a/model/template.html
++++ b/model/template.html
+@@ -37,6 +37,7 @@
+     <nav class="header__nav" id="headerNav">
+       <a href="../index.html">首页</a>
+       <a href="../document.html">文档</a>
++      <a href="../org/index.html">组织</a>
+       <a href="../login.html">登录</a>
+       <a href="../register.html">注册</a>
+     </nav>
+diff --git a/model/test.html b/model/test.html
+index 993ad01..f2687ab 100644
+--- a/model/test.html
++++ b/model/test.html
+@@ -180,6 +180,7 @@
+     <nav class="header__nav" id="headerNav">
+       <a href="../index.html">首页</a>
+       <a href="../document.html">文档</a>
++      <a href="../org/index.html">组织</a>
+       <a href="index.html">模型</a>
+       <a href="../login.html">登录</a>
+     </nav>
+diff --git a/org/index.html b/org/index.html
+new file mode 100644
+index 0000000..e39b3b6
+--- /dev/null
++++ b/org/index.html
+@@ -0,0 +1,173 @@
++<!DOCTYPE html>
++<html lang="zh-CN">
++<head>
++    <meta charset="UTF-8">
++    <!--
++      CSP：
++        * `script-src ... blob:` —— 后端下发的**功能按钮页面**（pages/ 里 org_scope=org 的那些）
++          的 JS 由 /api/v0/org/class/<cid>/pages/<tab_key> 返回，前端以 Blob URL + <script src=blob:> 执行
++          （不使用 eval / new Function / 内联脚本）。
++        * `connect-src` 必须放行 `https://back.gwl.net.cn` —— 组织页是**独立页面**
++          （不是 user/ 那一套），共享的 `window.apiRequest` 用的是绝对地址 API_BASE_URL，
++          不放行的话所有接口都会被 CSP 拦掉（与 dashboard 同款配置）。
++        * `frame-src` 不放行后端域：动态页面是 innerHTML 注入，页面里的链接应新窗口打开，
++          不允许把后端域嵌成 iframe。
++    -->
++    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com https://back.gwl.net.cn; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>组织 | GWL</title>
++    <link rel="stylesheet" href="./../css/core.css?v=20260911e">
++    <link rel="stylesheet" href="./../css/styles.css?v=20260911e">
++    <link rel="stylesheet" href="./../css/components.css?v=20260911e">
++    <link rel="stylesheet" href="./org.css?v=20260921a">
++    <link rel="icon" href="./../favicon.png" type="image/png">
++</head>
++<body>
++<div class="org-layout">
++
++    <!-- ============ 顶栏 ============ -->
++    <header class="org-header">
++        <div class="org-header__left">
++            <!-- ① 已打开页面管理（弹出卡片）：上导航栏左侧 -->
++            <div class="org-popwrap" id="tabsWrap">
++                <button class="org-header__btn" id="tabsToggle" aria-haspopup="dialog" aria-expanded="false">
++                    <span aria-hidden="true">🗂️</span>
++                    <span class="org-header__btn-text">已打开页面</span>
++                    <span class="org-badge" id="tabsCount">0</span>
++                </button>
++                <div class="org-popcard" id="tabsCard" role="dialog" aria-label="已打开页面" hidden>
++                    <div class="org-popcard__head">
++                        <span>已打开页面</span>
++                        <button class="org-popcard__close" id="tabsCardClose" aria-label="关闭">&times;</button>
++                    </div>
++                    <div class="org-popcard__body" id="tabsList" aria-live="polite">
++                        <p class="org-muted">还没有打开任何页面。</p>
++                    </div>
++                    <div class="org-popcard__foot">
++                        <button class="org-btn org-btn--ghost" id="closeAllPages">全部关闭</button>
++                    </div>
++                </div>
++            </div>
++
++            <div class="org-header__logo">GWL <span>组织</span></div>
++        </div>
++
++        <nav class="org-header__nav header__nav" id="headerNav">
++            <a href="./../index.html">首页</a>
++            <a href="./../document.html">文档</a>
++            <a href="./index.html" style="color: var(--color-primary); font-weight: 600;">组织</a>
++            <a href="./../login.html">登录</a>
++            <a href="./../register.html">注册</a>
++        </nav>
++
++        <div class="org-header__right">
++            <div id="global-notifications-container" class="notification-toast"></div>
++            <div id="auth-container"></div>
++            <div class="permission-buttons" id="permissionButtons"></div>
++        </div>
++    </header>
++
++    <div class="org-body">
++
++        <!-- ============ 左导航 ============ -->
++        <aside class="org-sidebar">
++            <!-- ① 最上方：切换组织 -->
++            <div class="org-sidebar__section">
++                <div class="org-sidebar__title">切换组织</div>
++                <div class="org-popwrap org-popwrap--block">
++                    <button class="org-orgswitch" id="orgSwitchBtn" aria-haspopup="listbox" aria-expanded="false">
++                        <span class="org-orgswitch__id" id="orgCurrentId">---</span>
++                        <span class="org-orgswitch__name" id="orgCurrentName">加载中…</span>
++                        <span class="org-orgswitch__caret" aria-hidden="true">▾</span>
++                    </button>
++                    <div class="org-popcard org-popcard--block" id="orgSwitchCard" role="listbox" aria-label="选择组织" hidden>
++                        <div class="org-popcard__body" id="orgSwitchList"></div>
++                    </div>
++                </div>
++                <div class="org-orgmeta" id="orgMeta"></div>
++            </div>
++
++            <!-- ② 我加入的组 -->
++            <div class="org-sidebar__section">
++                <div class="org-sidebar__title">我加入的组</div>
++                <div id="groupList" class="org-grouplist" aria-live="polite">
++                    <p class="org-muted">加载中…</p>
++                </div>
++            </div>
++
++            <!-- ③ 组类功能按钮（一行 4 个，来自后端） -->
++            <div class="org-sidebar__section org-sidebar__section--grow">
++                <div class="org-sidebar__title">
++                    功能
++                    <span class="org-sidebar__title-hint" id="featureScopeHint"></span>
++                </div>
++                <div id="featureGrid" class="org-featuregrid" aria-live="polite" aria-busy="false">
++                    <p class="org-muted">加载中…</p>
++                </div>
++            </div>
++        </aside>
++
++        <!-- ============ 中间内容区（可 2 / 4 分屏） ============ -->
++        <main class="org-main" id="orgMain">
++            <!-- 右上角（不是上导航栏）：视图编辑弹出卡片 -->
++            <div class="org-popwrap org-vieweditor" id="viewWrap">
++                <button class="org-vieweditor__btn" id="viewToggle" aria-haspopup="dialog" aria-expanded="false">
++                    <span aria-hidden="true">⚙️</span> 视图
++                </button>
++                <div class="org-popcard" id="viewCard" role="dialog" aria-label="视图设置" hidden>
++                    <div class="org-popcard__head">
++                        <span>视图设置</span>
++                        <button class="org-popcard__close" id="viewCardClose" aria-label="关闭">&times;</button>
++                    </div>
++                    <div class="org-popcard__body">
++                        <div class="org-field">
++                            <label class="org-field__label">分屏</label>
++                            <div class="org-splitpick" id="splitPick" role="radiogroup" aria-label="分屏方式">
++                                <button class="org-splitpick__opt" data-split="1" role="radio" aria-checked="false">单屏</button>
++                                <button class="org-splitpick__opt" data-split="2" role="radio" aria-checked="false">左右 2 屏</button>
++                                <button class="org-splitpick__opt" data-split="4" role="radio" aria-checked="false">四宫格 4 屏</button>
++                            </div>
++                        </div>
++                        <div class="org-field">
++                            <label class="org-field__label">当前格（新打开的页面放这里）</label>
++                            <div class="org-slotpick" id="slotPick" role="radiogroup" aria-label="当前格"></div>
++                        </div>
++                        <p class="org-hint" id="viewHint"></p>
++                    </div>
++                    <div class="org-popcard__foot">
++                        <button class="org-btn org-btn--ghost" id="closeCurrentSlot">关闭当前格</button>
++                        <button class="org-btn org-btn--ghost" id="resetView">复位视图</button>
++                    </div>
++                </div>
++            </div>
++
++            <!-- 分屏容器：格数由 JS 按视图设置渲染 -->
++            <div class="org-panes" id="orgPanes" data-split="1"></div>
++
++            <!-- 一个页面都没打开时的占位（与分屏容器互斥显示） -->
++            <div class="org-welcome" id="orgWelcome">
++                <div class="empty-state">
++                    <div class="empty-state__icon">🏢</div>
++                    <p class="empty-state__text">从左侧功能里选一个页面打开</p>
++                    <p class="empty-state__hint">
++                        页面会在当前格中打开；用右上角「⚙️ 视图」可以把内容区分成 2 屏或 4 屏，
++                        用左上角「🗂️ 已打开页面」可以切换、关闭已打开的页面。
++                    </p>
++                </div>
++            </div>
++        </main>
++    </div>
++</div>
++
++<!--
++  脚本加载顺序：共享层（config/utils/toast/modal）→ 本页逻辑。
++  共享层提供的全局：window.apiRequest / window.AuthGuard / window.showToast / window.Modal / window.escapeHtml
++-->
++<script src="./../js/config.js?v=20260911e"></script>
++<script src="./../js/utils.js?v=20260911e"></script>
++<script src="./../js/toast.js?v=20260911e"></script>
++<script src="./../js/modal.js?v=20260911e"></script>
++<script src="./../js/index.js?v=20260911e"></script>
++<script src="./org.js?v=20260921a"></script>
++</body>
++</html>
+diff --git a/org/org.css b/org/org.css
+new file mode 100644
+index 0000000..d2178e4
+--- /dev/null
++++ b/org/org.css
+@@ -0,0 +1,764 @@
++/* =========================================
++   org.css — 组织页（gfygo-site/org/index.html）
++   ⚠️ 本文件是组织页的**唯一样式来源**：组织页只加载
++      core.css + styles.css + components.css + org.css
++      （**不加载** user/dashboard.css、js/feature-grid.css）。
++   因此下面「空 / 错误 / 加载状态」那一段是 dashboard.css 里同名类的
++   **刻意副本**（由 tools/test-org-page.mjs 断言两处内容一致）——
++   若哪天改为共享一个文件，请同步删掉这里的副本与那条断言。
++   ========================================= */
++
++/* =========================================
++   1. 总体布局：顶栏 + (左导航 | 内容区)
++   ========================================= */
++.org-layout {
++    display: flex;
++    flex-direction: column;
++    height: 100vh;
++    height: 100dvh;
++    overflow: hidden;
++    background: var(--color-bg-body);
++}
++
++.org-header {
++    display: flex;
++    align-items: center;
++    gap: 12px;
++    flex: 0 0 auto;
++    height: var(--header-height);
++    padding: 0 16px;
++    background: var(--color-bg-white);
++    border-bottom: 1px solid var(--color-border);
++    position: relative;
++    z-index: 40;
++}
++
++.org-header__left {
++    display: flex;
++    align-items: center;
++    gap: 12px;
++    flex: 0 0 auto;
++    position: relative;
++}
++
++.org-header__logo {
++    font-weight: 700;
++    color: var(--color-text-main);
++    white-space: nowrap;
++}
++
++.org-header__logo span {
++    color: var(--color-primary);
++}
++
++.org-header__nav {
++    flex: 1 1 auto;
++    display: flex;
++    gap: 4px;
++}
++
++.org-header__right {
++    display: flex;
++    align-items: center;
++    gap: 10px;
++    flex: 0 0 auto;
++}
++
++.org-header__btn {
++    display: inline-flex;
++    align-items: center;
++    gap: 6px;
++    padding: 6px 12px;
++    border: 1px solid var(--color-border);
++    border-radius: var(--radius-md);
++    background: var(--color-bg-secondary);
++    color: var(--color-text-main);
++    font-size: 14px;
++    cursor: pointer;
++    white-space: nowrap;
++}
++
++.org-header__btn:hover {
++    background: var(--color-bg-hover);
++}
++
++.org-badge {
++    min-width: 18px;
++    padding: 0 5px;
++    border-radius: 9px;
++    background: var(--color-primary);
++    color: #fff;
++    font-size: 11px;
++    line-height: 18px;
++    text-align: center;
++}
++
++.org-body {
++    flex: 1 1 auto;
++    display: flex;
++    min-height: 0;
++}
++
++/* =========================================
++   2. 左导航
++   ========================================= */
++.org-sidebar {
++    flex: 0 0 260px;
++    width: 260px;
++    display: flex;
++    flex-direction: column;
++    gap: 14px;
++    padding: 14px;
++    overflow-y: auto;
++    background: var(--color-bg-white);
++    border-right: 1px solid var(--color-border);
++}
++
++.org-sidebar__section {
++    display: flex;
++    flex-direction: column;
++    gap: 8px;
++}
++
++.org-sidebar__section--grow {
++    flex: 1 1 auto;
++    min-height: 0;
++}
++
++.org-sidebar__title {
++    display: flex;
++    align-items: baseline;
++    justify-content: space-between;
++    gap: 6px;
++    font-size: 12px;
++    font-weight: 700;
++    letter-spacing: 0.06em;
++    color: var(--color-text-muted);
++    text-transform: uppercase;
++}
++
++.org-sidebar__title-hint {
++    font-size: 11px;
++    font-weight: 400;
++    letter-spacing: 0;
++    text-transform: none;
++    opacity: 0.85;
++}
++
++/* --- 切换组织 --- */
++.org-orgswitch {
++    display: flex;
++    align-items: center;
++    gap: 8px;
++    width: 100%;
++    padding: 10px 12px;
++    border: 1px solid var(--color-border);
++    border-radius: var(--radius-md);
++    background: var(--color-bg-secondary);
++    color: var(--color-text-main);
++    cursor: pointer;
++    text-align: left;
++}
++
++.org-orgswitch:hover {
++    border-color: var(--color-primary);
++}
++
++.org-orgswitch__id {
++    flex: 0 0 auto;
++    font-family: var(--font-mono);
++    font-size: 12px;
++    padding: 2px 6px;
++    border-radius: var(--radius-sm);
++    background: var(--color-primary);
++    color: #fff;
++    text-transform: lowercase;
++}
++
++.org-orgswitch__name {
++    flex: 1 1 auto;
++    overflow: hidden;
++    text-overflow: ellipsis;
++    white-space: nowrap;
++    font-weight: 600;
++}
++
++.org-orgswitch__caret {
++    flex: 0 0 auto;
++    opacity: 0.6;
++}
++
++.org-orgmeta {
++    font-size: 12px;
++    color: var(--color-text-muted);
++    line-height: 1.5;
++}
++
++.org-orgmeta .org-tag {
++    display: inline-block;
++    margin-right: 6px;
++}
++
++.org-tag {
++    display: inline-block;
++    padding: 1px 7px;
++    border-radius: 999px;
++    font-size: 11px;
++    line-height: 18px;
++    background: var(--color-bg-section-alt);
++    color: var(--color-text-sub);
++    border: 1px solid var(--color-border);
++}
++
++.org-tag--owner {
++    background: var(--color-primary);
++    border-color: var(--color-primary);
++    color: #fff;
++}
++
++.org-tag--kind {
++    font-family: var(--font-mono);
++    text-transform: lowercase;
++}
++
++/* --- 我加入的组 --- */
++.org-grouplist {
++    display: flex;
++    flex-direction: column;
++    gap: 6px;
++}
++
++.org-group {
++    display: flex;
++    align-items: center;
++    gap: 8px;
++    width: 100%;
++    padding: 8px 10px;
++    border: 1px solid transparent;
++    border-radius: var(--radius-md);
++    background: transparent;
++    color: var(--color-text-main);
++    cursor: pointer;
++    text-align: left;
++    font-size: 14px;
++}
++
++.org-group:hover {
++    background: var(--color-bg-hover);
++}
++
++.org-group.is-active {
++    background: var(--color-bg-section-alt);
++    border-color: var(--color-primary);
++    font-weight: 600;
++}
++
++.org-group__id {
++    flex: 0 0 auto;
++    font-family: var(--font-mono);
++    font-size: 11px;
++    opacity: 0.75;
++}
++
++.org-group__name {
++    flex: 1 1 auto;
++    overflow: hidden;
++    text-overflow: ellipsis;
++    white-space: nowrap;
++}
++
++/* --- 功能按钮：一行 4 个 --- */
++.org-featuregrid {
++    display: grid;
++    grid-template-columns: repeat(4, minmax(0, 1fr));
++    gap: 8px;
++    align-content: start;
++}
++
++.org-feature {
++    display: flex;
++    flex-direction: column;
++    align-items: center;
++    justify-content: flex-start;
++    gap: 4px;
++    padding: 10px 4px;
++    min-height: 68px;
++    border: 1px solid var(--color-border);
++    border-radius: var(--radius-md);
++    background: var(--color-bg-secondary);
++    color: var(--color-text-main);
++    cursor: pointer;
++    text-align: center;
++}
++
++.org-feature:hover {
++    border-color: var(--color-primary);
++    transform: translateY(-1px);
++}
++
++.org-feature.is-open {
++    border-color: var(--color-primary);
++    box-shadow: inset 0 0 0 1px var(--color-primary);
++}
++
++.org-feature__icon {
++    font-size: 20px;
++    line-height: 1;
++}
++
++.org-feature__label {
++    font-size: 11px;
++    line-height: 1.25;
++    word-break: break-word;
++}
++
++/* =========================================
++   3. 弹出卡片（两个入口共用一套外观）
++   ========================================= */
++.org-popwrap {
++    position: relative;
++}
++
++.org-popwrap--block {
++    display: block;
++}
++
++.org-popcard {
++    position: absolute;
++    top: calc(100% + 8px);
++    right: 0;
++    z-index: 60;
++    width: 320px;
++    max-width: calc(100vw - 32px);
++    display: flex;
++    flex-direction: column;
++    background: var(--color-bg-white);
++    border: 1px solid var(--color-border);
++    border-radius: var(--radius-lg);
++    box-shadow: var(--shadow-lg);
++    overflow: hidden;
++}
++
++.org-popcard--block {
++    left: 0;
++    right: 0;
++    width: auto;
++    max-height: 280px;
++}
++
++.org-popcard__head {
++    display: flex;
++    align-items: center;
++    justify-content: space-between;
++    gap: 8px;
++    padding: 10px 12px;
++    border-bottom: 1px solid var(--color-border);
++    font-weight: 600;
++    font-size: 14px;
++    color: var(--color-text-main);
++}
++
++.org-popcard__close {
++    border: none;
++    background: transparent;
++    color: var(--color-text-muted);
++    font-size: 18px;
++    line-height: 1;
++    cursor: pointer;
++    padding: 0 2px;
++}
++
++.org-popcard__body {
++    padding: 10px 12px;
++    overflow-y: auto;
++    max-height: 320px;
++}
++
++.org-popcard__foot {
++    display: flex;
++    gap: 8px;
++    justify-content: flex-end;
++    padding: 8px 12px;
++    border-top: 1px solid var(--color-border);
++}
++
++.org-popcard[hidden] {
++    display: none;
++}
++
++/* --- 已打开页面列表 --- */
++.org-tablist {
++    list-style: none;
++    margin: 0;
++    padding: 0;
++    display: flex;
++    flex-direction: column;
++    gap: 4px;
++}
++
++.org-tabrow {
++    display: flex;
++    align-items: center;
++    gap: 8px;
++    padding: 6px 8px;
++    border-radius: var(--radius-sm);
++    background: var(--color-bg-secondary);
++}
++
++.org-tabrow.is-active {
++    outline: 1px solid var(--color-primary);
++}
++
++.org-tabrow__slot {
++    flex: 0 0 auto;
++    font-family: var(--font-mono);
++    font-size: 11px;
++    color: var(--color-text-muted);
++}
++
++.org-tabrow__label {
++    flex: 1 1 auto;
++    overflow: hidden;
++    text-overflow: ellipsis;
++    white-space: nowrap;
++    font-size: 13px;
++}
++
++.org-tabrow__btn {
++    flex: 0 0 auto;
++    border: none;
++    background: transparent;
++    color: var(--color-text-sub);
++    cursor: pointer;
++    font-size: 12px;
++    padding: 2px 4px;
++}
++
++.org-tabrow__btn:hover {
++    color: var(--color-primary);
++}
++
++/* =========================================
++   4. 内容区与分屏
++   ========================================= */
++.org-main {
++    position: relative;
++    flex: 1 1 auto;
++    min-width: 0;
++    display: flex;
++    flex-direction: column;
++    padding: 14px;
++    overflow: hidden;
++}
++
++.org-vieweditor {
++    position: absolute;
++    top: 14px;
++    right: 20px;
++    z-index: 50;
++}
++
++.org-vieweditor__btn {
++    display: inline-flex;
++    align-items: center;
++    gap: 6px;
++    padding: 6px 12px;
++    border: 1px solid var(--color-border);
++    border-radius: 999px;
++    background: var(--color-bg-white);
++    color: var(--color-text-main);
++    box-shadow: var(--shadow-sm);
++    cursor: pointer;
++    font-size: 13px;
++}
++
++.org-vieweditor__btn:hover {
++    border-color: var(--color-primary);
++}
++
++.org-field {
++    display: flex;
++    flex-direction: column;
++    gap: 6px;
++    margin-bottom: 12px;
++}
++
++.org-field__label {
++    font-size: 12px;
++    font-weight: 600;
++    color: var(--color-text-muted);
++}
++
++.org-splitpick {
++    display: flex;
++    flex-wrap: wrap;
++    gap: 6px;
++}
++
++.org-splitpick__opt {
++    padding: 5px 10px;
++    border: 1px solid var(--color-border);
++    border-radius: var(--radius-md);
++    background: var(--color-bg-secondary);
++    color: var(--color-text-main);
++    font-size: 12px;
++    cursor: pointer;
++}
++
++.org-splitpick__opt[aria-checked="true"] {
++    border-color: var(--color-primary);
++    background: var(--color-primary);
++    color: #fff;
++}
++
++.org-slotpick {
++    display: grid;
++    grid-template-columns: repeat(4, minmax(0, 1fr));
++    gap: 6px;
++}
++
++.org-slotpick__opt {
++    padding: 6px 0;
++    border: 1px dashed var(--color-border);
++    border-radius: var(--radius-sm);
++    background: var(--color-bg-secondary);
++    color: var(--color-text-main);
++    font-size: 12px;
++    cursor: pointer;
++}
++
++.org-slotpick__opt[aria-checked="true"] {
++    border-style: solid;
++    border-color: var(--color-primary);
++    box-shadow: inset 0 0 0 1px var(--color-primary);
++    font-weight: 700;
++}
++
++.org-slotpick__opt:disabled {
++    opacity: 0.4;
++    cursor: not-allowed;
++}
++
++.org-hint {
++    margin: 0;
++    font-size: 12px;
++    color: var(--color-text-muted);
++    line-height: 1.5;
++}
++
++/* --- 分屏容器 --- */
++.org-panes {
++    flex: 1 1 auto;
++    min-height: 0;
++    display: grid;
++    gap: 12px;
++    padding-top: 40px;   /* 给右上角的「视图」按钮让出位置 */
++}
++
++.org-panes[data-split="1"] {
++    grid-template-columns: 1fr;
++    grid-template-rows: 1fr;
++}
++
++.org-panes[data-split="2"] {
++    grid-template-columns: 1fr 1fr;
++    grid-template-rows: 1fr;
++}
++
++.org-panes[data-split="4"] {
++    grid-template-columns: 1fr 1fr;
++    grid-template-rows: 1fr 1fr;
++}
++
++.org-panes[hidden],
++.org-welcome[hidden] {
++    display: none;
++}
++
++.org-pane {
++    display: flex;
++    flex-direction: column;
++    min-height: 0;
++    min-width: 0;
++    background: var(--color-bg-white);
++    border: 1px solid var(--color-border);
++    border-radius: var(--radius-md);
++    overflow: hidden;
++}
++
++.org-pane.is-drop {
++    border-color: var(--color-primary);
++    box-shadow: inset 0 0 0 1px var(--color-primary);
++}
++
++.org-pane__head {
++    display: flex;
++    align-items: center;
++    gap: 8px;
++    flex: 0 0 auto;
++    padding: 6px 10px;
++    background: var(--color-bg-section-alt);
++    border-bottom: 1px solid var(--color-border);
++    font-size: 13px;
++}
++
++.org-pane__head.is-empty {
++    color: var(--color-text-muted);
++}
++
++.org-pane__icon {
++    flex: 0 0 auto;
++}
++
++.org-pane__title {
++    flex: 1 1 auto;
++    overflow: hidden;
++    text-overflow: ellipsis;
++    white-space: nowrap;
++    font-weight: 600;
++    color: var(--color-text-main);
++}
++
++.org-pane__close {
++    flex: 0 0 auto;
++    border: none;
++    background: transparent;
++    color: var(--color-text-muted);
++    cursor: pointer;
++    font-size: 15px;
++    line-height: 1;
++}
++
++.org-pane__close:hover {
++    color: var(--color-primary);
++}
++
++.org-pane__body {
++    flex: 1 1 auto;
++    min-height: 0;
++    overflow: auto;
++    padding: 14px;
++}
++
++.org-welcome {
++    flex: 1 1 auto;
++    display: flex;
++    align-items: center;
++    justify-content: center;
++    padding-top: 40px;
++}
++
++/* =========================================
++   5. 空 / 错误 / 加载状态
++   ⚠️ 与 user/dashboard.css 的同名类**必须逐字一致**（见文件头说明）；
++      tools/test-org-page.mjs 会断言这一段没有被改歪。
++   ========================================= */
++.empty-state {
++    display: flex;
++    flex-direction: column;
++    align-items: center;
++    justify-content: center;
++    gap: 6px;
++    padding: 32px 16px;
++    text-align: center;
++}
++
++.empty-state__icon {
++    font-size: 34px;
++    line-height: 1;
++    opacity: 0.9;
++}
++
++.empty-state .empty-state__text {
++    padding: 0;
++}
++
++.empty-state__text--compact {
++    padding: 24px 0 !important;
++}
++
++.empty-state__hint {
++    margin-top: 6px;
++    color: var(--color-text-muted, #9ca3af);
++    font-size: 13px;
++}
++
++.panel-title {
++    font-size: 20px;
++    margin: 0 0 16px;
++    color: var(--color-text-main);
++}
++
++.loading-text {
++    color: var(--color-text-muted);
++    font-size: 14px;
++    padding: 16px 0;
++}
++
++/* --- 本页自有的小工具类 --- */
++.org-muted {
++    margin: 4px 0;
++    color: var(--color-text-muted);
++    font-size: 13px;
++    line-height: 1.5;
++}
++
++.org-btn {
++    padding: 6px 12px;
++    border-radius: var(--radius-md);
++    border: 1px solid var(--color-border);
++    background: var(--color-bg-secondary);
++    color: var(--color-text-main);
++    font-size: 13px;
++    cursor: pointer;
++}
++
++.org-btn--ghost:hover {
++    border-color: var(--color-primary);
++}
++
++.org-notice {
++    margin: 0 0 10px;
++    padding: 8px 10px;
++    border-radius: var(--radius-sm);
++    background: var(--color-bg-section-alt);
++    border: 1px solid var(--color-border);
++    color: var(--color-text-sub);
++    font-size: 12px;
++    line-height: 1.5;
++}
++
++/* =========================================
++   6. 响应式：窄屏折叠左导航
++   ========================================= */
++@media (max-width: 860px) {
++    .org-header__btn-text,
++    .org-header__logo {
++        display: none;
++    }
++
++    .org-body {
++        flex-direction: column;
++    }
++
++    .org-sidebar {
++        flex: 0 0 auto;
++        width: auto;
++        max-height: 42vh;
++        border-right: none;
++        border-bottom: 1px solid var(--color-border);
++    }
++
++    .org-panes[data-split="2"],
++    .org-panes[data-split="4"] {
++        grid-template-columns: 1fr;
++        grid-template-rows: none;
++        grid-auto-rows: minmax(0, 1fr);
++    }
++}
++
++/* 主题里的深色背景下，弹出卡片要明显亮于内容区 */
++[data-theme="dark_green"] .org-popcard,
++[data-theme="gray"] .org-popcard {
++    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
++}
+diff --git a/org/org.js b/org/org.js
+new file mode 100644
+index 0000000..54970df
+--- /dev/null
++++ b/org/org.js
+@@ -0,0 +1,972 @@
++/**
++ * org.js — 组织页（gfygo-site/org/index.html）
++ *
++ * ## 这一页在做什么
++ *   组织（organizations）下辖组（groups），两者合称**组类**，id 都是 3 位字母。
++ *   本页是组类的**工作台**：
++ *     * 左上角「切换组织」      —— 我加入/拥有的组织（弹出卡片列表）
++ *     * 其下「我加入的组」      —— 组与组织一样是组类，都可作为当前组类
++ *     * 再下「功能」            —— **一行 4 个**的功能按钮，来自后端
++ *                                 （`GET /api/v0/org/class/<cid>/pages`）
++ *     * 中间                   —— 按钮页面的承载区，可分成 1 / 2 / 4 格
++ *     * 右上角「⚙️ 视图」       —— 分屏格数与「当前格」（弹出卡片）
++ *     * 左上角「🗂️ 已打开页面」 —— 已打开页面的切换 / 关闭（弹出卡片）
++ *
++ * ## 功能按钮为什么是"动态页面"
++ *   与个人仪表盘完全同源：后端 `site-back/pages/<tab_key>/` 是唯一内容源，
++ *   同步进 `menu_items`，本页只取 `org_scope='org'` 的那一批。
++ *   因此**以后要扩展功能 ＝ 往后端加一个目录**，本文件一行都不用改。
++ *   页面内容的 html/css/js 以 innerHTML / <style> / Blob <script> 注入
++ *   （不使用 eval / new Function / 内联脚本；CSP 已为动态页面放行 `blob:`）。
++ *
++ * ## 组类身份怎么传给后端
++ *   每个请求都带 `X-Org-Class: <3字母id>`。后端据此把该组类写进
++ *   `now_permission.class_id`，于是权限节点 `<组类id>.<角色名>.<类别>.<权限>`
++ *   得以匹配（组类的 owner 直接放行 —— 该组类的权限设置对其无效）。
++ *   ⚠️ 后端会**校验我是否属于这个组类**；不属于则身份不会被采用（等价于没有组类身份）。
++ *
++ * ## 刻意不做的事
++ *   * 不在前端做权限推断：按钮是否出现**完全由后端列表接口决定**
++ *     （历史教训：前端二次过滤会吃掉服务端已授权的项，见 PROJECT_MEMORY §0.4）。
++ *   * 不引入任何框架 / 构建：本文件是普通脚本（非 ES module）。
++ */
++(function () {
++    'use strict';
++
++    var TAB_KEY_RE = /^[a-zA-Z0-9_-]{1,50}$/;
++    var LS_LAST_CLASS = 'org_last_class_id';
++    var LS_SPLIT = 'org_view_split';
++
++    // ============================================================
++    // 状态
++    // ============================================================
++
++    var state = {
++        token: null,
++        classes: [],        // 平铺清单（组织 + 组）
++        orgs: [],           // 组织（含下属组）
++        activeClass: null,  // 当前组类 id
++        classMeta: null,    // 当前组类详情（来自 /class/<cid>）
++        pages: [],          // 当前组类的功能按钮（后端下发）
++        split: 1,           // 1 | 2 | 4
++        activeSlot: 0,      // 「当前格」：新页面打开在这里
++        panes: [],          // 每格：null 或 {tabKey, label, icon}
++        pageCache: Object.create(null),
++        booted: false
++    };
++
++    function pageBase() {
++        return (window.API_BASE_URL || '');
++    }
++
++    // ============================================================
++    // 网络：所有请求都带 X-Org-Class
++    // ============================================================
++
++    function orgHeaders(extra) {
++        var headers = extra || {};
++        if (state.activeClass) headers['X-Org-Class'] = state.activeClass;
++        return headers;
++    }
++
++    /** 统一请求：返回 {code,msg,data}；401/422 交给 AuthGuard */
++    function orgFetch(path, opts) {
++        opts = opts || {};
++        var headers = orgHeaders(opts.headers);
++        return window.apiRequest(path, {
++            method: opts.method || 'GET',
++            headers: headers,
++            body: opts.body,
++            silent: opts.silent
++        }).then(function (res) {
++            if (res === null) return { code: 500, msg: '网络异常或登录已失效' };
++            return res;
++        });
++    }
++
++    /** 后端返回的 data 里若有 status（组织表是否就绪），在前端显式提示 */
++    function noteStatus(data) {
++        if (data && data.status && data.status.tables_ready === false) {
++            toast(data.status.hint || '组织数据表尚未就绪', 'info');
++        }
++    }
++
++    function toast(msg, type) {
++        if (typeof window.showToast === 'function') window.showToast(msg, type || 'info');
++    }
++
++    function esc(value) {
++        if (typeof window.escapeHtml === 'function') return window.escapeHtml(value);
++        return String(value == null ? '' : value)
++            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
++            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
++    }
++
++    // ============================================================
++    // 启动
++    // ============================================================
++
++    function boot() {
++        state.token = window.AuthGuard ? window.AuthGuard.getToken() : null;
++        bindChrome();
++        renderViewCard();
++        renderPanes();
++
++        if (!state.token) {
++            renderLoggedOut();
++            return;
++        }
++        renderOrgAuthArea();
++        loadClasses();
++    }
++
++    /** 顶栏两个弹出卡片 + 视图卡片的事件绑定（只绑一次） */
++    function bindChrome() {
++        bindPopcard('tabsToggle', 'tabsCard');
++        bindPopcard('viewToggle', 'viewCard');
++        bindPopcard('orgSwitchBtn', 'orgSwitchCard');
++
++        on('tabsCardClose', 'click', function () { hideCard('tabsCard', 'tabsToggle'); });
++        on('viewCardClose', 'click', function () { hideCard('viewCard', 'viewToggle'); });
++        on('closeAllPages', 'click', closeAllPages);
++
++        // 分屏选择
++        var splitPick = document.getElementById('splitPick');
++        if (splitPick) {
++            splitPick.addEventListener('click', function (e) {
++                var btn = e.target.closest('[data-split]');
++                if (!btn) return;
++                setSplit(parseInt(btn.dataset.split, 10), true);
++            });
++        }
++        on('closeCurrentSlot', 'click', function () { closeSlot(state.activeSlot); });
++        on('resetView', 'click', function () {
++            setSplit(1, true);
++            state.activeSlot = 0;
++            renderViewCard();
++            toast('视图已复位为单屏', 'success');
++        });
++
++        // 点击页面空白处收起弹出卡片
++        document.addEventListener('click', function (e) {
++            ['tabsCard', 'viewCard', 'orgSwitchCard'].forEach(function (id) {
++                var card = document.getElementById(id);
++                if (!card || card.hidden) return;
++                var wrap = card.parentNode;
++                if (wrap && !wrap.contains(e.target)) {
++                    card.hidden = true;
++                    syncAria(id, false);
++                }
++            });
++        });
++        document.addEventListener('keydown', function (e) {
++            if (e.key !== 'Escape') return;
++            ['tabsCard', 'viewCard', 'orgSwitchCard'].forEach(function (id) {
++                var card = document.getElementById(id);
++                if (card && !card.hidden) { card.hidden = true; syncAria(id, false); }
++            });
++        });
++    }
++
++    function on(id, event, handler) {
++        var el = document.getElementById(id);
++        if (el) el.addEventListener(event, handler);
++    }
++
++    /** 弹出卡片：按钮 ↔ 卡片（点按钮切换，点卡片内不收起） */
++    function bindPopcard(btnId, cardId) {
++        var btn = document.getElementById(btnId);
++        var card = document.getElementById(cardId);
++        if (!btn || !card) return;
++        btn.addEventListener('click', function (e) {
++            e.stopPropagation();
++            var willOpen = card.hidden;
++            card.hidden = !willOpen;
++            syncAria(cardId, willOpen);
++        });
++        card.addEventListener('click', function (e) { e.stopPropagation(); });
++    }
++
++    function syncAria(cardId, open) {
++        var btn = document.getElementById(cardId === 'tabsCard' ? 'tabsToggle'
++            : cardId === 'viewCard' ? 'viewToggle' : 'orgSwitchBtn');
++        if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
++    }
++
++    function hideCard(cardId, btnId) {
++        var card = document.getElementById(cardId);
++        if (card) card.hidden = true;
++        var btn = document.getElementById(btnId);
++        if (btn) btn.setAttribute('aria-expanded', 'false');
++    }
++
++    // ============================================================
++    // 未登录 / 顶栏用户区
++    // ============================================================
++
++    function renderLoggedOut() {
++        ['orgCurrentId', 'orgCurrentName'].forEach(function (id) {
++            var el = document.getElementById(id);
++            if (el) el.textContent = id === 'orgCurrentId' ? '---' : '未登录';
++        });
++        setHtml('orgSwitchList', '<p class="org-muted">登录后才能看到你加入的组织。</p>');
++        setHtml('groupList', '<p class="org-muted">登录后才能看到你加入的组。</p>');
++        setHtml('featureGrid', '<p class="org-muted">登录后才显示功能按钮。</p>');
++        var auth = document.getElementById('auth-container');
++        if (auth) {
++            auth.innerHTML = '<a class="org-btn" href="' + esc(window.BASE_PATH || '..') + '/login.html">登录</a>';
++        }
++        var hint = document.getElementById('viewHint');
++        if (hint) hint.textContent = '登录后可用。';
++    }
++
++    /** 顶栏用户区 + 权限切换按钮（复用主站的 renderAuthStatus / renderPermissionButtons） */
++    function renderOrgAuthArea() {
++        if (typeof window.renderAuthStatus !== 'function') return;
++        window.apiRequest('/api/v0/auth/status', { silent: true }).then(function (res) {
++            if (!res || res.code !== 200 || !res.data) return;
++            var user = res.data.user || res.data;
++            window.renderAuthStatus(user);
++            if (typeof window.renderPermissionButtons === 'function') {
++                window.renderPermissionButtons({
++                    current_level: user.permission_level || 1,
++                    max_level: user.permission_level || 1
++                });
++            }
++        });
++    }
++
++    // ============================================================
++    // 组类加载
++    // ============================================================
++
++    function loadClasses() {
++        orgFetch('/api/v0/org/classes').then(function (res) {
++            if (!res || res.code !== 200 || !res.data) {
++                renderClassesError((res && res.msg) || '组类列表加载失败');
++                return;
++            }
++            noteStatus(res.data);
++            state.classes = Array.isArray(res.data.classes) ? res.data.classes : [];
++            return orgFetch('/api/v0/org/orgs').then(function (res2) {
++                if (res2 && res2.code === 200 && res2.data) {
++                    state.orgs = Array.isArray(res2.data.orgs) ? res2.data.orgs : [];
++                } else {
++                    state.orgs = [];
++                }
++                pickInitialClass();
++            });
++        });
++    }
++
++    function renderClassesError(msg) {
++        setHtml('orgSwitchList', '<p class="org-muted">' + esc(msg) + '</p>');
++        setHtml('groupList', '<p class="org-muted">' + esc(msg) + '</p>');
++        setHtml('featureGrid', '<p class="org-muted">' + esc(msg) + '</p>');
++        var nameEl = document.getElementById('orgCurrentName');
++        if (nameEl) nameEl.textContent = '加载失败';
++    }
++
++    /** 选一个初始组类：URL ?class= > 上次记住的 > 第一个组织 > 第一个组 */
++    function pickInitialClass() {
++        if (!state.classes.length) {
++            renderClassShell();
++            return;
++        }
++        var wanted = readClassFromUrl() || readLastClass();
++        var known = {};
++        state.classes.forEach(function (c) { known[c.id] = true; });
++        if (!wanted || !known[wanted]) {
++            var firstOrg = state.classes.filter(function (c) { return c.kind === 'org'; })[0];
++            wanted = (firstOrg || state.classes[0]).id;
++        }
++        selectClass(wanted);
++    }
++
++    function readClassFromUrl() {
++        try {
++            var v = new URL(window.location.href).searchParams.get('class');
++            return v && /^[a-zA-Z]{3}$/.test(v) ? v.toLowerCase() : null;
++        } catch (e) {
++            return null;
++        }
++    }
++
++    function readLastClass() {
++        try {
++            var v = window.localStorage.getItem(LS_LAST_CLASS);
++            return v && /^[a-zA-Z]{3}$/.test(v) ? v.toLowerCase() : null;
++        } catch (e) {
++            return null;
++        }
++    }
++
++    function rememberClass(cid) {
++        try { window.localStorage.setItem(LS_LAST_CLASS, cid); } catch (e) { /* 忽略 */ }
++        try {
++            var url = new URL(window.location.href);
++            url.searchParams.set('class', cid);
++            window.history.replaceState(window.history.state || null, '', url.toString());
++        } catch (e) { /* 忽略 */ }
++    }
++
++    /**
++     * 切换当前组类。
++     * 会清空已打开的页面 —— 那些页面是按**上一个组类**的权限拉下来的，
++     * 留在屏幕上等于展示越权内容（宁可不留，也不要用错权限渲染的残留）。
++     */
++    function selectClass(cid) {
++        if (!cid || !/^[a-zA-Z]{3}$/.test(cid)) return;
++        cid = cid.toLowerCase();
++        if (state.activeClass === cid && state.booted) {
++            hideCard('orgSwitchCard', 'orgSwitchBtn');
++            return;
++        }
++        state.activeClass = cid;
++        rememberClass(cid);
++        hideCard('orgSwitchCard', 'orgSwitchBtn');
++        closeAllPages(true);
++
++        renderClassShell();
++        orgFetch('/api/v0/org/class/' + encodeURIComponent(cid)).then(function (res) {
++            if (res && res.code === 200 && res.data) {
++                state.classMeta = res.data;
++            } else {
++                state.classMeta = null;
++            }
++            renderOrgList();
++            renderGroupList();
++            renderClassHeader();
++            loadFeatures();
++            state.booted = true;
++        });
++    }
++
++    function renderClassShell() {
++        var current = findClass(state.activeClass);
++        setText('orgCurrentId', state.activeClass || '---');
++        setText('orgCurrentName', current ? current.name : (state.activeClass ? state.activeClass : '暂无组类'));
++        renderOrgList();
++        renderGroupList();
++        renderClassHeader();
++
++        if (!state.classes.length) {
++            setHtml('orgSwitchList', '<p class="org-muted">'
++                + '你还没有加入任何组织或组。<br>请让管理员在后台创建组织/组，并把你的账号加入某个组。'
++                + '</p>');
++            setHtml('groupList', '<p class="org-muted">暂无。</p>');
++            setHtml('featureGrid', '<p class="org-muted">暂无可用的功能。</p>');
++            var hint = document.getElementById('viewHint');
++            if (hint) hint.textContent = '还没有可用的组类，因此没有功能按钮。';
++        }
++    }
++
++    function findClass(cid) {
++        for (var i = 0; i < state.classes.length; i++) {
++            if (state.classes[i].id === cid) return state.classes[i];
++        }
++        return null;
++    }
++
++    // ============================================================
++    // 左导航渲染
++    // ============================================================
++
++    function renderOrgList() {
++        var rows = [];
++        var seen = {};
++        state.orgs.forEach(function (org) {
++            seen[org.id] = true;
++            rows.push(orgRow(org));
++        });
++        // /orgs 没返回但 /classes 里有组织条目（例如只有 owner 而没有成员记录）
++        state.classes.forEach(function (c) {
++            if (c.kind !== 'org' || seen[c.id]) return;
++            rows.push(orgRow({ id: c.id, name: c.name, owner: c.owner, role: c.role, groups: [] }));
++        });
++        if (!rows.length) {
++            setHtml('orgSwitchList', '<p class="org-muted">你还没有加入任何组织。</p>');
++            return;
++        }
++        setHtml('orgSwitchList', rows.join(''));
++        var list = document.getElementById('orgSwitchList');
++        if (list) {
++            list.querySelectorAll('[data-class-id]').forEach(function (el) {
++                el.addEventListener('click', function () { selectClass(el.dataset.classId); });
++            });
++        }
++    }
++
++    function orgRow(org) {
++        var active = org.id === state.activeClass ? ' is-active' : '';
++        var tags = '';
++        if (org.owner) tags += '<span class="org-tag org-tag--owner">owner</span>';
++        else if (org.role) tags += '<span class="org-tag">' + esc(org.role) + '</span>';
++        var count = Array.isArray(org.groups) ? org.groups.length : 0;
++        return '<button type="button" class="org-group' + active + '" data-class-id="' + esc(org.id) + '">'
++            + '<span class="org-group__id">' + esc(org.id) + '</span>'
++            + '<span class="org-group__name">' + esc(org.name) + '</span>'
++            + tags
++            + '<span class="org-tag">' + count + ' 组</span>'
++            + '</button>';
++    }
++
++    function renderGroupList() {
++        var groups = state.classes.filter(function (c) { return c.kind === 'group'; });
++        if (!groups.length) {
++            setHtml('groupList', '<p class="org-muted">你还没有加入任何组。</p>');
++            return;
++        }
++        var html = groups.map(function (g) {
++            var active = g.id === state.activeClass ? ' is-active' : '';
++            var tags = g.owner ? '<span class="org-tag org-tag--owner">owner</span>'
++                : '<span class="org-tag">' + esc(g.role || 'member') + '</span>';
++            return '<button type="button" class="org-group' + active + '" data-class-id="' + esc(g.id) + '">'
++                + '<span class="org-group__id">' + esc(g.id) + '</span>'
++                + '<span class="org-group__name">' + esc(g.name) + '</span>'
++                + tags
++                + '</button>';
++        }).join('');
++        setHtml('groupList', html);
++        var list = document.getElementById('groupList');
++        if (list) {
++            list.querySelectorAll('[data-class-id]').forEach(function (el) {
++                el.addEventListener('click', function () { selectClass(el.dataset.classId); });
++            });
++        }
++    }
++
++    function renderClassHeader() {
++        var meta = document.getElementById('orgMeta');
++        if (!meta) return;
++        var c = findClass(state.activeClass);
++        var snap = state.classMeta;
++        if (!c && !snap) { meta.textContent = ''; return; }
++        var kind = (snap && snap.kind) || (c && c.kind) || 'group';
++        var role = (snap && snap.role) || (c && c.role) || 'member';
++        var parts = [];
++        parts.push('<span class="org-tag org-tag--kind">' + esc(kind === 'org' ? '组织' : '组') + '</span>');
++        parts.push('<span class="org-tag' + ((snap && snap.owner) ? ' org-tag--owner' : '') + '">'
++            + esc(role) + '</span>');
++        if (snap && snap.org_id) parts.push('<span class="org-tag">上级 ' + esc(snap.org_id) + '</span>');
++        if (snap && snap.view_node) parts.push('<span class="org-tag" title="权限节点">'
++            + esc(snap.view_node) + '</span>');
++        meta.innerHTML = parts.join(' ');
++    }
++
++    // ============================================================
++    // 功能按钮（一行 4 个，后端下发）
++    // ============================================================
++
++    function loadFeatures() {
++        var grid = document.getElementById('featureGrid');
++        if (grid) {
++            grid.setAttribute('aria-busy', 'true');
++            grid.innerHTML = '<p class="loading-text" role="status">加载中...</p>';
++        }
++        var cid = state.activeClass;
++        if (!cid) return;
++        orgFetch('/api/v0/org/class/' + encodeURIComponent(cid) + '/pages').then(function (res) {
++            if (grid) grid.setAttribute('aria-busy', 'false');
++            if (!res || res.code !== 200 || !res.data) {
++                setHtml('featureGrid', '<p class="org-muted">'
++                    + esc((res && res.msg) || '功能列表加载失败') + '</p>');
++                return;
++            }
++            if (res.data.class && !state.classMeta) state.classMeta = res.data.class;
++            state.pages = Array.isArray(res.data.pages) ? res.data.pages : [];
++            renderFeatures();
++            renderClassHeader();
++        });
++    }
++
++    function renderFeatures() {
++        var hint = document.getElementById('featureScopeHint');
++        if (hint) hint.textContent = state.activeClass ? ('@' + state.activeClass) : '';
++        if (!state.pages.length) {
++            setHtml('featureGrid', '<p class="org-muted">'
++                + '这个组类下暂无可用的功能。<br>'
++                + '（功能按钮由后端 `pages/` 目录里 `org_scope=org` 的页面决定；'
++                + '若你是本组类的 owner，权限设置不会挡住你 —— 说明确实还没有这样的页面。）'
++                + '</p>');
++            return;
++        }
++        var html = state.pages.map(function (p) {
++            var open = isOpen(p.tab_key) ? ' is-open' : '';
++            return '<button type="button" class="org-feature' + open + '" data-tab="' + esc(p.tab_key) + '"'
++                + ' title="' + esc(p.description || p.label) + '">'
++                + '<span class="org-feature__icon" aria-hidden="true">' + esc(p.icon || '📄') + '</span>'
++                + '<span class="org-feature__label">' + esc(p.label) + '</span>'
++                + '</button>';
++        }).join('');
++        setHtml('featureGrid', html);
++        var grid = document.getElementById('featureGrid');
++        if (grid) {
++            grid.querySelectorAll('[data-tab]').forEach(function (el) {
++                el.addEventListener('click', function () { openPage(el.dataset.tab); });
++            });
++        }
++    }
++
++    function findPage(tabKey) {
++        for (var i = 0; i < state.pages.length; i++) {
++            if (state.pages[i].tab_key === tabKey) return state.pages[i];
++        }
++        return null;
++    }
++
++    function isOpen(tabKey) {
++        return state.panes.some(function (p) { return p && p.tabKey === tabKey; });
++    }
++
++    // ============================================================
++    // 分屏与格
++    // ============================================================
++
++    function clampSplit(n) {
++        return (n === 2 || n === 4) ? n : 1;
++    }
++
++    function setSplit(n, userAction) {
++        n = clampSplit(parseInt(n, 10));
++        // 缩小格数：超出范围的页面**先尝试搬到空格**，搬不动才关闭（绝不静默丢弃）
++        if (n < state.panes.length) {
++            var moved = 0;
++            var closed = 0;
++            for (var i = n; i < state.panes.length; i++) {
++                var pane = state.panes[i];
++                if (!pane) continue;
++                var target = firstEmptySlot(n);
++                if (target >= 0) {
++                    state.panes[target] = pane;
++                    moved++;
++                } else {
++                    releasePane(i);
++                    closed++;
++                }
++                state.panes[i] = null;
++            }
++            if (userAction && (moved || closed)) {
++                toast('已调整分屏：移动 ' + moved + ' 个页面'
++                    + (closed ? ('，关闭 ' + closed + ' 个（空间不足）') : ''), 'info');
++            }
++        }
++        state.split = n;
++        state.panes = state.panes.slice(0, n);
++        while (state.panes.length < n) state.panes.push(null);
++        if (state.activeSlot >= n) state.activeSlot = n - 1;
++        try { window.localStorage.setItem(LS_SPLIT, String(n)); } catch (e) { /* 忽略 */ }
++        renderPanes();
++        renderViewCard();
++    }
++
++    function readSavedSplit() {
++        try {
++            var v = parseInt(window.localStorage.getItem(LS_SPLIT), 10);
++            return clampSplit(v);
++        } catch (e) {
++            return 1;
++        }
++    }
++
++    function firstEmptySlot(limit) {
++        var end = typeof limit === 'number' ? limit : state.split;
++        for (var i = 0; i < end; i++) {
++            if (!state.panes[i]) return i;
++        }
++        return -1;
++    }
++
++    /** 新页面开在哪里：当前格为空 → 当前格；否则第一个空格；都满 → 当前格（替换） */
++    function targetSlotFor() {
++        if (!state.panes[state.activeSlot]) return state.activeSlot;
++        var empty = firstEmptySlot();
++        return empty >= 0 ? empty : state.activeSlot;
++    }
++
++    function renderPanes() {
++        var container = document.getElementById('orgPanes');
++        if (!container) return;
++        container.dataset.split = String(state.split);
++
++        var any = state.panes.some(Boolean);
++        container.hidden = !any;
++        var welcome = document.getElementById('orgWelcome');
++        if (welcome) welcome.hidden = any;
++
++        container.innerHTML = '';
++        for (var i = 0; i < state.split; i++) {
++            container.appendChild(buildPaneEl(i));
++        }
++    }
++
++    function buildPaneEl(slot) {
++        var pane = state.panes[slot];
++        var el = document.createElement('section');
++        el.className = 'org-pane' + (pane ? '' : ' is-drop') + (slot === state.activeSlot ? ' is-drop' : '');
++        el.dataset.slot = String(slot);
++
++        var head = document.createElement('div');
++        head.className = 'org-pane__head' + (pane ? '' : ' is-empty');
++
++        var icon = document.createElement('span');
++        icon.className = 'org-pane__icon';
++        icon.setAttribute('aria-hidden', 'true');
++        icon.textContent = pane ? (pane.icon || '📄') : '·';
++        head.appendChild(icon);
++
++        var title = document.createElement('span');
++        title.className = 'org-pane__title';
++        title.textContent = pane ? pane.label : ('空格 ' + (slot + 1) + '（点左侧功能打开）');
++        head.appendChild(title);
++
++        if (pane) {
++            var close = document.createElement('button');
++            close.className = 'org-pane__close';
++            close.setAttribute('aria-label', '关闭这一格');
++            close.innerHTML = '&times;';
++            close.addEventListener('click', function (e) {
++                e.stopPropagation();
++                closeSlot(slot);
++            });
++            head.appendChild(close);
++        }
++        el.appendChild(head);
++
++        var body = document.createElement('div');
++        body.className = 'org-pane__body';
++        body.id = 'orgPaneBody-' + slot;
++        if (!pane) {
++            body.innerHTML = '<div class="empty-state">'
++                + '<div class="empty-state__icon">➕</div>'
++                + '<p class="empty-state__text">这一格是空的</p>'
++                + '<p class="empty-state__hint">点左侧功能把它填进来；'
++                + '用右上角「⚙️ 视图」可以把这一格设为「当前格」。</p>'
++                + '</div>';
++        }
++        el.appendChild(body);
++
++        el.addEventListener('click', function () {
++            state.activeSlot = slot;
++            renderViewCard();
++            markActivePane();
++        });
++        el.addEventListener('dragover', function (e) { e.preventDefault(); el.classList.add('is-drop'); });
++        el.addEventListener('dragleave', function () { el.classList.remove('is-drop'); });
++        el.addEventListener('drop', function (e) {
++            e.preventDefault();
++            el.classList.remove('is-drop');
++            var tabKey = e.dataTransfer ? e.dataTransfer.getData('text/plain') : '';
++            if (tabKey) openPage(tabKey, slot);
++        });
++        return el;
++    }
++
++    function markActivePane() {
++        var container = document.getElementById('orgPanes');
++        if (!container) return;
++        container.querySelectorAll('.org-pane').forEach(function (el) {
++            var isActive = parseInt(el.dataset.slot, 10) === state.activeSlot;
++            el.style.outline = isActive ? '2px solid var(--color-primary)' : '';
++            el.style.outlineOffset = isActive ? '-2px' : '';
++        });
++    }
++
++    function renderViewCard() {
++        var splitPick = document.getElementById('splitPick');
++        if (splitPick) {
++            splitPick.querySelectorAll('[data-split]').forEach(function (btn) {
++                var on = parseInt(btn.dataset.split, 10) === state.split;
++                btn.setAttribute('aria-checked', on ? 'true' : 'false');
++            });
++        }
++        var slotPick = document.getElementById('slotPick');
++        if (slotPick) {
++            var html = '';
++            for (var i = 0; i < state.split; i++) {
++                var pane = state.panes[i];
++                html += '<button type="button" class="org-slotpick__opt" data-slot="' + i + '"'
++                    + ' role="radio" aria-checked="' + (i === state.activeSlot ? 'true' : 'false') + '">'
++                    + (i + 1) + (pane ? ' ●' : '')
++                    + '</button>';
++            }
++            slotPick.innerHTML = html;
++            slotPick.querySelectorAll('[data-slot]').forEach(function (btn) {
++                btn.addEventListener('click', function () {
++                    state.activeSlot = parseInt(btn.dataset.slot, 10);
++                    renderViewCard();
++                    markActivePane();
++                });
++            });
++        }
++        var hint = document.getElementById('viewHint');
++        if (hint) {
++            var used = state.panes.filter(Boolean).length;
++            hint.textContent = '当前 ' + state.split + ' 格，已用 ' + used + ' 格；'
++                + '新页面会开在「当前格」（第 ' + (state.activeSlot + 1) + ' 格）——'
++                + '当前格已占用时优先找空格，全满则替换当前格。';
++        }
++        renderTabsCard();
++    }
++
++    function renderTabsCard() {
++        var list = document.getElementById('tabsList');
++        var count = state.panes.filter(Boolean).length;
++        setText('tabsCount', String(count));
++        if (!list) return;
++        if (!count) {
++            list.innerHTML = '<p class="org-muted">还没有打开任何页面。</p>';
++            return;
++        }
++        var rows = [];
++        for (var i = 0; i < state.panes.length; i++) {
++            var pane = state.panes[i];
++            if (!pane) continue;
++            rows.push('<li class="org-tabrow' + (i === state.activeSlot ? ' is-active' : '')
++                + '" data-slot="' + i + '">'
++                + '<span class="org-tabrow__slot">#' + (i + 1) + '</span>'
++                + '<span class="org-tabrow__label">' + esc(pane.icon || '📄') + ' '
++                + esc(pane.label) + '</span>'
++                + '<button type="button" class="org-tabrow__btn" data-act="focus">定位</button>'
++                + '<button type="button" class="org-tabrow__btn" data-act="close" aria-label="关闭">&times;</button>'
++                + '</li>');
++        }
++        list.innerHTML = '<ul class="org-tablist">' + rows.join('') + '</ul>';
++        list.querySelectorAll('.org-tabrow').forEach(function (row) {
++            var slot = parseInt(row.dataset.slot, 10);
++            row.addEventListener('click', function (e) {
++                var act = e.target && e.target.dataset ? e.target.dataset.act : '';
++                if (act === 'close') {
++                    e.stopPropagation();
++                    closeSlot(slot);
++                    return;
++                }
++                state.activeSlot = slot;
++                renderViewCard();
++                markActivePane();
++                hideCard('tabsCard', 'tabsToggle');
++            });
++        });
++    }
++
++    // ============================================================
++    // 页面打开 / 关闭
++    // ============================================================
++
++    function openPage(tabKey, slotOverride) {
++        if (typeof tabKey !== 'string' || !TAB_KEY_RE.test(tabKey)) return;
++        var meta = findPage(tabKey);
++
++        // 已经开着 → 定位到它（不重复打开）
++        for (var i = 0; i < state.panes.length; i++) {
++            if (state.panes[i] && state.panes[i].tabKey === tabKey) {
++                state.activeSlot = i;
++                renderViewCard();
++                markActivePane();
++                renderFeatures();
++                return;
++            }
++        }
++
++        var slot = typeof slotOverride === 'number' && slotOverride >= 0 && slotOverride < state.split
++            ? slotOverride : targetSlotFor();
++        state.activeSlot = slot;
++        state.panes[slot] = {
++            tabKey: tabKey,
++            label: meta ? meta.label : tabKey,
++            icon: meta ? (meta.icon || '📄') : '📄'
++        };
++        renderPanes();
++        renderViewCard();
++        markActivePane();
++        renderFeatures();
++        loadPaneContent(slot, tabKey, false);
++    }
++
++    function closeSlot(slot) {
++        if (slot < 0 || slot >= state.panes.length) return;
++        releasePane(slot);
++        state.panes[slot] = null;
++        renderPanes();
++        renderViewCard();
++        markActivePane();
++        renderFeatures();
++    }
++
++    function closeAllPages(silent) {
++        for (var i = 0; i < state.panes.length; i++) {
++            if (state.panes[i]) releasePane(i);
++            state.panes[i] = null;
++        }
++        state.pageCache = Object.create(null);
++        renderPanes();
++        renderViewCard();
++        renderFeatures();
++        if (!silent) toast('已关闭全部页面', 'info');
++    }
++
++    /** 释放一格占用的资源（脚本元素 + Blob URL + 页面样式） */
++    function releasePane(slot) {
++        var pane = state.panes[slot];
++        var old = document.getElementById('orgPageScript-' + slot);
++        if (old && old.parentNode) old.parentNode.removeChild(old);
++        if (pane && pane.blobUrl) {
++            try { URL.revokeObjectURL(pane.blobUrl); } catch (e) { /* 忽略 */ }
++        }
++        if (pane && pane.styleId) {
++            var style = document.getElementById(pane.styleId);
++            if (style && style.parentNode) style.parentNode.removeChild(style);
++        }
++    }
++
++    function loadPaneContent(slot, tabKey, force) {
++        var body = document.getElementById('orgPaneBody-' + slot);
++        if (!body) return;
++        body.innerHTML = '<p class="loading-text" role="status">加载中...</p>';
++        var seq = (state.panes[slot] || {}).seq = ((state.panes[slot] || {}).seq || 0) + 1;
++
++        fetchPage(tabKey, force).then(function (page) {
++            var pane = state.panes[slot];
++            if (!pane || pane.tabKey !== tabKey || pane.seq !== seq) return;   // 期间已切换
++            var bodyNow = document.getElementById('orgPaneBody-' + slot);
++            if (!bodyNow) return;
++
++            if (page.__error) {
++                bodyNow.innerHTML = pageErrorHtml(page);
++                return;
++            }
++            pane.label = page.label || pane.label;
++            pane.icon = page.icon || pane.icon;
++            bodyNow.innerHTML = page.html || '<div class="empty-state">'
++                + '<div class="empty-state__icon">📄</div>'
++                + '<p class="empty-state__text">这个页面没有内容</p></div>';
++
++            if (page.css) {
++                var styleId = 'orgPageStyle-' + tabKey;
++                var style = document.getElementById(styleId);
++                if (!style) {
++                    style = document.createElement('style');
++                    style.id = styleId;
++                    document.head.appendChild(style);
++                }
++                if (style.textContent !== page.css) style.textContent = page.css;
++                pane.styleId = styleId;
++            }
++
++            runPaneScript(slot, tabKey, page.js || '').then(function () {
++                var head = document.querySelector('.org-pane[data-slot="' + slot + '"] .org-pane__title');
++                if (head) head.textContent = pane.label;
++                renderTabsCard();
++                renderFeatures();
++            });
++
++            document.dispatchEvent(new CustomEvent('org:page-opened', {
++                detail: { slot: slot, tabKey: tabKey, classId: state.activeClass, page: page }
++            }));
++        });
++    }
++
++    function fetchPage(tabKey, force) {
++        if (!force && state.pageCache[tabKey]) return Promise.resolve(state.pageCache[tabKey]);
++        var url = '/api/v0/org/class/' + encodeURIComponent(state.activeClass)
++            + '/pages/' + encodeURIComponent(tabKey);
++        return orgFetch(url).then(function (res) {
++            if (res && res.code === 200 && res.data) {
++                state.pageCache[tabKey] = res.data;
++                return res.data;
++            }
++            return {
++                __error: true,
++                code: (res && res.code) || 500,
++                msg: (res && res.msg) || '页面加载失败'
++            };
++        });
++    }
++
++    function pageErrorHtml(page) {
++        var code = page && page.code;
++        var title = code === 403 ? '权限不足'
++            : code === 404 ? '页面不存在或未安装' : '页面加载失败';
++        return '<div class="empty-state">'
++            + '<div class="empty-state__icon">' + (code === 403 ? '🔒' : '📄') + '</div>'
++            + '<p class="empty-state__text">' + esc(title) + '</p>'
++            + (page && page.msg ? '<p class="empty-state__hint">' + esc(page.msg) + '</p>' : '')
++            + '</div>';
++    }
++
++    /** 执行页面脚本：Blob URL + <script src=blob:>（与仪表盘同一套机制） */
++    function runPaneScript(slot, tabKey, js) {
++        var old = document.getElementById('orgPageScript-' + slot);
++        if (old && old.parentNode) old.parentNode.removeChild(old);
++        if (!js || !String(js).trim()) return Promise.resolve(true);
++
++        var url;
++        try {
++            url = URL.createObjectURL(new Blob([js], { type: 'text/javascript' }));
++        } catch (e) {
++            console.error('[ORG] 页面脚本 Blob 创建失败:', tabKey, e);
++            return Promise.resolve(false);
++        }
++        var pane = state.panes[slot];
++        if (pane) pane.blobUrl = url;
++
++        return new Promise(function (resolve) {
++            var script = document.createElement('script');
++            script.id = 'orgPageScript-' + slot;
++            script.src = url;
++            script.onload = function () {
++                if (pane && pane.blobUrl === url) {
++                    try { URL.revokeObjectURL(url); } catch (e) { /* 忽略 */ }
++                    pane.blobUrl = null;
++                }
++                resolve(true);
++            };
++            script.onerror = function () {
++                console.warn('[ORG] 页面脚本执行失败（可能被 CSP 拦截）:', tabKey);
++                resolve(false);
++            };
++            document.head.appendChild(script);
++        });
++    }
++
++    // ============================================================
++    // 小工具
++    // ============================================================
++
++    function setHtml(id, html) {
++        var el = document.getElementById(id);
++        if (el) el.innerHTML = html;
++    }
++
++    function setText(id, text) {
++        var el = document.getElementById(id);
++        if (el) el.textContent = text;
++    }
++
++    // ============================================================
++    // 入口
++    // ============================================================
++
++    function start() {
++        setSplit(readSavedSplit(), false);
++        boot();
++    }
++
++    if (document.readyState === 'loading') {
++        document.addEventListener('DOMContentLoaded', start);
++    } else {
++        start();
++    }
++
++    // 供测试 / 其它脚本使用
++    window.OrgPage = {
++        state: state,
++        selectClass: selectClass,
++        openPage: openPage,
++        closeSlot: closeSlot,
++        closeAllPages: closeAllPages,
++        setSplit: setSplit,
++        renderViewCard: renderViewCard,
++        loadFeatures: loadFeatures
++    };
++})();
+diff --git a/register.html b/register.html
+index 9c75424..bf9835a 100644
+--- a/register.html
++++ b/register.html
+@@ -23,6 +23,7 @@
+         <nav class="header__nav" id="headerNav">
+             <a href="./index.html">首页</a>
+             <a href="./document.html">文档</a>
++            <a href="./org/index.html">组织</a>
+             <a href="./login.html">登录</a>
+             <a href="./register.html" style="color: var(--color-primary); font-weight: 600;">注册</a>
+         </nav>
+diff --git a/user/dashboard.html b/user/dashboard.html
+index 6ab159f..c88bcdd 100644
+--- a/user/dashboard.html
++++ b/user/dashboard.html
+@@ -86,6 +86,7 @@
+                 <nav class="dashboard-header__nav header__nav" id="dashboardNav">
+                     <a href="./../index.html">首页</a>
+                     <a href="./../document.html">文档</a>
++                    <a href="./../org/index.html">组织</a>
+                     <a href="./../login.html">登录</a>
+                     <a href="./../register.html">注册</a>
+                 </nav>
+
+commit 671e8d18dd656321b1cb35b24283e583a65a3667
+Author: GFYGO <gfygo_@outlook.com>
+Date:   Sat Sep 19 20:40:18 2026 +0800
+
+    4
+
+diff --git a/user/dashboard.html b/user/dashboard.html
+index af450c4..6ab159f 100644
+--- a/user/dashboard.html
++++ b/user/dashboard.html
+@@ -6,24 +6,26 @@
+       CSP：EasyMDE（编辑器）默认会注入 Font Awesome 样式表（maxcdn.bootstrapcdn.com），
+       其图标字体来自同一域，因此 style-src / font-src 必须放行该域，否则编辑器工具栏图标不显示。
+       img-src 保留 https: 以兼容用户头像/横幅的外链图片。
+-      script-src 放行 blob:：动态页面的 JS 由后端下发（/api/v0/user/pages/<tab_key>），
+-      前端以 Blob URL + <script src=blob:> 执行 —— 不使用 eval / new Function / 内联脚本。
++      script-src 放行 blob:：**后端下发的动态页面**（pages/ 里的 ai-demo + 5 个管理页）的 JS 由
++      /api/v0/user/pages/<tab_key> 返回，前端以 Blob URL + <script src=blob:> 执行
++      —— 不使用 eval / new Function / 内联脚本。
++      （侧边栏那 4 个基础页是 dashboard.html 里写死的静态面板，内容不经过后端。）
+     -->
+     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://maxcdn.bootstrapcdn.com; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net https://maxcdn.bootstrapcdn.com; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <title>个人主页 | GWL</title>
+-    <link rel="stylesheet" href="./../css/core.css?v=20260920e">
+-    <link rel="stylesheet" href="./../css/styles.css?v=20260920e">
+-    <link rel="stylesheet" href="./../css/components.css?v=20260920e">
+-    <link rel="stylesheet" href="./dashboard.css?v=20260920e">
++    <link rel="stylesheet" href="./../css/core.css?v=20260920f">
++    <link rel="stylesheet" href="./../css/styles.css?v=20260920f">
++    <link rel="stylesheet" href="./../css/components.css?v=20260920f">
++    <link rel="stylesheet" href="./dashboard.css?v=20260920f">
+     <!--
+       ⚠️ dashboard-profile.css 是「个人主页（#panel-home）」的唯一样式来源
+       （profile-banner / profile-avatar-large / profile-cards / card / calendar-* / checkin-btn）。
+       该文件此前**从未被任何 HTML 引用**（孤儿文件）→ 个人主页长期是无样式的裸 DOM。
+       删除或重命名它之前，先确认 #panel-home 的结构是否仍在使用。
+     -->
+-    <link rel="stylesheet" href="./dashboard-profile.css?v=20260920e">
+-    <link rel="stylesheet" href="./dashboard-admin.css?v=20260920e">
++    <link rel="stylesheet" href="./dashboard-profile.css?v=20260920f">
++    <link rel="stylesheet" href="./dashboard-admin.css?v=20260920f">
+     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.css">
+     <link rel="icon" href="./../favicon.png" type="image/png">
+ </head>
+@@ -120,7 +122,126 @@
+                     </div>
+                 </section>
+ 
+-                <!-- 动态内容容器：JS 动态注入所有动态页面 -->
++                <!-- ===== 基础页面（前端写死，内容**不由后端下发**）=====
++                     这 4 个面板对应侧边栏里写死的 4 个基础项（dashboard.menu.js::PRIMARY_MENU）：
++                     工作台 / 通知 / 个人文档 / 第三方工具。
++                     它们**不是** pages/ 里的动态页面 —— 只有数据走接口（通知 → /api/v0/notify/global，
++                     个人文档 → /api/v0/document/*），页面结构与样式都在前端。
++                     renderTab() 命中 `#panel-<tabKey>` 就直接显示并调用各自的初始化钩子
++                     （见 dashboard.menu.js::STATIC_PANEL_HOOKS），不再请求页面内容接口。 -->
++
++                <!-- 工作台 -->
++                <section class="admin-page tab-panel" id="panel-workspace" style="display: none;">
++                    <h2 class="panel-title">🏠 工作台</h2>
++                    <div class="empty-state">
++                        <div class="empty-state__icon">🛠️</div>
++                        <p class="empty-state__text">工作台功能开发中</p>
++                        <p class="empty-state__hint">
++                            现在可以用的入口：左侧「个人文档」「通知」「第三方工具」；
++                            管理页面在侧边栏下方分组里。
++                        </p>
++                    </div>
++                </section>
++
++                <!-- 通知（数据来自 /api/v0/notify/global，见 dashboard.notifications.js） -->
++                <section class="admin-page tab-panel" id="panel-notifications" style="display: none;">
++                    <h2 class="panel-title">🔔 通知</h2>
++                    <div id="notifyList" class="notify-list" aria-live="polite" aria-busy="true">
++                        <p class="loading-text" role="status">加载中...</p>
++                    </div>
++                </section>
++
++                <!-- 个人文档（逻辑在 dashboard.pdocs.js，数据来自 /api/v0/document/*） -->
++                <section class="admin-page tab-panel" id="panel-docs" style="display: none;">
++                    <!-- 面包屑路径 -->
++                    <div class="pdocs-breadcrumb" id="pdocsPathBreadcrumb"></div>
++
++                    <!-- 文档列表视图 -->
++                    <div class="pdocs-view" id="pdocs-view-list">
++                        <div class="pdocs-toolbar">
++                            <h2 class="panel-title">个人文档</h2>
++                            <div class="pdocs-toolbar-actions">
++                                <button class="pdocs-btn pdocs-btn--secondary" id="pdocsUpBtn" title="返回上一级">↑ 返回上一级</button>
++                                <button class="pdocs-btn pdocs-btn--secondary" id="pdocsFolderAddBtn" title="新建文件夹">📁 新建文件夹</button>
++                                <button class="pdocs-btn pdocs-btn--primary" id="pdocsNewBtn">+ 新建文档</button>
++                                <div class="pdocs-dropdown" id="pdocsImportDropdown">
++                                    <button class="pdocs-btn pdocs-btn--secondary" id="pdocsImportBtn" type="button">📥 导入</button>
++                                    <div class="pdocs-dropdown__menu" id="pdocsImportMenu">
++                                        <button class="pdocs-dropdown__item" id="pdocsImportMdBtn" type="button">📄 导入 .md 文件</button>
++                                        <div class="pdocs-dropdown__divider"></div>
++                                        <div class="pdocs-dropdown__hint">将 Markdown 文档导入为私有文档，格式支持：.md / .markdown</div>
++                                    </div>
++                                </div>
++                                <button class="pdocs-btn pdocs-btn--secondary" id="pdocsTrashBtn">🗑 回收站</button>
++                            </div>
++                        </div>
++                        <input type="file" id="pdocsImportFileInput" accept=".md,.markdown,text/markdown,text/plain" style="display:none;">
++                        <div class="pdocs-explorer-grid" id="pdocsListContainer">
++                            <p class="loading-text">加载中...</p>
++                        </div>
++                    </div>
++
++                    <!-- 浏览视图 -->
++                    <div class="pdocs-view" id="pdocs-view-browse" style="display: none;">
++                        <div class="pdocs-browser-toolbar">
++                            <button class="pdocs-btn pdocs-btn--secondary" id="pdocsBrowserBackBtn">← 返回列表</button>
++                            <div class="pdocs-browser-titlebar" id="pdocsBrowserTitlebar">
++                                <span class="pdocs-browser-icon" id="pdocsBrowserIcon">📄</span>
++                                <span class="pdocs-browser-title" id="pdocsBrowserTitle">加载中...</span>
++                            </div>
++                            <div class="pdocs-browser-actions">
++                                <button class="pdocs-btn pdocs-btn--ghost" id="pdocsBrowserOpenInDocBtn" title="在文档中心打开">🔗 外部打开</button>
++                                <button class="pdocs-btn pdocs-btn--secondary" id="pdocsBrowserEditBtn">✏️ 编辑</button>
++                                <button class="pdocs-btn pdocs-btn--danger" id="pdocsBrowserDeleteBtn">🗑 删除</button>
++                            </div>
++                        </div>
++                        <div class="pdocs-browser-meta" id="pdocsBrowserMeta"></div>
++                        <div class="pdocs-browser-body">
++                            <div id="pdocsBrowserContent" class="pdocs-browser-content markdown-body"></div>
++                        </div>
++                    </div>
++
++                    <!-- 编辑器视图 -->
++                    <div class="pdocs-view" id="pdocs-view-editor" style="display: none;">
++                        <div class="pdocs-editor-toolbar">
++                            <button class="pdocs-btn pdocs-btn--secondary" id="pdocsBackBtn">← 返回</button>
++                            <input type="text" class="pdocs-title-input" id="pdocsTitleInput" placeholder="文档标题" maxlength="200">
++                            <button class="pdocs-btn pdocs-btn--ghost" id="pdocsPreviewToggleBtn">👁 预览</button>
++                            <button class="pdocs-btn pdocs-btn--primary" id="pdocsSaveBtn">💾 保存</button>
++                        </div>
++                        <div class="pdocs-editor-body">
++                            <textarea class="pdocs-content-input" id="pdocsContentInput" placeholder="使用 Markdown 编写文档..."></textarea>
++                            <div class="pdocs-preview" id="pdocsPreview" style="display: none;"></div>
++                        </div>
++                    </div>
++
++                    <!-- 回收站视图 -->
++                    <div class="pdocs-view" id="pdocs-view-trash" style="display: none;">
++                        <div class="pdocs-toolbar">
++                            <h2 class="panel-title">回收站</h2>
++                            <div class="pdocs-toolbar-actions">
++                                <button class="pdocs-btn pdocs-btn--secondary" id="pdocsTrashBackBtn">← 返回文档列表</button>
++                            </div>
++                        </div>
++                        <div class="pdocs-trash-list" id="pdocsTrashContainer">
++                            <p class="loading-text">加载中...</p>
++                        </div>
++                    </div>
++                </section>
++
++                <!-- 第三方工具 -->
++                <section class="admin-page tab-panel" id="panel-tools" style="display: none;">
++                    <h2 class="panel-title">🔧 第三方工具</h2>
++                    <div class="empty-state">
++                        <div class="empty-state__icon">🔧</div>
++                        <p class="empty-state__text">第三方工具功能开发中</p>
++                        <p class="empty-state__hint">
++                            后续接入的外部工具会列在这里 —— 本页是前端写死的静态面板（不再由后端下发）。
++                        </p>
++                    </div>
++                </section>
++
++                <!-- 动态内容容器：JS 动态注入后端 pages/ 下发的页面（6 个：ai-demo + 5 个管理页） -->
+                 <div id="dynamicContentContainer"></div>
+ 
+                 <!-- 主页（个人资料） -->
+@@ -255,19 +376,20 @@
+ 
+     <script src="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.js"></script>
+     <!-- 共享脚本：普通 <script> 加载，暴露到 window -->
+-    <script src="./../js/config.js?v=20260920e"></script>
+-    <script src="./../js/sanitize.js?v=20260920e"></script>
+-    <script src="./../js/utils.js?v=20260920e"></script>
+-    <script src="./../js/toast.js?v=20260920e"></script>
+-    <script src="./../js/theme.js?v=20260920e"></script>
+-    <script src="./../js/modal.js?v=20260920e"></script>
++    <script src="./../js/config.js?v=20260920f"></script>
++    <script src="./../js/sanitize.js?v=20260920f"></script>
++    <script src="./../js/utils.js?v=20260920f"></script>
++    <script src="./../js/toast.js?v=20260920f"></script>
++    <script src="./../js/theme.js?v=20260920f"></script>
++    <script src="./../js/modal.js?v=20260920f"></script>
+     <!-- Dashboard 模块：ES Module 加载 -->
+-    <script type="module" src="./dashboard.permission.js?v=20260920e"></script>
+-    <script type="module" src="./dashboard.auth.js?v=20260920e"></script>
+-    <script type="module" src="./dashboard.checkin.js?v=20260920e"></script>
+-    <script type="module" src="./dashboard.deletion.js?v=20260920e"></script>
+-    <script type="module" src="./dashboard.menu.js?v=20260920e"></script>
+-    <script type="module" src="./dashboard.pdocs.js?v=20260920e"></script>
+-    <script type="module" src="./dashboard.js?v=20260920e"></script>
++    <script type="module" src="./dashboard.permission.js?v=20260920f"></script>
++    <script type="module" src="./dashboard.auth.js?v=20260920f"></script>
++    <script type="module" src="./dashboard.checkin.js?v=20260920f"></script>
++    <script type="module" src="./dashboard.deletion.js?v=20260920f"></script>
++    <script type="module" src="./dashboard.menu.js?v=20260920f"></script>
++    <script type="module" src="./dashboard.notifications.js?v=20260920f"></script>
++    <script type="module" src="./dashboard.pdocs.js?v=20260920f"></script>
++    <script type="module" src="./dashboard.js?v=20260920f"></script>
+ </body>
+ </html>
+diff --git a/user/dashboard.js b/user/dashboard.js
+index 5a264ed..c38497b 100644
+--- a/user/dashboard.js
++++ b/user/dashboard.js
+@@ -7,7 +7,7 @@ import { initAuthModules, sendVerificationEmail, initSidebarToggle, initSettings
+ import DashboardMenu from './dashboard.menu.js';
+ import { initCheckinButtons } from './dashboard.checkin.js';
+ import { initDeletion, renderDeletionStatus } from './dashboard.deletion.js';
+-import { loadPersonalDocs } from './dashboard.pdocs.js';
++import { PDocsState } from './dashboard.pdocs.js';
+ 
+ // ===== 从 window 获取共享资源（config.js / toast.js / theme.js / utils.js 以普通 <script> 加载）=====
+ var AuthGuard = window.AuthGuard;
+@@ -58,6 +58,12 @@ document.addEventListener('DOMContentLoaded', async function() {
+     // 1. 渲染用户信息 + 加载菜单
+     const menuData = await renderUserInfo(token);
+ 
++    // 1a. 把 user id 写进个人文档状态**再**切 Tab。
++    //     `#panel-docs` 是静态面板，切到它时的钩子会立刻拉文件夹（loadPersonalFolders
++    //     需要 currentUserId）—— 晚写会让 ?tab=docs 的首屏跳过文件夹加载（历史坑：
++    //     该状态原本在 switchTab 之后才赋值，靠「先请求页面内容」的延迟蒙对时序）。
++    primePersonalDocsUserId(menuData);
++
+     // 1b. 注册「个人主页」面板的初始化钩子。
+     //     必须在 switchTab() 之前注册 —— dashboard.menu.js 在渲染 home 面板时会回调它，
+     //     晚注册会让首屏停在「未初始化」的打卡日历上（历史 bug：该函数从来没被调用过）。
+@@ -78,6 +84,12 @@ document.addEventListener('DOMContentLoaded', async function() {
+     // 6. 绑定退出/验证码等全局事件
+     bindGlobalEvents();
+ 
++    // 6b. 个人文档的深链接恢复（?tab=docs&folder=..&doc=..）。
++    //     ⚠️ 必须**在第一次 switchTab 之前**注册：`docs` 是静态面板，它的
++    //     'dashboard:tab-switched' 是在 switchTab 的**同步阶段**派发的（不像动态页要等网络），
++    //     晚注册会漏掉首屏那一次 → 直接打开文档链接只会停在列表页。
++    bindDocsUrlRestore();
++
+     // 7. 切换到默认 Tab（若 URL 带 ?tab= 则优先恢复该页）
+     const urlState = window.DashUrl ? window.DashUrl.read() : null;
+     const initialTab = (urlState && urlState.tab) || 'workspace';
+@@ -87,29 +99,20 @@ document.addEventListener('DOMContentLoaded', async function() {
+     initDeletion();
+     renderDeletionStatus();
+ 
+-    // 初始化个人文档全局引用 & 设置 currentUserId
+-    if (menuData && menuData.user_info) {
+-        const ui = menuData.user_info;
+-        const userObj = ui.id || ui.user_id || (window.getUserId ? window.getUserId() : null) || null;
+-        if (userObj) {
+-            try {
+-                const { initPersonalDocs, PDocsState: pds } = await import('./dashboard.pdocs.js');
+-                if (pds) pds.currentUserId = userObj;
+-                if (initPersonalDocs) initPersonalDocs();
+-            } catch(e) {
+-                console.warn('[pdocs] 加载个人文档模块失败:', e);
+-                if (window.PDocsState) window.PDocsState.currentUserId = userObj;
+-                if (typeof window.initPersonalDocs === 'function') {
+-                    window.initPersonalDocs();
+-                }
+-            }
+-        }
+-    }
+-    if (typeof window.initPersonalDocs !== 'function') {
+-        window.initPersonalDocs = function() { loadPersonalDocs(); };
++    // 初始化打卡模块全局引用
++    if (typeof window.initCheckinModule !== 'function') {
++        window.initCheckinModule = function() { initCheckinButtons(); };
+     }
++});
+ 
+-    // URL 恢复：动态页（含个人文档）注入完成后，应用 folder/doc 参数
++/**
++ * 注册「个人文档深链接恢复」监听器。
++ *
++ * 个人文档面板的**加载**由 `dashboard.menu.js::STATIC_PANEL_HOOKS` 驱动；
++ * 这里只负责把 URL 里的 `folder` / `doc` / `mode` 还原成视图
++ * （面板常驻 DOM，不再像后端下发时代那样每次注入新 HTML 后重新解析）。
++ */
++function bindDocsUrlRestore() {
+     document.addEventListener('dashboard:tab-switched', function onTabSwitched(e) {
+         if (!e.detail || e.detail.tabKey !== 'docs') return;
+         const st = window.DashUrl ? window.DashUrl.read() : null;
+@@ -124,12 +127,7 @@ document.addEventListener('DOMContentLoaded', async function() {
+             actions.navigateToFolder(st.folder);
+         }
+     });
+-
+-    // 初始化打卡模块全局引用
+-    if (typeof window.initCheckinModule !== 'function') {
+-        window.initCheckinModule = function() { initCheckinButtons(); };
+-    }
+-});
++}
+ 
+ /**
+  * 注册静态面板的初始化钩子（幂等）。
+@@ -144,6 +142,21 @@ function registerHomePanelHooks() {
+     }
+ }
+ 
++/**
++ * 把当前用户 id 写进个人文档状态（`PDocsState.currentUserId`）。
++ *
++ * ⚠️ 必须在**第一次 switchTab 之前**调用：`#panel-docs` 现在是写死在 dashboard.html 里的
++ * 静态面板，切到它的钩子（`initPersonalDocsPanel`）会立刻拉文件夹，而
++ * `loadPersonalFolders()` 在 `currentUserId` 为空时**直接跳过**（只打一条 console.warn）。
++ * 旧实现把这一步放在 switchTab 之后，靠「切 Tab 要先请求页面内容」的网络延迟蒙对时序。
++ */
++function primePersonalDocsUserId(menuData) {
++    const ui = menuData && menuData.user_info;
++    if (!ui) return;
++    const userObj = ui.id || ui.user_id || (window.getUserId ? window.getUserId() : null) || null;
++    if (userObj && PDocsState) PDocsState.currentUserId = userObj;
++}
++
+ /** 绑定设置面板中的主题选择按钮 */
+ function bindThemeOptButtons() {
+     const buttons = document.querySelectorAll('.theme-opt');
+@@ -170,5 +183,5 @@ function bindGlobalEvents() {
+ }
+ 
+ // ===== ES Module exports =====
+-export { renderUserInfo, bindGlobalEvents, registerHomePanelHooks };
++export { renderUserInfo, bindGlobalEvents, registerHomePanelHooks, primePersonalDocsUserId, bindDocsUrlRestore };
+ window.renderUserInfo = renderUserInfo;
+diff --git a/user/dashboard.menu.js b/user/dashboard.menu.js
+index 87a968a..914c850 100644
+--- a/user/dashboard.menu.js
++++ b/user/dashboard.menu.js
+@@ -5,12 +5,15 @@
+  * ## 菜单来源
+  *   - **4 个基础项写死在前端**（工作台/通知/个人文档/第三方工具）：对所有登录用户可见，
+  *     且后端页面接口不可用时依然显示（保证侧边栏不会整条空白）；
++ *     ⚠️ 它们的**页面内容也在前端** —— `dashboard.html` 里的 `#panel-<tab_key>` 静态面板
++ *     （`site-back/pages/` 里没有它们，内容不由后端下发，只有数据走接口）。见 `STATIC_PANEL_HOOKS`。
+  *   - **其余页面由后端驱动**：`GET /api/v0/user/pages` 只返回**元数据**（标题/图标/排序/分组），
+  *     服务端已按权限过滤 —— 前端**不再做二次权限过滤**（历史教训：前端过滤会吃掉服务端已授权的项）。
+  *
+  * ## 懒加载
+  *   1. 列表阶段只取标题（`/user/pages`）；
+- *   2. 点击某个标签才取该页内容（`/user/pages/<tab_key>` → html/css/js），
++ *   2. 点击标签：命中 `#panel-<tab_key>`（静态面板：home/settings + 4 个基础项）→ 直接显示并跑
++ *      各自的初始化钩子（**不发内容请求**）；否则取该页内容（`/user/pages/<tab_key>` → html/css/js），
+  *      服务端对每个页面**逐页鉴权**（不存在 → 404；无权限 → 403）；
+  *   3. html 用 innerHTML 注入 #dynamicContentContainer，css 注入 <style>，
+  *      js 以 **Blob URL + <script src=blob:>** 执行（不使用 eval / new Function / 内联脚本）。
+@@ -32,8 +35,11 @@ var PAGE_MISSING_HTML = '<div class="empty-state">'
+     + '</div>';
+ 
+ // ===== 基础菜单（前端写死，不检查权限，后端不可用时也照常显示）=====
++// ⚠️ 这 4 项的**页面内容也在前端**（`dashboard.html` 里写死的 `#panel-<tab_key>` 静态面板），
++//    **不由后端下发**：只有数据走接口（通知 → /api/v0/notify/global，个人文档 → /api/v0/document/*）。
++//    它们**没有** `pages/<tab_key>/` 目录，也不出现在 `/api/v0/user/pages` 里。
+ // ⚠️ `home` 是**静态面板**（`dashboard.html` 里的 `#panel-home`，个人主页 + 打卡日历），
+-//    不属于后端动态页面：它没有 `pages/home/` 目录，也不出现在 `/api/v0/user/pages` 里。
++//    同样不属于后端动态页面：它没有 `pages/home/` 目录，也不出现在 `/api/v0/user/pages` 里。
+ //    `renderTab()` 会先匹配 `#panel-<tabKey>`，命中就显示该面板并跳过内容请求，因此这里写 `home` 即可。
+ //    历史上它只挂在侧边栏头像（data-tab="home"）上，而 switchTab() 找不到 `panel-home` 之外的分支
+ //    → 点了以后所有面板被隐藏、又去请求不存在的页面 → 个人主页永远打不开。
+@@ -47,7 +53,7 @@ var PRIMARY_MENU = [
+ // 构建版本号：便于在浏览器控制台一眼确认「当前跑的是哪一版」
+ //   window.__DASHBOARD_BUILD__
+ //   document.querySelector('script[src*="dashboard.menu.js"]').src
+-var BUILD_VERSION = '20260920e';
++var BUILD_VERSION = '20260920f';
+ window.__DASHBOARD_BUILD__ = BUILD_VERSION;
+ 
+ var _menuData = null;
+@@ -257,16 +263,36 @@ function getCurrentTab() {
+     return _currentTab;
+ }
+ 
+-// 静态面板（`dashboard.html` 里写死的 `#panel-<tab>`）：不属于后端页面列表，
+-// 各自自带权限处理，因此永远视为「可用」。
++// 静态面板（`dashboard.html` 里写死的 `#panel-<tab>`）：**内容不由后端下发**，
++// 各自的数据/初始化由钩子负责，因此永远视为「可用」。
++//   4 个基础项（workspace/notifications/docs/tools，来自 PRIMARY_MENU）在这里一并登记 ——
++//   它们的菜单与内容都写死在前端，不该因为「不在后端列表里」而被判成不可用。
+ var STATIC_TABS = { home: true, settings: true };
++PRIMARY_MENU.forEach(function (item) { STATIC_TABS[item.tab_key] = true; });
++
++/**
++ * 静态面板的初始化钩子：`tab_key` → 挂在 `window` 上的函数名。
++ *
++ * `renderTab()` 显示 `#panel-<tab_key>` 时调用它（幂等性由各自实现保证）：
++ *   * home          → 打卡日历（dashboard.checkin.js::initCheckinButtons）
++ *                     ⚠️ 它此前**从未被初始化**（函数只挂在 window 上，没人调用）→
++ *                     日历标题停在硬编码的「2026年7月」；别让这里再退化成直接调用。
++ *   * notifications → 拉取并渲染通知（dashboard.notifications.js）
++ *   * docs          → 个人文档：复位到列表视图 + 绑定/加载（dashboard.pdocs.js）
++ * settings 的初始化（renderDeletionStatus）走文件顶部的直接 import，不在这里。
++ */
++var STATIC_PANEL_HOOKS = {
++    home: 'initCheckinModule',
++    notifications: 'initNotificationsPanel',
++    docs: 'initPersonalDocsPanel',
++};
+ 
+ /**
+  * 该 tab 在当前身份/等级下是否还打得开。
+  *
+  * 用途：切换权限等级后，原来停留的管理页可能已经不在列表里（例如切到 Lv1）。
+  * 那时继续重载只会渲染「权限不足」，不如回到默认页。
+- * 判定**只依据服务端此次返回的列表**（含 4 个写死的基础项），不做任何前端权限推断
++ * 判定只依据**服务端此次返回的列表**（外加静态面板白名单 `STATIC_TABS`），不做任何前端权限推断
+  * —— 前端二次过滤历史上会吃掉服务端已授权的项（见 PROJECT_MEMORY §0.4）。
+  */
+ function isTabAvailable(tabKey) {
+@@ -298,7 +324,7 @@ async function renderTab(tabKey, force) {
+     var userTrigger = document.getElementById('sidebarUserTrigger');
+     if (userTrigger) userTrigger.classList.toggle('is-active', tabKey === 'home');
+ 
+-    // 面板内静态页（个人主页 / 设置）
++    // 面板内静态页（个人主页 / 设置 / 4 个基础项）：内容写死在 dashboard.html 里
+     var panel = document.getElementById('panel-' + tabKey);
+     if (panel) {
+         // 作废仍在飞行中的页面请求：否则慢响应回来会把内容写进已清空的容器，
+@@ -306,8 +332,7 @@ async function renderTab(tabKey, force) {
+         _pageLoadSeq++;
+         releasePageScript();
+         panel.style.display = '';
+-        if (tabKey === 'settings') renderDeletionStatus();
+-        if (tabKey === 'home') initHomePanel();
++        runStaticPanelHook(tabKey);
+         // 静态面板没有内容接口，但仍要广播事件：外部（dashboard.js 等）统一监听
+         // 'dashboard:tab-switched'，漏发会让它们认为「这个 tab 从没被打开过」。
+         document.dispatchEvent(new CustomEvent('dashboard:tab-switched', {
+@@ -320,15 +345,29 @@ async function renderTab(tabKey, force) {
+ }
+ 
+ /**
+- * 静态面板「个人主页」的初始化（幂等）。
++ * 静态面板的初始化（幂等；失败只告警，不能让切 Tab 崩掉）。
+  *
+- * 打卡日历此前**从未被初始化**：`dashboard.checkin.js::initCheckinButtons()` 只被挂在
+- * `window.initCheckinModule` 上，而没有人在合适的时机调用它 → 日历标题停在硬编码的
+- * 「2026年7月」、日期格子一个都没有。这里在面板真正显示后（元素可见、尺寸可算）初始化。
++ * 钩子名见 `STATIC_PANEL_HOOKS`，实现在各自的模块里（`dashboard.checkin.js` /
++ * `dashboard.notifications.js` / `dashboard.pdocs.js`）。
++ * ⚠️ 钩子可能还没注册（脚本加载顺序 / 模块加载失败）：那就跳过，
++ * 但**面板本身照常显示** —— 静态内容是 dashboard.html 里的 HTML，不依赖钩子。
+  */
+-function initHomePanel() {
+-    if (typeof window.initCheckinModule === 'function') {
+-        try { window.initCheckinModule(); } catch (e) { console.warn('[HOME] 打卡日历初始化失败:', e); }
++function runStaticPanelHook(tabKey) {
++    if (tabKey === 'settings') {
++        renderDeletionStatus();
++        return;
++    }
++    var hookName = STATIC_PANEL_HOOKS[tabKey];
++    if (!hookName) return;
++    var hook = window[hookName];
++    if (typeof hook !== 'function') {
++        console.warn('[MENU] 静态面板初始化钩子未就绪:', tabKey, hookName);
++        return;
++    }
++    try {
++        hook();
++    } catch (e) {
++        console.warn('[MENU] 静态面板初始化失败:', tabKey, e);
+     }
+ }
+ 
+diff --git a/user/dashboard.notifications.js b/user/dashboard.notifications.js
+new file mode 100644
+index 0000000..b9e5c48
+--- /dev/null
++++ b/user/dashboard.notifications.js
+@@ -0,0 +1,83 @@
++/**
++ * dashboard.notifications.js
++ * 「通知」静态面板（`dashboard.html` 的 `#panel-notifications`）的数据加载。
++ *
++ * 为什么在这里：通知是侧边栏里**前端写死**的 4 个基础页之一
++ * （`dashboard.menu.js::PRIMARY_MENU`），页面内容不由后端下发 ——
++ * 只有**数据**走 `GET /api/v0/notify/global`。
++ *
++ * 由 `dashboard.menu.js::renderTab()` 在显示该面板时调用 `window.initNotificationsPanel()`
++ * （见那边的 `STATIC_PANEL_HOOKS`）：每次进入都重新拉一次，与「后端下发时代
++ * 每次注入新 HTML 都会重跑脚本」的行为一致。
++ *
++ * Phase 2: ES Module — 共享资源通过 window 访问（escapeHtml / apiRequest）。
++ * ⚠️ 这两个助手在模块加载后可能才就绪（加载顺序），所以**在调用时**再取，不在模块顶层缓存。
++ */
++
++/**
++ * 统一的 加载 / 空 / 错误 态。
++ * 类名见 dashboard.css 的 .empty-state 系列（全站共用，勿另起类名）。
++ */
++function stateHtml(kind, text, hint) {
++    var esc = window.escapeHtml;
++    if (kind === 'loading') {
++        return '<p class="loading-text" role="status">' + esc(text) + '</p>';
++    }
++    return '<div class="empty-state">'
++        + '<div class="empty-state__icon">' + (kind === 'error' ? '⚠️' : '🔔') + '</div>'
++        + '<p class="empty-state__text">' + esc(text) + '</p>'
++        + (hint ? '<p class="empty-state__hint">' + esc(hint) + '</p>' : '')
++        + '</div>';
++}
++
++function cardHtml(n) {
++    var esc = window.escapeHtml;
++    var status = n.is_active
++        ? '<span class="tag tag-green">启用</span>'
++        : '<span class="tag tag-gray">已过期</span>';
++    return '<div class="notify-card">'
++        + '<h4 class="notify-card__title">' + esc(n.title || '系统通知') + '</h4>'
++        + '<p class="notify-card__content">' + esc(n.content || '') + '</p>'
++        + '<div class="notify-card__meta">'
++        + '<span>' + esc(String(n.created_at || '').substring(0, 10)) + '</span>'
++        + status
++        + '</div></div>';
++}
++
++async function loadNotifications() {
++    var el = document.getElementById('notifyList');
++    if (!el) return;
++
++    el.setAttribute('aria-busy', 'true');
++    el.innerHTML = stateHtml('loading', '加载中...');
++
++    // silent：失败态由本面板自己渲染，不再叠一层 Toast
++    var d = await window.apiRequest('/api/v0/notify/global', { silent: true });
++
++    el.setAttribute('aria-busy', 'false');
++
++    if (!d || d.code !== 200) {
++        el.innerHTML = stateHtml('error', '通知加载失败', (d && d.msg) || '请检查网络后重试');
++        return;
++    }
++
++    var list = Array.isArray(d.data) ? d.data : [];
++    if (list.length === 0) {
++        el.innerHTML = stateHtml('empty', '暂无通知', '有新通知时会显示在这里');
++        return;
++    }
++
++    el.innerHTML = list.map(cardHtml).join('');
++}
++
++/** 面板初始化钩子（由 dashboard.menu.js 在切到「通知」时调用） */
++function initNotificationsPanel() {
++    return loadNotifications();
++}
++
++// ===== ES Module exports =====
++export { initNotificationsPanel, loadNotifications };
++
++// ===== 兼容层（dashboard.menu.js 通过 window 调钩子）=====
++window.initNotificationsPanel = initNotificationsPanel;
++window.loadNotifications = loadNotifications;
+diff --git a/user/dashboard.pdocs.js b/user/dashboard.pdocs.js
+index e481347..7652572 100644
+--- a/user/dashboard.pdocs.js
++++ b/user/dashboard.pdocs.js
+@@ -140,6 +140,25 @@ function initPdocsEasyMDE() {
+     }
+ }
+ 
++/**
++ * 静态面板「个人文档」的进入钩子（由 dashboard.menu.js 在切到 docs 时调用）。
++ *
++ * 面板现在写死在 `dashboard.html`（`#panel-docs`），不再由后端下发 ——
++ * 而「后端下发」时代每次进入都会注入一份**全新的 HTML**，视图自然会回到列表页。
++ * 面板常驻 DOM 之后必须显式复位，否则上次离开时停在「浏览 / 编辑器 / 回收站」，
++ * 再点「个人文档」会看到那个旧视图。
++ *
++ * ⚠️ 只切视图、**不写 URL**：深链接（?tab=docs&doc=…）要在随后的
++ * `dashboard:tab-switched` 事件里由 dashboard.js 恢复，这里清 URL 会把参数吃掉。
++ */
++function initPersonalDocsPanel() {
++    ['list', 'browse', 'editor', 'trash'].forEach((v) => {
++        const el = $('pdocs-view-' + v);
++        if (el) el.style.display = (v === 'list') ? '' : 'none';
++    });
++    initPersonalDocs();
++}
++
+ function initPersonalDocs() {
+     const bind = (id, handler) => {
+         const el = $(id);
+@@ -793,10 +812,14 @@ async function movePersonalDoc(docId, folderId) {
+ }
+ 
+ // ===== ES Module exports =====
+-export { initPersonalDocs, loadPersonalDocs, PDocsState };
++export { initPersonalDocs, initPersonalDocsPanel, loadPersonalDocs, PDocsState };
+ 
+-// ===== 兼容层：挂载完整初始化函数到 window（page/docs.html 动态注入后调用） =====
++// ===== 兼容层：挂载初始化函数到 window =====
++//   initPersonalDocs      —— 绑定 + 加载（幂等），任何调用方都可用
++//   initPersonalDocsPanel  —— 静态面板（#panel-docs）每次进入时调用：
++//                             复位到列表视图 + 初始化（见 dashboard.menu.js::STATIC_PANEL_HOOKS）
+ window.initPersonalDocs = initPersonalDocs;
++window.initPersonalDocsPanel = initPersonalDocsPanel;
+ window.loadPersonalDocs = loadPersonalDocs;
+ 
+ // ===== 导出导航动作（供 dashboard.js 从 URL 恢复时调用） =====
+
+commit 0c7633d895ba0fcec18e12c03ad0dcd3f4c4b976
+Author: GFYGO <gfygo_@outlook.com>
+Date:   Sat Sep 19 12:59:31 2026 +0800
+
+    1
+
+diff --git a/user/dashboard.auth.js b/user/dashboard.auth.js
+index be17d70..5bc107d 100644
+--- a/user/dashboard.auth.js
++++ b/user/dashboard.auth.js
+@@ -283,12 +283,22 @@ async function switchLevel(targetLevel) {
+             if (freshToken) await window.renderUserInfo(freshToken);
+         }
+ 
+-        // 3. 重画侧边栏（管理菜单按新身份显隐）
++        // 3. 重画侧边栏（管理菜单按新身份显隐）。
++        //    ⚠️ 必须在重载 Tab **之前**：列表决定了当前 Tab 在新等级下还打不打得开。
+         await DashboardMenu.loadMenu();
+ 
+         // 4. ⭐ 重载当前正在看的 Tab —— 否则页面上还留着按旧等级渲染的内容，
+         //    表现为「切了以后页面内容没跟着变」。
+-        await DashboardMenu.reloadCurrentTab();
++        //    若该页面在新等级下已不在列表里（例如切到 Lv1 时正停在管理页），
++        //    继续重载只会得到 403「权限不足」，所以改落到默认页（工作台）。
++        //    等级按钮始终可见，随时可以再切回去，不会「切了就回不来」。
++        const currentTab = DashboardMenu.getCurrentTab ? DashboardMenu.getCurrentTab() : null;
++        if (currentTab && DashboardMenu.isTabAvailable && !DashboardMenu.isTabAvailable(currentTab)) {
++            // force=true：与 reloadCurrentTab 一致，按新等级重新取一次内容（不吃旧缓存）。
++            await DashboardMenu.switchTab('workspace', { reset: false, force: true });
++        } else {
++            await DashboardMenu.reloadCurrentTab();
++        }
+     } catch (e) {
+         console.warn('切换权限异常:', e);
+         Toast.show('网络错误');
+diff --git a/user/dashboard.html b/user/dashboard.html
+index 1f68e19..af450c4 100644
+--- a/user/dashboard.html
++++ b/user/dashboard.html
+@@ -12,18 +12,18 @@
+     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://maxcdn.bootstrapcdn.com; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net https://maxcdn.bootstrapcdn.com; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <title>个人主页 | GWL</title>
+-    <link rel="stylesheet" href="./../css/core.css?v=20260920d">
+-    <link rel="stylesheet" href="./../css/styles.css?v=20260920d">
+-    <link rel="stylesheet" href="./../css/components.css?v=20260920d">
+-    <link rel="stylesheet" href="./dashboard.css?v=20260920d">
++    <link rel="stylesheet" href="./../css/core.css?v=20260920e">
++    <link rel="stylesheet" href="./../css/styles.css?v=20260920e">
++    <link rel="stylesheet" href="./../css/components.css?v=20260920e">
++    <link rel="stylesheet" href="./dashboard.css?v=20260920e">
+     <!--
+       ⚠️ dashboard-profile.css 是「个人主页（#panel-home）」的唯一样式来源
+       （profile-banner / profile-avatar-large / profile-cards / card / calendar-* / checkin-btn）。
+       该文件此前**从未被任何 HTML 引用**（孤儿文件）→ 个人主页长期是无样式的裸 DOM。
+       删除或重命名它之前，先确认 #panel-home 的结构是否仍在使用。
+     -->
+-    <link rel="stylesheet" href="./dashboard-profile.css?v=20260920d">
+-    <link rel="stylesheet" href="./dashboard-admin.css?v=20260920d">
++    <link rel="stylesheet" href="./dashboard-profile.css?v=20260920e">
++    <link rel="stylesheet" href="./dashboard-admin.css?v=20260920e">
+     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.css">
+     <link rel="icon" href="./../favicon.png" type="image/png">
+ </head>
+@@ -255,19 +255,19 @@
+ 
+     <script src="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.js"></script>
+     <!-- 共享脚本：普通 <script> 加载，暴露到 window -->
+-    <script src="./../js/config.js?v=20260920d"></script>
+-    <script src="./../js/sanitize.js?v=20260920d"></script>
+-    <script src="./../js/utils.js?v=20260920d"></script>
+-    <script src="./../js/toast.js?v=20260920d"></script>
+-    <script src="./../js/theme.js?v=20260920d"></script>
+-    <script src="./../js/modal.js?v=20260920d"></script>
++    <script src="./../js/config.js?v=20260920e"></script>
++    <script src="./../js/sanitize.js?v=20260920e"></script>
++    <script src="./../js/utils.js?v=20260920e"></script>
++    <script src="./../js/toast.js?v=20260920e"></script>
++    <script src="./../js/theme.js?v=20260920e"></script>
++    <script src="./../js/modal.js?v=20260920e"></script>
+     <!-- Dashboard 模块：ES Module 加载 -->
+-    <script type="module" src="./dashboard.permission.js?v=20260920d"></script>
+-    <script type="module" src="./dashboard.auth.js?v=20260920d"></script>
+-    <script type="module" src="./dashboard.checkin.js?v=20260920d"></script>
+-    <script type="module" src="./dashboard.deletion.js?v=20260920d"></script>
+-    <script type="module" src="./dashboard.menu.js?v=20260920d"></script>
+-    <script type="module" src="./dashboard.pdocs.js?v=20260920d"></script>
+-    <script type="module" src="./dashboard.js?v=20260920d"></script>
++    <script type="module" src="./dashboard.permission.js?v=20260920e"></script>
++    <script type="module" src="./dashboard.auth.js?v=20260920e"></script>
++    <script type="module" src="./dashboard.checkin.js?v=20260920e"></script>
++    <script type="module" src="./dashboard.deletion.js?v=20260920e"></script>
++    <script type="module" src="./dashboard.menu.js?v=20260920e"></script>
++    <script type="module" src="./dashboard.pdocs.js?v=20260920e"></script>
++    <script type="module" src="./dashboard.js?v=20260920e"></script>
+ </body>
+ </html>
+diff --git a/user/dashboard.menu.js b/user/dashboard.menu.js
+index 6643042..87a968a 100644
+--- a/user/dashboard.menu.js
++++ b/user/dashboard.menu.js
+@@ -47,7 +47,7 @@ var PRIMARY_MENU = [
+ // 构建版本号：便于在浏览器控制台一眼确认「当前跑的是哪一版」
+ //   window.__DASHBOARD_BUILD__
+ //   document.querySelector('script[src*="dashboard.menu.js"]').src
+-var BUILD_VERSION = '20260920d';
++var BUILD_VERSION = '20260920e';
+ window.__DASHBOARD_BUILD__ = BUILD_VERSION;
+ 
+ var _menuData = null;
+@@ -252,6 +252,38 @@ async function reloadCurrentTab() {
+     await renderTab(_currentTab, true);
+ }
+ 
++/** 当前正在展示的 tab（权限切换后要判断它在新等级下是否还打得开） */
++function getCurrentTab() {
++    return _currentTab;
++}
++
++// 静态面板（`dashboard.html` 里写死的 `#panel-<tab>`）：不属于后端页面列表，
++// 各自自带权限处理，因此永远视为「可用」。
++var STATIC_TABS = { home: true, settings: true };
++
++/**
++ * 该 tab 在当前身份/等级下是否还打得开。
++ *
++ * 用途：切换权限等级后，原来停留的管理页可能已经不在列表里（例如切到 Lv1）。
++ * 那时继续重载只会渲染「权限不足」，不如回到默认页。
++ * 判定**只依据服务端此次返回的列表**（含 4 个写死的基础项），不做任何前端权限推断
++ * —— 前端二次过滤历史上会吃掉服务端已授权的项（见 PROJECT_MEMORY §0.4）。
++ */
++function isTabAvailable(tabKey) {
++    if (!tabKey) return true;
++    if (STATIC_TABS[tabKey]) return true;
++    var data = _menuData ? _menuData.data : null;
++    if (!data) return true;      // 列表还没加载：不做判断，避免误跳
++    var groups = [data.base_items, data.dynamic_items, data.admin_items];
++    for (var i = 0; i < groups.length; i++) {
++        var items = groups[i] || [];
++        for (var j = 0; j < items.length; j++) {
++            if (items[j] && items[j].tab_key === tabKey) return true;
++        }
++    }
++    return false;
++}
++
+ /** 把指定 tab 渲染出来（切换与重载共用同一条路径，避免两处逻辑漂移） */
+ async function renderTab(tabKey, force) {
+     document.querySelectorAll('.tab-panel').forEach(function (p) { p.style.display = 'none'; });
+@@ -435,11 +467,13 @@ function clearPageCache() {
+ // ===== ES Module exports =====
+ const DashboardMenu = {
+     loadMenu, renderMenu, switchTab, reloadCurrentTab,
++    getCurrentTab, isTabAvailable,
+     getCurrentMenuData, clearPageCache, BUILD_VERSION,
+ };
+ export default DashboardMenu;
+ export {
+     loadMenu, renderMenu, switchTab, reloadCurrentTab,
++    getCurrentTab, isTabAvailable,
+     getCurrentMenuData, clearPageCache, DashboardMenu,
+ };
+ 
+
+commit f7ee7f23f925ed9d9b310a112b2bc7eb55d7fb54
+Author: GFYGO <gfygo_@outlook.com>
+Date:   Sat Sep 19 10:23:18 2026 +0800
+
+    Update dashboard.menu.js
+
+diff --git a/user/dashboard.menu.js b/user/dashboard.menu.js
+index cb09010..6643042 100644
+--- a/user/dashboard.menu.js
++++ b/user/dashboard.menu.js
+@@ -38,7 +38,6 @@ var PAGE_MISSING_HTML = '<div class="empty-state">'
+ //    历史上它只挂在侧边栏头像（data-tab="home"）上，而 switchTab() 找不到 `panel-home` 之外的分支
+ //    → 点了以后所有面板被隐藏、又去请求不存在的页面 → 个人主页永远打不开。
+ var PRIMARY_MENU = [
+-    { tab_key: 'home',          label: '个人主页',   icon: '👤' },
+     { tab_key: 'workspace',     label: '工作台',     icon: '🏠' },
+     { tab_key: 'notifications', label: '通知',       icon: '🔔' },
+     { tab_key: 'docs',          label: '个人文档',   icon: '📚' },

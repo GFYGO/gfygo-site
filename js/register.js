@@ -1,90 +1,78 @@
 /**
  * register.js - 注册页交互逻辑
- * 使用 onTurnstileReady 回调确保 SDK 加载完成后再渲染 widget
+ *
+ * ⚠️ 与 login.js 同样的核心修复：**表单/Tab 绑定与 Turnstile 是否可用解耦**。
+ *    以前 initRegisterPage()（里面才绑定 Tab 与表单）只在 window.onTurnstileReady
+ *    里被调用 —— SDK 一旦加载失败，三个注册表单全都没有 submit 监听，
+ *    点「注册」只会触发浏览器原生提交，页面闪一下、没有任何提示。
+ *
+ * 另外两个只在注册页出现的问题：
+ *   1. 以前 turnstileFailed 是一个全局布尔量，三个 Tab 共用：在「邮件注册」失败
+ *      会把「手机号注册 / 临时访问」也一起判成失败，而且置位后再也不会复原。
+ *      现在每个 Tab 有各自的 controller（见 js/turnstile-widget.js）。
+ *   2. 以前在 SDK 加载完成**之前**切换 Tab，那次切换的 renderTurnstile 会因为
+ *      window.turnstile 还不存在而直接 return；等 SDK 就绪后 onTurnstileReady 只
+ *      渲染了 email，用户当前所在的 Tab 就永远没有组件，提交时被拦在
+ *      「人机验证未加载」。现在 Tab 切到哪就挂哪个，且 SDK 就绪时会补挂当前 Tab。
  */
 
-const SITEKEY = '0x4AAAAAAECyOCbL7qIJUOgg';
+//: 站点密钥（与 site-back/.env 的 TURNSTILE_SITEKEY、Cloudflare 后台的 widget 必须一致）
+const REGISTER_SITEKEY = '0x4AAAAAAECyOCbL7qIJUOgg';
+
 const TABS = ['email', 'phone', 'temp'];
 let currentTab = 'email';
-const widgetIds = {};
+//: tabName → controller（js/turnstile-widget.js 的 mount 返回值）
+const tabWidgets = {};
+let registerInitialized = false;
 
-// SDK 加载完成回调（由动态注入的 Turnstile SDK 通过 onload 参数触发）
-window.onTurnstileReady = function() {
-    initRegisterPage();
-};
-
-// 回调定义完成后再动态注入 Turnstile SDK，避免 SDK 先加载完成导致回调丢失
-let turnstileSdkInjected = false;
-// SDK / widget 加载失败的标记（扩展拦截、网络不通、挑战失败等）
-let turnstileFailed = false;
-
-function loadTurnstileSdk() {
-    // 防止重复注入（同一页面已存在 SDK 脚本时直接跳过）
-    if (turnstileSdkInjected) return;
-    if (document.querySelector('script[src*="challenges.cloudflare.com/turnstile"]')) return;
-    turnstileSdkInjected = true;
-    const s = document.createElement('script');
-    s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileReady&render=explicit';
-    s.async = true;
-    s.defer = true;
-    // 脚本加载失败（被扩展/网络拦截）→ 标记，提交时给出明确提示而不是发空 token
-    s.onerror = () => { turnstileFailed = true; };
-    document.head.appendChild(s);
-    // 兜底：SDK 迟迟不触发 onTurnstileReady（既没成功也没触发 onerror）也算失败
-    setTimeout(() => {
-        if (!window.turnstile) turnstileFailed = true;
-    }, 10000);
-}
-loadTurnstileSdk();
-
-// DOMContentLoaded 时若 SDK 已就绪则直接初始化
-document.addEventListener('DOMContentLoaded', () => {
-    if (window.turnstile) {
-        initRegisterPage();
+function onRegisterDomReady(fn) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', fn);
+    } else {
+        fn();
     }
-});
+}
+
+onRegisterDomReady(initRegisterPage);
 
 function initRegisterPage() {
+    if (registerInitialized) return;
+    registerInitialized = true;
+
+    // 先绑交互，再管 Turnstile —— 顺序很重要：SDK 挂掉时这三个表单依然要能校验、能提示
     document.querySelectorAll('.register-tab').forEach(tab => {
         tab.addEventListener('click', () => switchTab(tab.dataset.tab));
     });
     bindForms();
-    renderTurnstile('email');
+    mountTabWidget(currentTab);
 }
 
-// ====== Turnstile ======
-function renderTurnstile(tabName) {
+// ====== Turnstile（每个 Tab 一个，互不影响） ======
+/**
+ * 挂载指定 Tab 的人机验证组件。
+ * - 容器不可见时不挂（Turnstile 在 display:none 的容器里无法完成挑战，会一直转圈）
+ * - 已经挂过的不重复挂（重复 render 会把正在进行的挑战拆掉重建）
+ */
+function mountTabWidget(tabName) {
     const container = document.getElementById('turnstile-widget-' + tabName);
-    // 容器不存在 / SDK 未就绪 → 保持 turnstileFailed=true，提交时会被拦下
-    if (!container || !window.turnstile) { turnstileFailed = true; return; }
-    container.innerHTML = '';
-    if (widgetIds[tabName]) {
-        try { window.turnstile.remove(widgetIds[tabName]); } catch (_) {}
+    if (!container) return null;
+    if (typeof TurnstileWidget === 'undefined') {
+        Toast.show('人机验证脚本未加载，请刷新页面重试');
+        return null;
     }
-    try {
-        widgetIds[tabName] = window.turnstile.render(container, {
-            sitekey: SITEKEY,
-            theme: 'auto'
-        });
-    } catch (e) {
-        // SDK 在但渲染抛错（如挑战初始化失败）→ 同样视为不可用
-        widgetIds[tabName] = null;
-        turnstileFailed = true;
-        return;
+    if (!tabWidgets[tabName]) {
+        tabWidgets[tabName] = TurnstileWidget.mount(container, { sitekey: REGISTER_SITEKEY });
     }
-    // render 返回 falsy 说明 widget 没真正建起来
-    turnstileFailed = !widgetIds[tabName];
+    return tabWidgets[tabName];
 }
 
-function getCfToken() {
-    const wid = widgetIds[currentTab];
-    if (!wid || !window.turnstile) return '';
-    return window.turnstile.getResponse(wid) || '';
+function currentWidget() {
+    return tabWidgets[currentTab] || null;
 }
 
 function resetCf() {
-    const wid = widgetIds[currentTab];
-    if (wid && window.turnstile) window.turnstile.reset(wid);
+    const widget = currentWidget();
+    if (widget) widget.reset();
 }
 
 // ====== 表单校验 ======
@@ -115,7 +103,13 @@ function switchTab(tab) {
         t.classList.toggle('register-tab--active', t.dataset.tab === tab));
     document.querySelectorAll('.register-form').forEach(f =>
         f.classList.toggle('register-form--active', f.id === tab + 'Form'));
-    renderTurnstile(tab);
+
+    // 该 Tab 之前已经挂过、但还没有 token —— 说明它是在挑战中途被切走
+    // （容器 display:none 期间挑战可能停滞），现在可见了让它重新发起一次。
+    // 本次刚挂上的新组件不需要这个动作：它本来就刚开始挑战。
+    const existed = !!tabWidgets[tab];
+    const widget = mountTabWidget(tab);
+    if (existed && widget && !widget.getToken()) widget.reset();
 }
 
 // ====== 提交 ======
@@ -132,6 +126,7 @@ async function submitRegister(path, payload, successMsg, redirectUrl) {
             setTimeout(() => window.location.href = redirectUrl, 1200);
         } else {
             if (typeof Toast !== 'undefined') Toast.show(data?.msg || '请求失败');
+            // token 是一次性的：失败后必须换一张新的再提交
             resetCf();
         }
     } catch {
@@ -140,7 +135,7 @@ async function submitRegister(path, payload, successMsg, redirectUrl) {
     }
 }
 
-// ====== 表单绑定 ======
+// ====== 表单绑定（无条件执行，与 SDK 无关） ======
 function bindForms() {
     const forms = [
         ['emailForm', handleEmail],
@@ -158,19 +153,19 @@ function bindForms() {
 
 /**
  * 前置检查：返回可提交的 cf token，或 null（并已经给出提示）。
- * 覆盖三种"人机验证不可用"的情形，避免把空 token 发给后端后
- * 只收到一句含糊的失败提示：
- *   1. SDK / widget 没加载成功（扩展拦截、网络不通、挑战失败 300* 等）
- *   2. 用户还没完成验证
+ * 区分「组件没挂上 / 加载失败」「用户还没完成验证」，不再一律说「请完成人机验证」。
  */
 function checkCfOrReturn() {
-    if (turnstileFailed || !window.turnstile || !widgetIds[currentTab]) {
-        Toast.show('人机验证未加载：请关闭广告拦截类扩展后刷新页面重试');
+    const widget = currentWidget();
+    if (!widget) {
+        Toast.show('人机验证未初始化，请刷新页面重试');
         return null;
     }
-    const cfToken = getCfToken();
+    const cfToken = widget.getToken();
     if (!cfToken) {
-        Toast.show('请完成人机验证');
+        Toast.show(widget.state() === 'failed'
+            ? '人机验证加载失败，请点组件下方的「重新验证」'
+            : '请先完成人机验证');
         return null;
     }
     return cfToken;
@@ -190,7 +185,7 @@ async function handleEmail(e) {
     const cf = checkCfOrReturn();
     if (cf === null) return;
     await submitRegister('register/email',
-        { email, username, password, cf_turnstile_token: cf || '' },
+        { email, username, password, cf_turnstile_token: cf },
         '注册成功，请登录', './login.html');
 }
 
@@ -208,7 +203,7 @@ async function handlePhone(e) {
     const cf = checkCfOrReturn();
     if (cf === null) return;
     await submitRegister('register/phone',
-        { phone, username, password, cf_turnstile_token: cf || '' },
+        { phone, username, password, cf_turnstile_token: cf },
         '注册成功，请登录', './login.html');
 }
 
@@ -225,7 +220,7 @@ async function handleTemp(e) {
         const resp = await fetch(`${API_BASE_URL}/api/v0/auth/temp-access`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, invite_code: inviteCode, cf_turnstile_token: cf || '' })
+            body: JSON.stringify({ username, invite_code: inviteCode, cf_turnstile_token: cf })
         });
         const data = await resp.json();
         if (resp.ok && data?.code === 200) {
@@ -238,5 +233,6 @@ async function handleTemp(e) {
         }
     } catch {
         if (typeof Toast !== 'undefined') Toast.show('网络错误');
+        resetCf();
     }
 }

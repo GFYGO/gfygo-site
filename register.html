@@ -8,10 +8,11 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>GWL | 个人学习平台 - 注册</title>
-    <!-- Cloudflare Turnstile SDK 由 js/register.js 在定义 onTurnstileReady 回调后动态注入 -->
+    <!-- Cloudflare Turnstile：SDK 与组件挂载都在 js/turnstile-widget.js 里，
+         register.js 只负责「取 token + 提交」，两者互不依赖（SDK 挂掉也能正常提示） -->
     <link rel="stylesheet" href="./css/core.css?v=20260911d">
     <link rel="stylesheet" href="./css/styles.css?v=20260911d">
-    <link rel="stylesheet" href="./css/login.css?v=20260911d">
+    <link rel="stylesheet" href="./css/login.css?v=20260923a">
     <link rel="stylesheet" href="./css/register.css?v=20260911d">
     <link rel="stylesheet" href="./css/components.css?v=20260911d">
     <link rel="icon" href="./favicon.png" type="image/png">
@@ -148,6 +149,7 @@
     <script src="./js/theme.js?v=20260911d"></script>
     <script src="./js/toast.js?v=20260911d"></script>
     <script src="./js/index.js?v=20260911e"></script>
-    <script src="./js/register.js?v=20260911d"></script>
+    <script src="./js/turnstile-widget.js?v=20260923a"></script>
+    <script src="./js/register.js?v=20260923a"></script>
 </body>
 </html>

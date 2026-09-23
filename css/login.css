@@ -20,3 +20,47 @@
 .login-page {
   min-height: calc(100vh - var(--header-height));
 }
+
+/* =========================================
+   Turnstile 提示条（由 js/turnstile-widget.js 注入）
+   —— 用户能看到「挑战为什么没结束」，并且有一个「重新验证」的出口。
+   故意放在 .turnstile-mount（组件容器的父元素）里，不能写进容器内部：
+   Turnstile 的 iframe 就在容器里，改容器的 innerHTML 会把挑战弄没。
+   ========================================= */
+.turnstile-notice {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-left: 4px solid #ef4444;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-white);
+}
+
+/* 非致命状态（挑战还没完成、token 过期正在重发）用主色，别吓唬人 */
+.turnstile-notice--info {
+  border-left-color: var(--color-primary);
+}
+
+.turnstile-notice__text {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+  word-break: break-word;
+}
+
+.turnstile-notice__btn {
+  margin-top: 8px;
+  padding: 6px 14px;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.turnstile-notice__btn:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
