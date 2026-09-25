@@ -47,9 +47,9 @@
     white-space: nowrap;
 }
 
-.org-header__logo span {
+/* .org-header__logo span {
     color: var(--color-primary);
-}
+} */
 
 .org-header__nav {
     flex: 1 1 auto;
