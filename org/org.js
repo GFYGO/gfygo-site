@@ -286,6 +286,9 @@
                 if (card && !card.hidden) { card.hidden = true; syncAria(id, false); }
             });
         });
+        // 视口变化 → 重新收敛已展开卡片的高度/方向（否则转屏后又会伸出屏幕）
+        window.addEventListener('resize', refitOpenPopcards);
+        window.addEventListener('orientationchange', refitOpenPopcards);
     }
 
     function on(id, event, handler) {
@@ -302,9 +305,45 @@
             e.stopPropagation();
             var willOpen = card.hidden;
             card.hidden = !willOpen;
+            if (willOpen) fitPopcard(card);   // ⭐ 展开后立刻按锚点收敛高度/方向
             syncAria(cardId, willOpen);
         });
         card.addEventListener('click', function (e) { e.stopPropagation(); });
+    }
+
+    /** 让弹出卡片**留在视口内**（否则锚点靠下时卡片会伸到屏幕外面，底部点不到）。
+     *
+     *  两件事：
+     *    ① 按「锚点上方/下方还剩多少」动态写 `--org-popcard-max-h` ——
+     *       CSS 里的 `calc(100vh - 140px)` 是按**视口**算的兜底，不知道锚点在哪；
+     *    ② 下方连 160px 都放不下、而上方更宽裕时翻到锚点上方（`.org-popcard--up`）。
+     *
+     *  宽度不在这里管（CSS 的 `max-width: calc(100vw - 32px)` 已经够了）。
+     */
+    function fitPopcard(card) {
+        if (!card || card.hidden) return;
+        var wrap = card.parentNode;
+        if (!wrap || !wrap.getBoundingClientRect) return;
+        var rect = wrap.getBoundingClientRect();
+        if (!rect || (!rect.height && !rect.width)) return;   // 锚点不可见（display:none）
+        var GAP = 8;       // 与 CSS 的 `calc(100% + 8px)` 对齐
+        var MARGIN = 12;   // 与视口上下边缘留的余量
+        var roomBelow = window.innerHeight - rect.bottom - GAP - MARGIN;
+        var roomAbove = rect.top - GAP - MARGIN;
+        var up = roomBelow < 160 && roomAbove > roomBelow;
+        var room = up ? roomAbove : roomBelow;
+        // 既不低于 120px（太小没法用，内部还能滚），也不超过视口本身
+        var px = Math.floor(Math.min(Math.max(room, 120), window.innerHeight - 2 * MARGIN));
+        card.classList.toggle('org-popcard--up', up);
+        card.style.setProperty('--org-popcard-max-h', px + 'px');
+    }
+
+    /** 视口变化时重算所有**已展开**的卡片（转屏 / 缩放 / 窗口拉伸）。 */
+    function refitOpenPopcards() {
+        ['tabsCard', 'viewCard', 'orgSwitchCard'].forEach(function (id) {
+            var card = document.getElementById(id);
+            if (card && !card.hidden) fitPopcard(card);
+        });
     }
 
     function syncAria(cardId, open) {

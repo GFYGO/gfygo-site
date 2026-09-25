@@ -332,7 +332,11 @@
     max-width: calc(100vw - 32px);
     /* ⚠️ 高度必须一起收敛：只限 max-width 的话，已打开页面一多，
        卡片会从顶栏一路长到屏幕外面（下面的「全部关闭」点不到）。
-       三段式：head/foot 不压缩，只有 body 滚动。 */
+       三段式：head/foot 不压缩，只有 body 滚动。
+       ⚠️ 这个 100vh 只是**兜底**：它按视口算、不按锚点算，
+       锚点本身靠下时（如左导航的「切换组织」）照样会伸出屏幕。
+       真正的收敛由 `org.js::fitPopcard()` 在展开时按锚点算出的
+       `--org-popcard-max-h` 完成（内联变量优先于这里的 fallback）。 */
     display: flex;
     flex-direction: column;
     max-height: var(--org-popcard-max-h, calc(100vh - 140px));
@@ -341,6 +345,12 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
     overflow: hidden;
+}
+
+/* 锚点下方放不下、上方更宽裕时翻到上方（由 org.js::fitPopcard 加/去这个类） */
+.org-popcard--up {
+    top: auto;
+    bottom: calc(100% + 8px);
 }
 
 .org-popcard--block {
