@@ -3,7 +3,9 @@
  *
  * 规则模式（mode:'rules'，默认）：5 字段规则列表 <对象id>.<级别>.<类别>.<权限>.<状态>
  *   - 各字段可用 '*' 通配；类别/权限从节点字典下拉
- *   - getRules() / setRules(rules) / getValue()(规则数组)
+ *   - getRules() 返回规则数组；setRules(rules) 写入规则数组
+ *   - getValue() **不**返回规则数组，而是把规则折叠成 {节点键: state} 映射
+ *     （如 {'doc.read': 'allow'}，会丢失 target/level 等字段）；要完整规则请用 getRules()
  *
  * 节点模式（mode:'node'，兼容 admin-menu 单节点选择）：节点树 → getValue() 返回 {node_code: state}
  */

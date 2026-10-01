@@ -78,6 +78,9 @@ function initMobileSidebar() {
  */
 async function fetchGlobalNotifications() {
   // dashboard / 组织页 有自己的通知加载逻辑，此处跳过
+  // 注：下方正则里的 admin1/admin2/admin3/superadmin 是早期「按等级分目录」方案的
+  //     历史兼容路径；今日前端仓库只有 user/dashboard.html，不存在这四个目录。
+  //     保留这些替代名只为不破坏历史路径的短路判断，不代表这些目录存在。
   if (/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname)
       || /\/org\/index\.html$/i.test(window.location.pathname)) {
     return;
@@ -101,6 +104,8 @@ async function fetchGlobalNotifications() {
  */
 async function fetchAuthStatus() {
   // 所有 dashboard 类页面由 dashboard.js 独立处理认证状态，避免重复渲染冲突
+  // 注：admin1/admin2/admin3/superadmin 为历史兼容目录名（今日前端只有 user/），
+  //     详见 fetchGlobalNotifications() 上方的说明。
   if (/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname)) {
     return;
   }
@@ -399,6 +404,8 @@ window.handlePermissionClick = window.handlePermissionClick || async function (l
   refreshPermissionButtonsAfterSwitch(level);
 
   // 判断当前页面是否是 dashboard 类页面（需要跳转）
+  // 注：admin1/admin2/admin3/superadmin 为历史兼容目录名（今日前端只有 user/）；
+  //     无论命中哪个替代名，真实跳转目标都是 ${BASE_PATH}/user/dashboard.html（见下）。
   const isDashboardPage = /\/(user|admin1|admin2|admin3|superadmin)\/dashboard\.html$/i.test(window.location.pathname);
 
   if (isDashboardPage) {
