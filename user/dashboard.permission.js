@@ -3,7 +3,15 @@
  * 权限解析器（前端版）
  * 对应后端 utils/permission.py 中的解析函数
  * Phase 2: 改为 ES Module
+ *
+ * ⚠️ 等级命名（UNTRUSTED.md C2）：本文件**不再自带一份等级名**。
+ *   此前它用的是 `{2:'认证用户', 3:'高级用户', 4:'管理员'}`，与全站权威命名
+ *   （`一级/二级/三级管理员`）不一致 —— 同一个身份在侧边栏显示「一级管理员」、
+ *   在权限编辑器里显示「认证用户」。
+ *   现在直接复用 `dashboard.auth.js` 导出的 `ROLE_NAMES`（它已对齐全站命名，
+ *   与主站 `js/index.js::ROLE_NAMES` 逐字一致），避免**第三份**同名映射。
  */
+import { ROLE_NAMES } from './dashboard.auth.js';
 
 function parseScope(scopeId) {
     if (!scopeId) return { type: null, id: null };
@@ -44,8 +52,9 @@ function parseFullPermissionId(permId) {
 
 function resolveScopeDisplay(type, id) {
     if (type === 'level') {
-        const map = { 1: '普通用户', 2: '认证用户', 3: '高级用户', 4: '管理员', 5: '超级管理员' };
-        return map[id] || `等级 ${id}`;
+        // 等级名取自权威映射（dashboard.auth.js::ROLE_NAMES，与主站逐字一致）。
+        // 未知等级回退到 `等级 N`，与原先行为一致。
+        return ROLE_NAMES[id] || `等级 ${id}`;
     }
     if (type === 'user') return `用户 #${id}`;
     if (type === 'group') return `组 ${id.toUpperCase()}`;
