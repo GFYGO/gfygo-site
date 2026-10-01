@@ -118,7 +118,11 @@ function bindDocsUrlRestore() {
         const st = window.DashUrl ? window.DashUrl.read() : null;
         const actions = window.PDocsActions;
         if (!st || !actions) return;
-        if (st.doc) {
+        // ⚠️ 用**存在性**判断，不要用真值判断：`DashUrl.read()` 对缺失/非法返回 `null`，
+        //    而文档 id 可以是合法的 `0`（线上确实存在主键为 0 的文档 —— 见
+        //    site-back/UNTRUSTED.md §H19）。写成 `if (st.doc)` 会让 `?doc=0` 的深链接失效。
+        //    `st.folder` 同理保持 `null` 语义：`folder=0` ≡ 根目录，与「不导航」等价（已核对）。
+        if (st.doc !== null) {
             // 先定位文件夹（返回列表时停留在原文件夹），再打开文档
             if (st.folder) actions.navigateToFolder(st.folder);
             if (st.mode === 'editor') actions.openPdocsEditor(st.doc);

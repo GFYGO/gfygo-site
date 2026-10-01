@@ -87,6 +87,55 @@ function pdocsExtractSummary(content) {
     return firstLine.slice(0, 100);
 }
 
+/**
+ * 把后端标量（数字 id / 字符串）渲染成**可安全插入 HTML 属性**的文本。
+ *
+ * ⚠️ 不要把数字直接交给 `escapeHtml`：`js/utils.js::escapeHtml` 的实现是
+ *    `String(str || '')` —— 数字 `0` 是 falsy，**合法的 id=0 会被吞成空串**。
+ *    于是 id=0 的文档 / 文件夹被渲染成 `data-id=""`，点击时 id 被当成「没有 id」。
+ *    `escapeHtml` 是全站共享的固有行为，本轮不动它，改在**调用侧**。
+ *    同一根因的另一处线上表现见 `site-back/pages/admin-public-docs/site.js::safeText`
+ *    （那里渲染成 `null` 会请求 `GET /api/v0/document/null` → 404）。
+ *
+ * 这里先按**存在性**判缺失（null / undefined / 空串），再 `String()` 后交给 escapeHtml：
+ * 传进去的是字符串 `'0'`（truthy），不会被吞，转义保护一分不少。
+ *
+ * @param {*} value         后端字段（数字 / 字符串 / null）
+ * @param {string} fallback 缺失时的占位（属性用 ''，展示用 '-' 之类）
+ * @returns {string} 可安全插入 HTML 的文本
+ */
+function pdocsSafeValue(value, fallback = '') {
+    if (value === null || value === undefined || value === '') return fallback;
+    return escapeHtml(String(value));
+}
+
+/**
+ * 从 `data-*` 里读一个合法的**非负整数**主键（`0` 合法）。
+ *
+ * ⚠️ **存在性判断，不是真值判断**：
+ *    * 旧写法 `parseInt(btn.dataset.id, 10)` 在 `data-id=""` 时得到 **NaN**；
+ *    * 旧写法 `docId || null` 会把 `0` 当成「没有 id」。
+ *    两者叠加就是「点 id=0 文档的编辑 → 打开空白新建编辑器，保存还会 POST 出重复文档」。
+ *    这里只接受 `^\d+$`：空串 / 非数字 / 负数 / 小数 / 科学计数法一律返回 `null`，
+ *    调用方据此给出**可见**提示并**不发请求**（绝不带 NaN/null 去请求 `/document/NaN`）。
+ *
+ * @param {*} raw `data-*` 读出来的值（字符串 / 数字 / undefined）
+ * @returns {number|null} 合法主键（**0 合法**）或 null
+ */
+function pdocsParseId(raw) {
+    if (raw === null || raw === undefined) return null;
+    const text = String(raw).trim();
+    if (!/^\d+$/.test(text)) return null;
+    const num = parseInt(text, 10);
+    if (!Number.isSafeInteger(num) || num < 0) return null;
+    return num;
+}
+
+/** id 是否是可用主键（**0 合法**）——状态判断用，避免 `if (id)` 吞掉 0。 */
+function pdocsIsValidId(id) {
+    return typeof id === 'number' && Number.isSafeInteger(id) && id >= 0;
+}
+
 async function pdocsRequest(path, options = {}) {
     const token = AuthGuard.getToken();
     if (!token) { AuthGuard.handleAuthError(); return null; }
@@ -183,16 +232,19 @@ function initPersonalDocs() {
     });
     bind('pdocsBrowserBackBtn', () => showPdocsView('list'));
     bind('pdocsBrowserEditBtn', () => {
-        if (PDocsState.browserDocId) openPdocsEditor(PDocsState.browserDocId);
+        // 存在性判断：id=0 是合法主键，`if (PDocsState.browserDocId)` 会让按钮静默失效
+        if (pdocsIsValidId(PDocsState.browserDocId)) openPdocsEditor(PDocsState.browserDocId);
     });
     bind('pdocsBrowserDeleteBtn', () => {
-        if (PDocsState.browserDocId) softDeletePersonalDoc(PDocsState.browserDocId);
+        if (pdocsIsValidId(PDocsState.browserDocId)) softDeletePersonalDoc(PDocsState.browserDocId);
     });
     bind('pdocsBrowserOpenInDocBtn', () => {
         const { browserDocId: docId, browserDocSlug: slug } = PDocsState;
         if (slug) {
             window.open(`${window.BASE_PATH || '.'}/document.html?slug=${encodeURIComponent(slug)}`, '_blank');
-        } else if (docId) {
+        } else if (pdocsIsValidId(docId)) {
+            // ⚠️ 这一支本来就**不带任何 id/slug 参数**（只打开文档页），本轮只把真值判断换成
+            //    存在性判断，让 id=0 与非 0 文档走同一条路，不改变该支语义（是否该带参数见汇报的「存疑」项）。
             window.open(`${window.BASE_PATH || '.'}/document.html`, '_blank');
         }
     });
@@ -344,31 +396,31 @@ function renderExplorerGrid() {
 
     subFolders.forEach(f => {
         items.push(`
-            <div class="pdocs-explorer-item pdocs-explorer-item--folder" data-folder-id="${escapeHtml(f.id)}" title="${escapeHtml(f.name)}">
+            <div class="pdocs-explorer-item pdocs-explorer-item--folder" data-folder-id="${pdocsSafeValue(f.id)}" title="${escapeHtml(f.name)}">
                 <div class="pdocs-explorer-item__icon">📁</div>
                 <div class="pdocs-explorer-item__name">${escapeHtml(f.name)}</div>
                 <div class="pdocs-explorer-item__actions">
-                    <button class="pdocs-explorer-item__btn" data-action="rename-folder" data-id="${escapeHtml(f.id)}" title="重命名">✏️</button>
-                    <button class="pdocs-explorer-item__btn" data-action="delete-folder" data-id="${escapeHtml(f.id)}" title="删除">🗑</button>
+                    <button class="pdocs-explorer-item__btn" data-action="rename-folder" data-id="${pdocsSafeValue(f.id)}" title="重命名">✏️</button>
+                    <button class="pdocs-explorer-item__btn" data-action="delete-folder" data-id="${pdocsSafeValue(f.id)}" title="删除">🗑</button>
                 </div>
             </div>`);
     });
 
     docs.forEach(doc => {
         items.push(`
-            <div class="pdocs-explorer-item pdocs-explorer-item--doc" data-doc-id="${escapeHtml(doc.id)}" title="${escapeHtml(doc.title)}">
+            <div class="pdocs-explorer-item pdocs-explorer-item--doc" data-doc-id="${pdocsSafeValue(doc.id)}" title="${escapeHtml(doc.title)}">
                 <div class="pdocs-explorer-item__icon">${escapeHtml(doc.icon || '📄')}</div>
                 <div class="pdocs-explorer-item__name">${escapeHtml(doc.title)}</div>
                 <div class="pdocs-explorer-item__meta">${pdocsFmtTime(doc.updated_at)}</div>
                 <div class="pdocs-explorer-item__actions">
-                    <select class="pdocs-explorer-move" data-action="move" data-id="${escapeHtml(doc.id)}" title="移动到文件夹">
+                    <select class="pdocs-explorer-move" data-action="move" data-id="${pdocsSafeValue(doc.id)}" title="移动到文件夹">
                         <option value="" disabled selected>📁</option>
                         <option value="0">无文件夹</option>
-                        ${PDocsState.folders.map(f => `<option value="${escapeHtml(f.id)}" ${doc.folder_id === f.id ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('')}
+                        ${PDocsState.folders.map(f => `<option value="${pdocsSafeValue(f.id)}" ${doc.folder_id === f.id ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('')}
                     </select>
-                    <button class="pdocs-explorer-item__btn" data-action="browse" data-id="${escapeHtml(doc.id)}" title="浏览">👁</button>
-                    <button class="pdocs-explorer-item__btn" data-action="edit" data-id="${escapeHtml(doc.id)}" title="编辑">✏️</button>
-                    <button class="pdocs-explorer-item__btn" data-action="delete" data-id="${escapeHtml(doc.id)}" title="删除">🗑</button>
+                    <button class="pdocs-explorer-item__btn" data-action="browse" data-id="${pdocsSafeValue(doc.id)}" title="浏览">👁</button>
+                    <button class="pdocs-explorer-item__btn" data-action="edit" data-id="${pdocsSafeValue(doc.id)}" title="编辑">✏️</button>
+                    <button class="pdocs-explorer-item__btn" data-action="delete" data-id="${pdocsSafeValue(doc.id)}" title="删除">🗑</button>
                 </div>
             </div>`);
     });
@@ -387,7 +439,12 @@ function renderExplorerGrid() {
     $$('.pdocs-explorer-item--folder', container).forEach(el => {
         on(el, 'click', (e) => {
             if (e.target.closest('.pdocs-explorer-item__btn')) return;
-            const fid = parseInt(el.dataset.folderId, 10);
+            const fid = pdocsParseId(el.dataset.folderId);
+            if (fid === null) {
+                // 失败不要静默：旧写法 parseInt('') → NaN → navigateToFolder(NaN) 静默回根目录
+                showToast('无法识别该文件夹的 ID，请刷新页面后重试', 'error');
+                return;
+            }
             navigateToFolder(fid);
         });
     });
@@ -398,7 +455,11 @@ function renderExplorerGrid() {
     $$('.pdocs-explorer-item--doc', container).forEach(el => {
         on(el, 'click', (e) => {
             if (e.target.closest('.pdocs-explorer-item__btn') || e.target.closest('.pdocs-explorer-move')) return;
-            const id = parseInt(el.dataset.docId, 10);
+            const id = pdocsParseId(el.dataset.docId);
+            if (id === null) {
+                showToast('无法识别该文档的 ID，请刷新页面后重试', 'error');
+                return;
+            }
             openPdocsBrowser(id);
         });
     });
@@ -407,7 +468,15 @@ function renderExplorerGrid() {
         on(btn, 'click', (e) => {
             e.stopPropagation();
             const action = btn.dataset.action;
-            const id = parseInt(btn.dataset.id, 10);
+            // ⚠️ 旧写法 `parseInt(btn.dataset.id, 10)`：id=0 被渲染成 data-id=""（见 pdocsSafeValue）
+            //    时得到 NaN，于是「编辑」走进了**空白新建**而不是编辑。这里严格校验，
+            //    id 缺失 / 非法时给可见提示且**不发任何请求**。
+            const id = pdocsParseId(btn.dataset.id);
+            if (id === null) {
+                console.error('[pdocs] 按钮缺少合法的 data-id，已取消操作:', action, btn.outerHTML || '');
+                showToast('操作失败：这一项缺少有效的 ID，请刷新页面后重试', 'error');
+                return;
+            }
             if (action === 'browse') openPdocsBrowser(id);
             else if (action === 'edit') openPdocsEditor(id);
             else if (action === 'delete') softDeletePersonalDoc(id);
@@ -425,8 +494,13 @@ function renderExplorerGrid() {
     $$('.pdocs-explorer-move', container).forEach(sel => {
         on(sel, 'change', (e) => {
             e.stopPropagation();
-            const docId = parseInt(sel.dataset.id, 10);
-            const folderId = parseInt(sel.value, 10);
+            const docId = pdocsParseId(sel.dataset.id);
+            // 下拉的 value="0" =「无文件夹」，是**合法**目标，0 必须保留（真值判断会把它当缺失）
+            const folderId = pdocsParseId(sel.value);
+            if (docId === null || folderId === null) {
+                showToast('无法识别文档或目标文件夹，请刷新页面后重试', 'error');
+                return;
+            }
             movePersonalDoc(docId, folderId);
         });
         on(sel, 'click', (e) => e.stopPropagation());
@@ -450,7 +524,11 @@ function goUpOneLevel() {
 }
 
 async function openPdocsBrowser(docId) {
-    if (!docId) return;
+    // 存在性判断，不是真值判断：`if (!docId)` 会把合法主键 0 当成「没有 id」
+    if (!pdocsIsValidId(docId)) {
+        showToast('无法识别该文档的 ID，请刷新页面后重试', 'error');
+        return;
+    }
     PDocsState.browserDocId = docId;
     PDocsState.browserDocSlug = null;
     if (window.DashUrl) window.DashUrl.write({ doc: docId, mode: 'browse' });
@@ -480,7 +558,7 @@ async function openPdocsBrowser(docId) {
     if (metaEl) {
         const vis = { public: '🌐 公有', private: '🔒 私有' }[doc.visibility] || '🔒 私有';
         metaEl.innerHTML = `
-            <span>作者：${escapeHtml(doc.author_username || doc.author_id || '-')}</span>
+            <span>作者：${pdocsSafeValue(doc.author_username || doc.author_id, '-')}</span>
             <span>${vis}</span>
             <span>创建于 ${pdocsFmtTime(doc.created_at)}</span>
             <span>更新于 ${pdocsFmtTime(doc.updated_at)}</span>
@@ -520,8 +598,8 @@ function renderPdocsTrash(docs) {
                 </div>
             </div>
             <div class="pdocs-trash-item__actions">
-                <button class="pdocs-btn pdocs-btn--secondary pdocs-btn--sm" data-action="restore" data-id="${escapeHtml(doc.id)}">恢复</button>
-                <button class="pdocs-btn pdocs-btn--danger pdocs-btn--sm" data-action="permanent" data-id="${escapeHtml(doc.id)}">彻底删除</button>
+                <button class="pdocs-btn pdocs-btn--secondary pdocs-btn--sm" data-action="restore" data-id="${pdocsSafeValue(doc.id)}">恢复</button>
+                <button class="pdocs-btn pdocs-btn--danger pdocs-btn--sm" data-action="permanent" data-id="${pdocsSafeValue(doc.id)}">彻底删除</button>
             </div>
         </div>
     `).join('');
@@ -529,7 +607,12 @@ function renderPdocsTrash(docs) {
     $$('[data-action]', container).forEach(btn => {
         on(btn, 'click', () => {
             const action = btn.dataset.action;
-            const id = parseInt(btn.dataset.id, 10);
+            const id = pdocsParseId(btn.dataset.id);
+            if (id === null) {
+                console.error('[pdocs] 回收站按钮缺少合法的 data-id，已取消操作:', action);
+                showToast('操作失败：这一项缺少有效的 ID，请刷新页面后重试', 'error');
+                return;
+            }
             if (action === 'restore') restorePersonalDoc(id);
             else if (action === 'permanent') permanentDeletePersonalDoc(id);
         });
@@ -537,8 +620,17 @@ function renderPdocsTrash(docs) {
 }
 
 async function openPdocsEditor(docId) {
-    PDocsState.editingId = docId || null;
-    if (window.DashUrl) window.DashUrl.write({ doc: docId || null, mode: docId ? 'editor' : null });
+    // `null` / `undefined` = 新建；其余必须是合法主键（**0 合法**）。
+    // ⚠️ 旧写法 `docId || null` + `docId ? 'editor' : null`：id=0 会退化成「新建」——
+    //    用户看到空白编辑器（以为文档丢了），保存时还会 POST 出一篇**重复文档**。
+    const isNew = (docId === null || docId === undefined);
+    if (!isNew && !pdocsIsValidId(docId)) {
+        showToast('无法识别该文档的 ID，请刷新页面后重试', 'error');
+        return;
+    }
+    const editId = isNew ? null : docId;
+    PDocsState.editingId = editId;
+    if (window.DashUrl) window.DashUrl.write({ doc: editId, mode: editId === null ? null : 'editor' });
     showPdocsView('editor');
 
     const titleInput = $('pdocsTitleInput');
@@ -546,7 +638,7 @@ async function openPdocsEditor(docId) {
 
     if (!PDocsState.editorInstance) initPdocsEasyMDE();
 
-    if (!docId) {
+    if (isNew) {
         titleInput.value = '';
         if (PDocsState.editorInstance) PDocsState.editorInstance.value('');
         preview.style.display = 'none';
@@ -591,14 +683,17 @@ async function savePersonalDoc() {
         visibility: 'private',
         permission_bits: '100000'
     };
-    if (!PDocsState.editingId && typeof PDocsState.currentFolderId === 'number' && PDocsState.currentFolderId > 0) {
+    // 「是否编辑中」用存在性判断：editingId = 0 是合法主键。
+    // ⚠️ 旧写法 `if (PDocsState.editingId)` 在 id=0 时走 else 分支 → **POST 新建一篇重复文档**。
+    const editingId = pdocsIsValidId(PDocsState.editingId) ? PDocsState.editingId : null;
+    if (editingId === null && typeof PDocsState.currentFolderId === 'number' && PDocsState.currentFolderId > 0) {
         bodyObj.folder_id = PDocsState.currentFolderId;
     }
     const body = JSON.stringify(bodyObj);
 
     let data;
-    if (PDocsState.editingId) {
-        data = await pdocsRequest('/' + PDocsState.editingId, { method: 'PUT', body });
+    if (editingId !== null) {
+        data = await pdocsRequest('/' + editingId, { method: 'PUT', body });
     } else {
         data = await pdocsRequest('/', { method: 'POST', body });
     }
@@ -731,7 +826,7 @@ async function renderPdocsBreadcrumb() {
         chain.forEach((f, idx) => {
             const isLast = idx === chain.length - 1;
             items.push(`<span class="pdocs-breadcrumb__sep">›</span>`);
-            items.push(`<button class="pdocs-breadcrumb__item ${isLast ? 'is-active' : ''}" data-folder-id="${escapeHtml(f.id)}">${escapeHtml(f.name)}</button>`);
+            items.push(`<button class="pdocs-breadcrumb__item ${isLast ? 'is-active' : ''}" data-folder-id="${pdocsSafeValue(f.id)}">${escapeHtml(f.name)}</button>`);
         });
     }
 
@@ -743,7 +838,12 @@ async function renderPdocsBreadcrumb() {
             if (fid === '__root__') {
                 navigateToFolder(null);
             } else {
-                navigateToFolder(parseInt(fid, 10));
+                const folderId = pdocsParseId(fid);
+                if (folderId === null) {
+                    showToast('无法识别该文件夹的 ID，请刷新页面后重试', 'error');
+                    return;
+                }
+                navigateToFolder(folderId);
             }
         });
     });
