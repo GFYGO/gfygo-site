@@ -293,7 +293,7 @@ var STATIC_PANEL_HOOKS = {
  * 用途：切换权限等级后，原来停留的管理页可能已经不在列表里（例如切到 Lv1）。
  * 那时继续重载只会渲染「权限不足」，不如回到默认页。
  * 判定只依据**服务端此次返回的列表**（外加静态面板白名单 `STATIC_TABS`），不做任何前端权限推断
- * —— 前端二次过滤历史上会吃掉服务端已授权的项（见 PROJECT_MEMORY §0.4）。
+ * —— 前端二次过滤历史上会吃掉服务端已授权的项（见 PROJECT_MEMORY §6.2）。
  */
 function isTabAvailable(tabKey) {
     if (!tabKey) return true;

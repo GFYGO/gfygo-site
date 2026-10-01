@@ -6,7 +6,7 @@
       CSP：EasyMDE（编辑器）默认会注入 Font Awesome 样式表（maxcdn.bootstrapcdn.com），
       其图标字体来自同一域，因此 style-src / font-src 必须放行该域，否则编辑器工具栏图标不显示。
       img-src 保留 https: 以兼容用户头像/横幅的外链图片。
-      script-src 放行 blob:：**后端下发的动态页面**（pages/ 里的 ai-demo + 5 个管理页）的 JS 由
+      script-src 放行 blob:：**后端下发的动态页面**（pages/ 里的 ai-demo + 6 个管理页）的 JS 由
       /api/v0/user/pages/<tab_key> 返回，前端以 Blob URL + <script src=blob:> 执行
       —— 不使用 eval / new Function / 内联脚本。
       （侧边栏那 4 个基础页是 dashboard.html 里写死的静态面板，内容不经过后端。）
@@ -242,7 +242,7 @@
                     </div>
                 </section>
 
-                <!-- 动态内容容器：JS 动态注入后端 pages/ 下发的页面（6 个：ai-demo + 5 个管理页） -->
+                <!-- 动态内容容器：JS 动态注入后端 pages/ 下发的页面（7 个：ai-demo + 6 个管理页） -->
                 <div id="dynamicContentContainer"></div>
 
                 <!-- 主页（个人资料） -->

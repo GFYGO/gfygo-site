@@ -338,7 +338,7 @@ window.renderPermissionButtons = window.renderPermissionButtons || function (lev
     btn.className = 'perm-btn';
     if (level === currentLevel) {
       // ⚠️ 类名契约：CSS 只定义了 `.perm-btn--current`（components.css），
-      //    写成 `--active` 会让任何等级都不高亮（历史 bug，见 PROJECT_MEMORY §0.7）。
+      //    写成 `--active` 会让任何等级都不高亮（历史 bug，见 PROJECT_MEMORY §9.3）。
       btn.classList.add('perm-btn--current');
     }
     btn.textContent = level;

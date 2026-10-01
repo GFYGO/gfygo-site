@@ -16,7 +16,7 @@
  *      「人机验证未加载」。现在 Tab 切到哪就挂哪个，且 SDK 就绪时会补挂当前 Tab。
  */
 
-//: 站点密钥（与 site-back/.env 的 TURNSTILE_SITEKEY、Cloudflare 后台的 widget 必须一致）
+//: 站点密钥（与 site-back/.env 的 TURNSTILE_SITE_KEY、Cloudflare 后台的 widget 必须一致）
 const REGISTER_SITEKEY = '0x4AAAAAAECyOCbL7qIJUOgg';
 
 const TABS = ['email', 'phone', 'temp'];
