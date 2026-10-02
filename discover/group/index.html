@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>组 | 发现 | GWL</title>
+  <link rel="stylesheet" href="../../css/core.css?v=20261002a">
+  <link rel="stylesheet" href="../../css/styles.css?v=20261002a">
+  <link rel="stylesheet" href="../../css/components.css?v=20261002a">
+  <link rel="stylesheet" href="../../css/discover.css?v=20261002a">
+  <link rel="icon" href="../../favicon.png?v=20261002a" type="image/png">
+</head>
+<body data-discover-page="board" data-discover-key="group">
+  <!--
+    「组」板块静态页：key 写死（data-discover-key="group"，**不读 ?key=**）。
+    渲染逻辑与 discover/section.html 相同，由 js/discover.js 统一处理。
+    本页在 /discover/group/ 下（两层深）：静态资源前缀 ../../，window.BASE_PATH 也由 js/config.js 按 URL 目录深度算成 '../..'。
+  -->
+  <header class="header">
+    <div class="header__logo">GWL Works Lab</div>
+
+    <!-- 移动端汉堡菜单按钮 -->
+    <button class="header__toggle" id="menuToggle" aria-label="切换菜单">☰</button>
+
+    <!-- 导航链接 -->
+    <nav class="header__nav" id="headerNav">
+      <a href="../../index.html">首页</a>
+      <a href="../../document.html">文档</a>
+      <a href="../../org/index.html">组织</a>
+      <a href="../../discover/index.html">发现</a>
+      <a href="../../login.html">登录</a>
+      <a href="../../register.html">注册</a>
+    </nav>
+
+    <!-- 右侧操作区：通知和用户信息 -->
+    <div class="header__actions">
+      <div id="auth-container"></div>
+      <div class="permission-buttons" id="permissionButtons"></div>
+    </div>
+  </header>
+
+  <!-- 全局通知容器（在 header 下方，fixed 定位） -->
+  <div id="global-notifications-container" class="notification-toast"></div>
+
+  <main class="discover-main">
+    <section class="discover-hero">
+      <h1 class="discover-hero__title" id="discoverTitle">👥 组</h1>
+      <p class="discover-hero__desc" id="discoverDesc">这里汇总所有公开的「组」展示内容。</p>
+    </section>
+
+    <div class="discover-toolbar">
+      <span class="discover-toolbar__crumbs">
+        <a href="../../discover/index.html">发现</a> / <a href="../../discover/group/index.html">组</a>
+      </span>
+      <span class="discover-toolbar__meta" id="discoverMeta"></span>
+    </div>
+
+    <section aria-label="组板块内容">
+      <div class="discover-grid" id="discoverFeed"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer__container">
+      <div class="footer__top">
+        <div class="footer__brand">
+          <h3 class="footer__logo">GWL Works Lab</h3>
+          <p class="footer__slogan">探索学习的无限可能</p>
+        </div>
+        <div class="footer__links">
+          <div class="footer__links-group">
+            <h4>快速链接</h4>
+            <a href="../../index.html">首页</a>
+            <a href="../../document.html">文档</a>
+            <a href="../../org/index.html">组织</a>
+            <a href="../../discover/index.html">发现</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer__bottom">
+        <p>&copy; 2026 GFYGO. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- 主题切换悬浮按钮 -->
+  <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
+
+  <!-- 脚本顺序固定：config → utils → sanitize → theme → toast → index → discover（契约 §7.2） -->
+  <script src="../../js/config.js?v=20261002a"></script>
+  <script src="../../js/utils.js?v=20261002a"></script>
+  <script src="../../js/sanitize.js?v=20261002a"></script>
+  <script src="../../js/theme.js?v=20261002a"></script>
+  <script src="../../js/toast.js?v=20261002a"></script>
+  <script src="../../js/index.js?v=20261002a"></script>
+  <script src="../../js/discover.js?v=20261002a"></script>
+</body>
+</html>

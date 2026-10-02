@@ -5,8 +5,32 @@
  */
 
 const API_BASE_URL = "https://back.gwl.net.cn";
-// 二级目录页面（user/ 仪表盘、model/ 模型样例、org/ 组织页）需要 `..` 回到站点根
-const BASE_PATH = (window.location.pathname.match(/\/(user|model|org)\//) ? '..' : '.');
+
+/**
+ * resolveBasePath — 计算「回到站点根」的相对前缀（'.' / '..' / '../..' …）
+ *
+ * 历史实现是 `/^(user|model|org)$/` 白名单正则，只对**一层深**的页面正确。
+ * 发现页的板块子目录是**两层深**（如 `/discover/doc/details.html`），一层 `..`
+ * 会解析到 `/discover/` 而不是站点根，于是该页所有 `BASE_PATH + '/xxx'`
+ * 全部 404 —— 包括 `AuthGuard.requireAuth()` 跳登录，以及
+ * `js/discover.js` 的 `sectionPath()` / `detailPath()` / 「查看」跳转。
+ * 因此改为**按 URL 目录深度**计算，新增任何层级的子目录都不会静默算错。
+ *
+ * 例：`/index.html` → `.`；`/user/dashboard.html` → `..`；
+ *     `/discover/index.html` → `..`；`/discover/doc/details.html` → `../..`
+ *
+ * @param {string} pathname `window.location.pathname`（或同形态的路径）
+ * @returns {string} 相对站点根的前缀；站点根深度的页面返回 '.'
+ */
+function resolveBasePath(pathname) {
+  // 去掉最后一段（文件名，或目录式 URL 的结尾斜杠），只留目录
+  const dir = String(pathname || '/').replace(/\/[^/]*$/, '');
+  const depth = dir.split('/').filter(Boolean).length;
+  if (depth === 0) return '.';
+  return new Array(depth).fill('..').join('/');
+}
+
+const BASE_PATH = resolveBasePath(window.location.pathname);
 const TOKEN_KEY = 'auth_token';
 // 无法判定有效期时的保守兜底：后端签发 token 的默认寿命（50 小时），绝不视为「永不过期」
 const DEFAULT_TOKEN_TTL_MS = 50 * 60 * 60 * 1000;
