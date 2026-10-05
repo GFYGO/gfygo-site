@@ -62,9 +62,10 @@ cd ..   # 回到工作区根 D:\HP(system)\Documents\GitHub\GFYGO
 node tools/test-dashboard-pages.mjs     # 仪表盘加载契约 + 动态页脚本编译
 node tools/test-dashboard-home.mjs      # 从 dashboard.html 解析真实 DOM 全流程装配
 node tools/test-org-page.mjs            # 组织页（含「＋ 加入」卡片：public 自助加入 / 邀请码 / 单次链接 / 我的申请 / 收到的邀请）
+node tools/test-superadmin-page.mjs     # 超管页（动作名与页面后端 ROUTES 对齐 + 「加入方式」区渲染）
 node tools/test-permission-switch.mjs   # 权限视角切换
 node tools/test-turnstile-auth.mjs      # Turnstile 认证链
-node tools/test-discover-page.mjs       # ⭐ 发现页（171 项断言）
+node tools/test-discover-page.mjs       # ⭐ 发现页（184 项断言，含「加入」真动作）
 ```
 
 ⚠️ 本机**没有浏览器自动化**（沙箱起不了无头浏览器）——视觉类问题只能人工在浏览器验证；
