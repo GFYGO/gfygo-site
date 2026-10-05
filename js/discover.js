@@ -4,7 +4,7 @@
  *
  * 契约：file-wiki/_discover-contract.md
  *   §1   板块常量（前端写死，与 site-back/utils/discover_rules.py 同值）
- *   §3   板块 → 动作映射 + 预留提示文案（逐字一致）
+ *   §3   板块 → 动作映射 + 提示文案（逐字一致）
  *   §7.3 window.Discover 门面
  *   §7.4 页面清单与职责
  *
@@ -17,6 +17,15 @@
  *
  * ⚠️ 「前端写死板块表、按后端返回的 item.type / item.actions 渲染」：本文件不猜类型，
  *    一律读后端字段；未知 action 静默忽略（不渲染按钮、不发请求）。
+ *
+ * ⭐ 2026-10-02「组类加入功能」：`join` **不再是占位**（原来只弹提示、零请求）。
+ *    现在点「加入」会真的调 `POST /api/v0/org/classes/<组id>/join`：
+ *      * 组织条目（`ref_type='organization'`）→ 不直接加入（组织不是成员关系的目标），
+ *        改为**滚到「加入组织」区**，那里按 `GET /api/v0/org/joinable?class_id=<组织id>`
+ *        列出可加入的公开组，逐个「加入」；
+ *      * 组条目（`ref_type='group'`）→ 直接加入（公开组即时入组；私有组转成**申请**，
+ *        等管理员批准）。
+ *    `use` 仍是占位（工具板块没有真实接口）。
  */
 (function () {
   'use strict';
@@ -29,10 +38,10 @@
     { key: 'tool',  label: '工具', icon: '🧰', path: 'discover/tool/index.html',  detail: 'discover/tool/details.html' }
   ];
 
-  // ===== §3 预留提示文案（与后端 / 契约逐字一致，两处一致）=====
-  // ⚠️ `join` 仍是**纯提示**（零网络请求）：真正的加入在组织页 —— 2026-10-02 起
-  //    组织页左侧「我加入的组」标题旁有「＋ 加入」（public 直接加入 /
-  //    邀请码 / 单次链接 / 申请）；本文件的文案**刻意不变**（发现页零改动）。
+  // ===== §3 提示文案（与后端 / 契约逐字一致，两处一致）=====
+  // ⚠️ `use` 仍是**纯提示**（工具板块没有真实接口）。
+  //    `join` 自 2026-10-02 起是**真动作**（见本文件头部的说明）：文案只用于
+  //    "组织条目点加入 → 指路下方的加入区"，以及"该板块没有真实加入入口"的兜底。
   var ACTION_PLACEHOLDER = {
     use: '工具功能预留中，暂未接入真实接口',
     join: '加入功能预留中，请通过组织页的邀请码 / 点名邀请加入'
@@ -55,15 +64,37 @@
     noSectionHint: '请从发现页选择一个有效的板块。',
     noView: '暂无可查看的内容',
     noActions: '该内容暂无可执行的操作。',
-    untitled: '未命名内容'
+    untitled: '未命名内容',
+    // ⭐ 加入（2026-10-02）
+    joinNeedLogin: '登录后才能加入，正在跳转登录页…',
+    joinLoading: '正在读取可加入的组…',
+    joinLoadFailed: '可加入的组读取失败，请稍后重试',
+    joinNone: '这个组织眼下没有可直接加入的公开组。',
+    joinNoneHint: '私有组需要邀请码或单次链接：请到组织页点「＋ 加入」用邀请码 / 链接 / 提交申请。',
+    joinPrivate: '这个组是私有的，点「申请加入」会提交给管理员审批。',
+    joinAlready: '你已经是这个组的成员了。',
+    joinOk: '已加入',
+    joinRequested: '已提交加入申请，等管理员批准',
+    joinFailed: '加入失败，请稍后重试'
   };
 
   var FEED_API = '/api/v0/discover/feed';
   var ITEM_API = '/api/v0/discover/item/';
+  //: ⭐ 加入相关（2026-10-02）：与组织页「＋ 加入」卡片调的是同一批接口
+  var JOINABLE_API = '/api/v0/org/joinable';
+  var JOIN_API = '/api/v0/org/classes/';
   var FEED_LIMIT_DEFAULT = 12;   // 与后端默认一致
   var FEED_LIMIT_MIN = 1;
   var FEED_LIMIT_MAX = 60;       // 与后端夹取范围一致
   var SKELETON_COUNT = 6;
+
+  /**
+   * 加入相关的运行态（2026-10-02）。详情页一次只渲染一个条目，所以是模块级的：
+   *   `classId` —— 当前详情条目的**源组类 id**（`ref_id`，3 位字母）；
+   *                组织条目下它既是"加入区的 scope"，也是 `doJoin()` 成功后重拉清单的依据。
+   *   `busy`    —— 有请求在途时按钮置灰，防连点（后端虽幂等，但连点会发一串请求）
+   */
+  var joinState = { classId: '', busy: false };
 
   // ===== 基础工具 =====
 
@@ -319,8 +350,10 @@
   /**
    * runAction(action, item) —— 统一动作分发。
    *   view → 跳转 BASE_PATH + '/' + source_url（为空则 toast「暂无可查看的内容」）
-   *   use  → 只 showToast 占位文案，**不发任何网络请求**
-   *   join → 只 showToast 占位文案，**不发任何网络请求**
+   *   use  → 只 showToast 占位文案，**不发任何网络请求**（工具板块没有真实接口）
+   *   join → ⭐ **真动作**（2026-10-02）：组织条目滚到「加入组织」区；
+   *          组条目直接 `POST /org/classes/<ref_id>/join`（公开组即时入组 /
+   *          私有组转待审批申请）。其余情况给指路提示。
    *   其它 → 静默忽略（不渲染按钮、不提示、不发请求）
    */
   function runAction(action, item) {
@@ -338,10 +371,216 @@
       return;
     }
     if (action === 'join') {
-      toast(ACTION_PLACEHOLDER.join);
+      joinFromItem(item);
       return;
     }
     // 未知 action：静默忽略
+  }
+
+  // ===== ⭐ 加入（2026-10-02「完成组类加入功能」）=====
+  //
+  //   后端的规则（权威表见 site-back/services/org_join_service.py 的模块 docstring）：
+  //     * **public** 组类 → 直接入组，唯一的检查是**黑名单**；
+  //     * **private** 组类 → `POST .../join` 不写成员关系，而是落一条**待审批申请**；
+  //       （另外两条路是邀请码 / 单次链接，在组织页的「＋ 加入」卡片里）
+  //     * **组织不是成员关系的目标**（`user_memberships.group_id` 是 `groups.id` 的外键）：
+  //       所以组织条目不能"直接加入"，只能加入它**下辖的公开组**。
+
+  /** 是否已登录（`AuthGuard` 在 config.js；缺失时退化为读 localStorage 的原始键） */
+  function hasToken() {
+    try {
+      if (window.AuthGuard && typeof window.AuthGuard.getToken === 'function') {
+        return !!window.AuthGuard.getToken();
+      }
+      var raw = window.localStorage.getItem(window.TOKEN_KEY || 'auth_token');
+      if (!raw) return false;
+      var data = JSON.parse(raw);
+      return !!(data && data.token);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /** 需要登录时提示并跳登录页（带 ?redirect= 回到当前详情页） */
+  function requireLogin() {
+    toast(TEXT.joinNeedLogin);
+    var back = '';
+    try {
+      back = window.location.pathname + window.location.search;
+    } catch (e) { /* 忽略 */ }
+    window.location.href = basePath() + '/login.html' + (back ? ('?redirect=' + encodeURIComponent(back)) : '');
+  }
+
+  /** 组类 id 形态（与后端 `normalize_class_id` 同语义：3 位字母） */
+  function classIdOf(item) {
+    var raw = (item && item.ref_id != null) ? String(item.ref_id).trim() : '';
+    return /^[A-Za-z]{3}$/.test(raw) ? raw.toLowerCase() : '';
+  }
+
+  /** 条目是不是「组」板块（`ref_type='group'`；后端 `ref_type_for` 保证与 section 一致） */
+  function isGroupItem(item) {
+    return !!item && String(item.ref_type || '').toLowerCase() === 'group';
+  }
+
+  /**
+   * 「加入」按钮的入口：组织 → 滚到加入区；组 → 直接加入；其它 → 指路组织页。
+   * 未登录一律先跳登录（`POST .../join` 需要 JWT，别让用户点了没反应）。
+   */
+  function joinFromItem(item) {
+    var cid = classIdOf(item);
+    if (!cid) {
+      toast(ACTION_PLACEHOLDER.join);
+      return;
+    }
+    if (!hasToken()) {
+      requireLogin();
+      return;
+    }
+    if (isGroupItem(item)) {
+      doJoin(cid, null);
+      return;
+    }
+    var panel = document.getElementById('discoverJoin');
+    if (panel && typeof panel.scrollIntoView === 'function') {
+      panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      loadJoinPanel(cid);
+      return;
+    }
+    // 理论上组织详情的 items 里有 join，就一定有这块区域；兜底给一句指路
+    toast(ACTION_PLACEHOLDER.join);
+    window.location.href = basePath() + '/org/index.html?class=' + encodeURIComponent(cid);
+  }
+
+  /**
+   * ⭐ 真的调加入接口。
+   *   `POST /api/v0/org/classes/<cid>/join` →
+   *     public：`{mode:'joined'}`（或 `already_member`）
+   *     private：`{mode:'requested'}`（已提交申请；重复提交会回显已有申请）
+   * 成功后刷新加入区（成员关系变了，"能不能加入"的清单要重算）。
+   */
+  function doJoin(cid, btn) {
+    if (joinState.busy) return;
+    if (typeof window.apiRequest !== 'function') return;
+    joinState.busy = true;
+    setButtonsDisabled(true);
+
+    window.apiRequest(JOIN_API + encodeURIComponent(cid) + '/join', {
+      method: 'POST',
+      body: { class_id: cid },
+      silent: true
+    }).then(function (res) {
+      joinState.busy = false;
+      setButtonsDisabled(false);
+      if (!res || Number(res.code) !== 200 || !res.data) {
+        toast((res && res.msg) ? String(res.msg) : TEXT.joinFailed);
+        return;
+      }
+      var data = res.data;
+      if (data.mode === 'requested') {
+        toast(TEXT.joinRequested);
+      } else if (data.already_member) {
+        toast(TEXT.joinAlready);
+      } else {
+        var name = (data.group && data.group.name) ? data.group.name : cid;
+        toast(TEXT.joinOk + '「' + name + '」');
+      }
+      loadJoinPanel(joinState.classId);
+    }).catch(function () {
+      joinState.busy = false;
+      setButtonsDisabled(false);
+      toast(TEXT.joinFailed);
+    });
+  }
+
+  /** 请求在途时把所有加入按钮置灰（防连点；不改变任何文案） */
+  function setButtonsDisabled(disabled) {
+    var panel = document.getElementById('discoverJoin');
+    if (!panel || !panel.querySelectorAll) return;
+    var btns = panel.querySelectorAll('[data-join-class]');
+    for (var i = 0; i < btns.length; i++) btns[i].disabled = !!disabled;
+  }
+
+  /**
+   * 详情页的「加入组织」区（只在**组织**条目上渲染；组条目用顶部的「加入」按钮就够）。
+   * 内容由 `loadJoinPanel()` 填 —— 这里只放容器，避免详情首屏多打一个请求。
+   */
+  function joinSectionHtml(item) {
+    if (isGroupItem(item)) return '';       // 组条目：顶部「加入」按钮直接调接口就够
+    var cid = classIdOf(item);
+    if (!cid) return '';                    // 非组类条目（文档 / 工具）：没有加入区
+    var html = '<section class="discover-detail__section">';
+    html += '<h2 class="discover-detail__section-title">加入组织</h2>';
+    html += '<div class="discover-join" id="discoverJoin" data-join-scope="' + escapeHtml(cid) + '">';
+    html += '<p class="discover-detail__hint">' + escapeHtml(TEXT.joinLoading) + '</p>';
+    html += '</div>';
+    html += '<p class="discover-detail__hint">' + escapeHtml(TEXT.joinNoneHint) + '</p>';
+    html += '</section>';
+    return html;
+  }
+
+  /** 拉「这个组织下可加入的公开组」并渲染（`GET /org/joinable?class_id=<组织id>`） */
+  async function loadJoinPanel(cid) {
+    var panel = document.getElementById('discoverJoin');
+    if (!panel) return;
+    var scope = cid || panel.getAttribute('data-join-scope') || joinState.classId || '';
+    if (!scope) return;
+    // ⭐ 记下"这块区域是哪个组织" —— `doJoin()` 成功后要按 scope 重拉清单，
+    //    不能依赖调用点把 cid 原样再传一遍（那样两处很容易漂移）。
+    joinState.classId = scope;
+    if (typeof window.apiRequest !== 'function') {
+      panel.innerHTML = '<p class="discover-detail__hint">' + escapeHtml(TEXT.joinLoadFailed) + '</p>';
+      return;
+    }
+    panel.innerHTML = '<p class="discover-detail__hint">' + escapeHtml(TEXT.joinLoading) + '</p>';
+    var res = await window.apiRequest(JOINABLE_API, {
+      params: { class_id: scope },
+      silent: true
+    });
+    if (!res || Number(res.code) !== 200 || !Array.isArray(res.data)) {
+      panel.innerHTML = '<p class="discover-detail__hint">' + escapeHtml(TEXT.joinLoadFailed) + '</p>';
+      return;
+    }
+    panel.innerHTML = joinListHtml(res.data);
+    bindJoinButtons(panel);
+  }
+
+  /** 公开组清单 → 一行一个「加入」按钮；空清单 → 说明私有组怎么进 */
+  function joinListHtml(groups) {
+    if (!groups.length) {
+      return '<p class="discover-detail__hint">' + escapeHtml(TEXT.joinNone) + '</p>';
+    }
+    var html = '';
+    for (var i = 0; i < groups.length; i++) {
+      var g = groups[i] || {};
+      var gid = (g.id != null) ? String(g.id) : '';
+      if (!/^[a-zA-Z]{3}$/.test(gid)) continue;
+      var name = g.name ? String(g.name) : gid;
+      html += '<div class="discover-join__row">';
+      html += '<span class="discover-join__main">';
+      html += '<span class="discover-join__name">' + escapeHtml(name)
+        + ' <code class="discover-join__id">' + escapeHtml(gid.toLowerCase()) + '</code></span>';
+      if (g.description) {
+        html += '<span class="discover-join__desc">' + escapeHtml(String(g.description)) + '</span>';
+      }
+      html += '</span>';
+      html += '<button type="button" class="discover-action discover-action--join"'
+        + ' data-join-class="' + escapeHtml(gid.toLowerCase()) + '">'
+        + escapeHtml(ACTION_LABELS.join) + '</button>';
+      html += '</div>';
+    }
+    return html;
+  }
+
+  /** 给加入区里的每个按钮绑事件（委托会在重渲染后失效，这里逐个绑） */
+  function bindJoinButtons(panel) {
+    if (!panel || !panel.querySelectorAll) return;
+    var btns = panel.querySelectorAll('[data-join-class]');
+    for (var i = 0; i < btns.length; i++) {
+      (function (btn) {
+        var gid = btn.getAttribute('data-join-class') || '';
+        btn.addEventListener('click', function () { doJoin(gid, btn); });
+      })(btns[i]);
+    }
   }
 
   // ===== 状态片段（骨架 / 空态 / 错误态）=====
@@ -555,12 +794,17 @@
     html += '<section class="discover-detail__section">';
     html += '<h2 class="discover-detail__section-title">操作</h2>';
     html += '<div class="discover-actions" id="discoverDetailActions"></div>';
-    html += '<p class="discover-detail__hint">「查看」跳转到源内容；「使用」「加入」为预留功能，点击只给出提示。</p>';
+    html += '<p class="discover-detail__hint">' + escapeHtml(actionsHintOf(item)) + '</p>';
     html += '</section>';
+
+    html += joinSectionHtml(item);
 
     html += factsHtml(item);
     html += '</article>';
     container.innerHTML = html;
+
+    // ⭐ 加入态的基线（`join` 是"点了就发请求"的真动作，需要知道目标组类）
+    joinState.classId = classIdOf(item);
 
     var actionsEl = document.getElementById('discoverDetailActions');
     if (actionsEl) {
@@ -569,7 +813,29 @@
         actionsEl.innerHTML = '<p class="discover-detail__hint">' + escapeHtml(TEXT.noActions) + '</p>';
       }
     }
+    // 加入区：组织条目**进页面就先拉一次**（用户可能直接奔着"有哪些组能加入"来）；
+    // 失败只把错误写进那一块，不影响详情其余部分。
+    if (document.getElementById('discoverJoin')) loadJoinPanel(joinState.classId);
     document.title = title + ' | 发现 | GWL';
+  }
+
+  /**
+   * 「操作」区下方那句说明 —— 按**这个条目实际有哪些动作**给，别再说"预留功能"
+   * （`join` 自 2026-10-02 起是真动作，说"只给出提示"就是错的）。
+   */
+  function actionsHintOf(item) {
+    var actions = actionsOf(item);
+    if (!actions.length) return '';
+    if (isGroupItem(item) && actions.indexOf('join') >= 0) {
+      return '「查看」跳转到源内容；「加入」会真的加入本组（公开组即时入组，私有组转成待审批申请）。';
+    }
+    if (actions.indexOf('join') >= 0) {
+      return '「查看」跳转到源内容；「加入」会滚到下方的「加入组织」，那里列出可以加入的公开组。';
+    }
+    if (actions.indexOf('use') >= 0) {
+      return '「查看」跳转到源内容；「使用」为预留功能，点击只给出提示。';
+    }
+    return '「查看」跳转到源内容。';
   }
 
   /** 按 body 上的 data 属性决定这一页做什么（普通脚本，DOM 就绪后自动跑） */
@@ -608,6 +874,11 @@
     detailState: detailState,   // 详情页靠它区分 缺少 id / 404 / 网络失败
     ACTION_LABELS: ACTION_LABELS,
     TEXT: TEXT,
+    // ⭐ 加入（2026-10-02）：`join` 是真动作，自测靠这三个复盘"点了到底发了什么"
+    joinFromItem: joinFromItem,
+    doJoin: doJoin,
+    loadJoinPanel: loadJoinPanel,
+    joinState: joinState,
     initPage: initPage
   };
 })();

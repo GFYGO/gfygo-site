@@ -8,13 +8,17 @@
   <link rel="stylesheet" href="../../css/core.css?v=20261002a">
   <link rel="stylesheet" href="../../css/styles.css?v=20261002a">
   <link rel="stylesheet" href="../../css/components.css?v=20261002a">
-  <link rel="stylesheet" href="../../css/discover.css?v=20261002a">
+  <link rel="stylesheet" href="../../css/discover.css?v=20261003a">
   <link rel="icon" href="../../favicon.png?v=20261002a" type="image/png">
 </head>
 <body data-discover-page="detail" data-discover-key="group">
   <!--
-    「组」详情页：读 ?id=<item_id>，按后端下发的 item.actions 渲染按钮（view + join，
-    join 只弹预留提示、不发任何请求）。
+    「组」详情页：读 ?id=<item_id>，按后端下发的 item.actions 渲染按钮（view + join）。
+    ⭐ 2026-10-02 起 `join` 是**真动作**（逻辑在 js/discover.js::joinFromItem / doJoin）：
+      点「加入」直接 `POST /api/v0/org/classes/<本组 id>/join` ——
+      **公开组**即时入组（后端只查黑名单）；**私有组**转成一条待审批的**申请**，
+      前端按响应里的 `mode`（joined / requested）给不同提示。未登录时提示并跳 /login.html。
+      组条目**不渲染**「加入组织」区（那是组织条目用的，见 discover/org/details.html）。
     空态：id 缺失/非数字 → 「缺少展示内容 id」；404 → 「展示内容不存在或未公开」；
     网络失败 → 「加载失败，请稍后重试」（逻辑在 js/discover.js::loadDetail）。
     本页在 /discover/group/ 下（两层深）：静态资源前缀 ../../，window.BASE_PATH 也由 js/config.js 按 URL 目录深度算成 '../..'。
@@ -88,6 +92,6 @@
   <script src="../../js/theme.js?v=20261002a"></script>
   <script src="../../js/toast.js?v=20261002a"></script>
   <script src="../../js/index.js?v=20261002a"></script>
-  <script src="../../js/discover.js?v=20261002a"></script>
+  <script src="../../js/discover.js?v=20261003a"></script>
 </body>
 </html>

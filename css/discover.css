@@ -454,6 +454,62 @@
   color: var(--color-text-muted);
 }
 
+/* ⭐ 2026-10-02：详情页的「加入组织」区（组织条目下列出可加入的公开组） */
+.discover-join {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.discover-join__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--color-bg-section);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.discover-join__main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.discover-join__name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-main);
+  word-break: break-word;
+}
+
+.discover-join__id {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.discover-join__desc {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  word-break: break-word;
+}
+
+.discover-join .discover-action {
+  flex: 0 0 auto;
+  padding: 7px 16px;
+  font-size: 0.85rem;
+}
+
+.discover-join .discover-action[disabled] {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
+}
+
 .discover-detail__facts {
   margin-top: 24px;
   padding-top: 20px;
