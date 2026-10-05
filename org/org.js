@@ -69,7 +69,15 @@
         restoreLeft: 0,     // 还要恢复几个（每个成功打开后 --）
         clonedEntry: false, // 本次布局来自存档副本（恢复期间禁止写存档，见 saveLayout）
         booted: false,
-        pagesFor: null      // state.pages 属于哪个组类（未加载为 null）—— 防止旧组类按钮残留
+        pagesFor: null,     // state.pages 属于哪个组类（未加载为 null）—— 防止旧组类按钮残留
+        // ⭐ 「加入组类」卡片（2026-10-02）：public 自助加入 / 邀请码 / 单次链接 / 我的申请
+        join: {
+            loaded: false,          // 是否已成功拉过一次（避免每次展开都打一串请求）
+            loading: false,
+            publicClasses: [],      // GET /joinable
+            requests: [],           // GET /join-requests/mine
+            invites: []             // GET /invites/received
+        }
     };
 
     /**
@@ -225,21 +233,37 @@
 
         if (!state.token) {
             renderLoggedOut();
+            renderJoinCard(false);      // 未登录：卡片显示"请先登录"
             return;
         }
         renderOrgAuthArea();
         loadClasses();
+        // ⭐ 加入卡片（2026-10-02）：启动时就把「我收到的邀请」拉出来 —— 待确认邀请
+        //    应该像通知一样被看到，而不是等用户主动点「＋ 加入」。失败只写进卡片，不打扰。
+        loadJoinCard(false);
     }
 
-    /** 顶栏两个弹出卡片 + 视图卡片的事件绑定（只绑一次） */
+    /** 顶栏两个弹出卡片 + 视图卡片 + 「加入」卡片的绑定（只绑一次） */
     function bindChrome() {
         bindPopcard('tabsToggle', 'tabsCard');
         bindPopcard('viewToggle', 'viewCard');
         bindPopcard('orgSwitchBtn', 'orgSwitchCard');
+        bindPopcard('joinToggle', 'joinCard');
 
         on('tabsCardClose', 'click', function () { hideCard('tabsCard', 'tabsToggle'); });
         on('viewCardClose', 'click', function () { hideCard('viewCard', 'viewToggle'); });
+        on('joinCardClose', 'click', function () { hideCard('joinCard', 'joinToggle'); });
         on('closeAllPages', 'click', function () { closeAllPages(false); });
+
+        // ⭐ 「加入组类」卡片（2026-10-02）
+        on('joinCodeBtn', 'click', redeemByInput);
+        on('joinRefreshBtn', 'click', function () { loadJoinCard(true); });
+        on('joinPublicList', 'click', onJoinCardClick);
+        on('joinRequestList', 'click', onJoinCardClick);
+        on('joinInviteList', 'click', onJoinCardClick);
+        on('joinCodeInput', 'keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); redeemByInput(); }
+        });
 
         // 分屏选择
         var splitPick = document.getElementById('splitPick');
@@ -267,9 +291,11 @@
             toast('视图已复位为单屏', 'success');
         });
 
+        // ⭐ 收起「加入」卡片时，输入框里没提交的内容留着（用户可能只是去看一眼别的卡片）
+
         // 点击页面空白处收起弹出卡片
         document.addEventListener('click', function (e) {
-            ['tabsCard', 'viewCard', 'orgSwitchCard'].forEach(function (id) {
+            renderIds().forEach(function (id) {
                 var card = document.getElementById(id);
                 if (!card || card.hidden) return;
                 var wrap = card.parentNode;
@@ -281,7 +307,7 @@
         });
         document.addEventListener('keydown', function (e) {
             if (e.key !== 'Escape') return;
-            ['tabsCard', 'viewCard', 'orgSwitchCard'].forEach(function (id) {
+            renderIds().forEach(function (id) {
                 var card = document.getElementById(id);
                 if (card && !card.hidden) { card.hidden = true; syncAria(id, false); }
             });
@@ -340,16 +366,34 @@
 
     /** 视口变化时重算所有**已展开**的卡片（转屏 / 缩放 / 窗口拉伸）。 */
     function refitOpenPopcards() {
-        ['tabsCard', 'viewCard', 'orgSwitchCard'].forEach(function (id) {
+        renderIds().forEach(function (id) {
             var card = document.getElementById(id);
             if (card && !card.hidden) fitPopcard(card);
         });
     }
 
+    /** 卡片 id → 按钮 id（弹出卡片的固定配对，`syncAria` / 收起逻辑共用）。 */
+    function popcardPairs() {
+        return [
+            { card: 'tabsCard', btn: 'tabsToggle' },
+            { card: 'viewCard', btn: 'viewToggle' },
+            { card: 'orgSwitchCard', btn: 'orgSwitchBtn' },
+            { card: 'joinCard', btn: 'joinToggle' }   // ⭐ 加入组类（2026-10-02）
+        ];
+    }
+
+    function renderIds() {
+        return popcardPairs().map(function (p) { return p.card; });
+    }
+
     function syncAria(cardId, open) {
-        var btn = document.getElementById(cardId === 'tabsCard' ? 'tabsToggle'
-            : cardId === 'viewCard' ? 'viewToggle' : 'orgSwitchBtn');
-        if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        var pairs = popcardPairs();
+        for (var i = 0; i < pairs.length; i++) {
+            if (pairs[i].card !== cardId) continue;
+            var btn = document.getElementById(pairs[i].btn);
+            if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            return;
+        }
     }
 
     function hideCard(cardId, btnId) {
@@ -552,6 +596,296 @@
             if (state.classes[i].id === cid) return state.classes[i];
         }
         return null;
+    }
+
+    // ============================================================
+    // ⭐ 「加入组类」卡片（2026-10-02「完成组类加入功能」）
+    //
+    //   后端规则（services/org_join_service.py 的模块 docstring 是权威）：
+    //     * **public** 组类 —— 点「加入」直接入组，**唯一的检查是黑名单**；
+    //     * **private** 组类 —— 三条路：邀请码（可设时限 / 次数）、
+    //       单次加入链接（**只能用一次**）、以及申请加入（等管理员批准）。
+    //
+    //   ⚠️ 本卡片里的请求**刻意不带 `X-Org-Class`**：加入的对象是"我此刻还不在的组"，
+    //      带上当前组类身份只会让后端多做一次无意义的归属校验（且这些接口都不需要它）。
+    //   ⚠️ 接口返回的组名 / 用户名一律走 `esc()` 再拼 HTML。
+    // ============================================================
+
+    /** 卡片里的一条：左侧标题 + 副标题，右侧若干操作按钮。 */
+    function joinRow(title, sub, ops) {
+        return '<div class="org-joinrow">'
+            + '<span class="org-joinrow__main">'
+            + '<span class="org-joinrow__title">' + title + '</span>'
+            + (sub ? '<span class="org-joinrow__sub">' + sub + '</span>' : '')
+            + '</span>'
+            + (ops ? '<span class="org-joinrow__ops">' + ops + '</span>' : '')
+            + '</div>';
+    }
+
+    function joinOpBtn(act, label, data, extra) {
+        var attrs = '';
+        for (var key in (data || {})) {
+            if (Object.prototype.hasOwnProperty.call(data, key)) {
+                attrs += ' data-' + key + '="' + esc(data[key]) + '"';
+            }
+        }
+        return '<button type="button" class="org-btn' + (extra ? ' ' + extra : '')
+            + '" data-join-act="' + esc(act) + '"' + attrs + '>' + esc(label) + '</button>';
+    }
+
+    /** 公开组列表（`GET /api/v0/org/joinable`）。 */
+    function renderJoinPublic() {
+        var list = state.join.publicClasses || [];
+        if (!list.length) {
+            return '<p class="org-muted">当前没有可自助加入的公开组。'
+                + '要让某个组可加入，请让它的管理员在「组管理」里把可见性改成 public；'
+                + '私有组则需要邀请码或单次加入链接。</p>';
+        }
+        return list.map(function (c) {
+            var sub = '组 ' + c.id + (c.org_name ? (' · 属于组织 ' + c.org_name) : '')
+                + (c.description ? (' · ' + c.description) : '');
+            return joinRow(esc(c.name || c.id), esc(sub),
+                joinOpBtn('join-public', '加入', { id: c.id }, 'org-btn--primary'));
+        }).join('');
+    }
+
+    /** 我提交的加入申请（`GET /api/v0/org/join-requests/mine`）。 */
+    function renderJoinRequests() {
+        var list = state.join.requests || [];
+        if (!list.length) {
+            return '<p class="org-muted">你还没有待审批的加入申请。'
+                + '私有组可以在上面的输入框里用邀请码 / 链接加入，或直接在组织页找管理员申请。</p>';
+        }
+        return list.map(function (r) {
+            var g = r.group || {};
+            var sub = (r.already_member ? '已经是成员 · ' : '')
+                + '角色 ' + (r.role || 'member')
+                + (r.message ? (' · 留言：' + r.message) : '');
+            var ops = r.already_member
+                ? ''
+                : joinOpBtn('cancel-request', '撤回', { id: r.id });
+            return joinRow(esc(g.name || r.group_id), esc(sub), ops);
+        }).join('');
+    }
+
+    /** 我收到的点名邀请（`GET /api/v0/org/invites/received`）。 */
+    function renderJoinInvites() {
+        var list = state.join.invites || [];
+        if (!list.length) {
+            return '<p class="org-muted">没有待确认的邀请。'
+                + '管理员点名邀请你时会出现在这里（邀请码 / 链接则直接用上面的输入框）。</p>';
+        }
+        return list.map(function (v) {
+            var g = v.group || {};
+            var sub = (v.inviter_username ? ('来自 ' + v.inviter_username + ' · ') : '')
+                + '角色 ' + (v.role || 'member')
+                + (v.message ? (' · 留言：' + v.message) : '');
+            var ops = v.already_member
+                ? '<span class="org-muted">已在组内</span>'
+                : (joinOpBtn('accept-invite', '接受', { id: v.id }, 'org-btn--primary')
+                    + joinOpBtn('decline-invite', '拒绝', { id: v.id }));
+            return joinRow(esc(g.name || v.group_id), esc(sub), ops);
+        }).join('');
+    }
+
+    /**
+     * 渲染整张加入卡片。
+     * `state.join.loaded === false` 时显示加载态；未登录显示"请先登录"。
+     */
+    function renderJoinCard() {
+        var publicBox = document.getElementById('joinPublicList');
+        var reqBox = document.getElementById('joinRequestList');
+        var invBox = document.getElementById('joinInviteList');
+        if (!publicBox && !reqBox && !invBox) return;
+
+        if (!state.token) {
+            var hint = '<p class="org-muted">登录后才能加入组类。</p>';
+            setHtml('joinPublicList', hint);
+            setHtml('joinRequestList', hint);
+            setHtml('joinInviteList', hint);
+            return;
+        }
+        if (!state.join.loaded) {
+            var loading = '<p class="org-muted">加载中…</p>';
+            if (!state.join.loading) {
+                setHtml('joinPublicList', loading);
+                setHtml('joinRequestList', loading);
+                setHtml('joinInviteList', loading);
+            }
+            return;
+        }
+        setHtml('joinPublicList', renderJoinPublic());
+        setHtml('joinRequestList', renderJoinRequests());
+        setHtml('joinInviteList', renderJoinInvites());
+    }
+
+    /**
+     * 拉取加入卡片的三个列表。
+     * `force=false`（只在启动时）时**不显示加载态**，失败也只写进卡片 ——
+     * 组织页首屏不该因为加入列表失败而看起来坏了。
+     */
+    function loadJoinCard(force) {
+        if (!state.token) { renderJoinCard(); return; }
+        if (state.join.loading) return;
+        if (state.join.loaded && !force) { renderJoinCard(); return; }
+
+        state.join.loading = true;
+        if (force) {
+            var loading = '<p class="org-muted">加载中…</p>';
+            setHtml('joinPublicList', loading);
+            setHtml('joinRequestList', loading);
+            setHtml('joinInviteList', loading);
+        }
+        Promise.all([
+            orgFetch('/api/v0/org/joinable'),
+            orgFetch('/api/v0/org/join-requests/mine'),
+            orgFetch('/api/v0/org/invites/received')
+        ]).then(function (results) {
+            var pub = results[0] || {};
+            var req = results[1] || {};
+            var inv = results[2] || {};
+            state.join.publicClasses = (pub.code === 200 && pub.data && Array.isArray(pub.data.groups))
+                ? pub.data.groups : [];
+            state.join.requests = (req.code === 200 && Array.isArray(req.data)) ? req.data : [];
+            state.join.invites = (inv.code === 200 && Array.isArray(inv.data)) ? inv.data : [];
+            state.join.loaded = true;
+            state.join.loading = false;
+            renderJoinCard();        }).catch(function (err) {
+            state.join.loading = false;
+            state.join.loaded = true;      // 失败也算"拉过了"，避免无限重试
+            console.warn('[ORG] 加入列表加载失败:', err);
+            renderJoinCard();
+        });
+    }
+
+    /**
+     * 卡片里的动作分发（事件委托到三个列表上）。
+     * 每个动作成功/失败都**重新拉一次**三个列表 —— 加入会改变"我在不在里面"，
+     * 申请 / 邀请会改变状态，局部更新反而容易与后端不一致。
+     */
+    function onJoinCardClick(e) {
+        var el = e.target;
+        while (el && el.getAttribute) {
+            if (el.getAttribute('data-join-act')) break;
+            el = el.parentNode;
+        }
+        if (!el || !el.getAttribute) return;
+        var act = el.getAttribute('data-join-act');
+        var id = el.getAttribute('data-id') || '';
+
+        if (act === 'join-public') return joinPublicClass(id);
+        if (act === 'cancel-request') return cancelJoinRequest(id);
+        if (act === 'accept-invite') return respondInvite(id, true);
+        if (act === 'decline-invite') return respondInvite(id, false);
+        return null;
+    }
+
+    /** 从输入框里取出邀请码 / 链接，识别出该走哪个 redeem 接口。 */
+    function redeemByInput() {
+        var input = document.getElementById('joinCodeInput');
+        var raw = input ? String(input.value || '').trim() : '';
+        if (!raw) {
+            toast('请先贴上邀请码或加入链接', 'info');
+            return;
+        }
+        // 链接里 token 在 `?join=`（也容忍 `?token=` / `?code=` 与结尾带 `/` 的写法）
+        var token = null;
+        var m = raw.match(/[?&](?:join|token|code)=([A-Za-z0-9._-]+)/);
+        if (m) token = m[1];
+        if (token) {
+            orgFetch('/api/v0/org/invite-links/redeem', { method: 'POST', body: { token: token } })
+                .then(function (res) { afterJoin(res, '加入链接'); });
+            return;
+        }
+        // 不是链接：按邀请码处理（码是 12 位大写字母 + 数字）
+        orgFetch('/api/v0/org/invite-codes/redeem', { method: 'POST', body: { code: raw } })
+            .then(function (res) { afterJoin(res, '邀请码'); });
+    }
+
+    /** 兑换邀请码 / 链接之后：清输入框、报告结果、刷新组类清单与卡片。 */
+    function afterJoin(res, label) {
+        if (!res || res.code !== 200 || !res.data) {
+            toast((res && res.msg) || (label + '兑换失败'), 'error');
+            return;
+        }
+        var input = document.getElementById('joinCodeInput');
+        if (input) input.value = '';
+        var g = res.data.group || {};
+        if (res.data.already_member) {
+            toast('你已经是「' + (g.name || g.id) + '」的成员了', 'info');
+        } else {
+            toast('已加入「' + (g.name || g.id) + '」', 'success');
+        }
+        if (res.data.remaining_uses === 0 && !res.data.already_member) {
+            toast(label + '已用完（单次使用 / 次数已满）', 'info');
+        }
+        afterMembershipChange();
+    }
+
+    /** ⭐ public 组：直接加入（后端只检查黑名单）。 */
+    function joinPublicClass(cid) {
+        if (!cid) return;
+        orgFetch('/api/v0/org/classes/' + encodeURIComponent(cid) + '/join', {
+            method: 'POST', body: { class_id: cid }
+        }).then(function (res) {
+            if (!res || res.code !== 200 || !res.data) {
+                toast((res && res.msg) || '加入失败', 'error');
+                return;
+            }
+            var d = res.data;
+            if (d.mode === 'requested') {
+                var g = (d.request && d.request.group) || {};
+                toast('「' + (g.name || cid) + '」是私有组：已提交加入申请，等管理员批准',
+                    'success');
+            } else if (d.already_member) {
+                toast('你已经是该组成员了', 'info');
+            } else {
+                var g2 = d.group || {};
+                toast('已加入「' + (g2.name || cid) + '」', 'success');
+            }
+            afterMembershipChange();
+        });
+    }
+
+    function cancelJoinRequest(rid) {
+        if (!rid) return;
+        orgFetch('/api/v0/org/join-requests/' + encodeURIComponent(rid), { method: 'DELETE' })
+            .then(function (res) {
+                if (!res || res.code !== 200) {
+                    toast((res && res.msg) || '撤回失败', 'error');
+                    return;
+                }
+                toast('申请已撤回', 'success');
+                loadJoinCard(true);
+            });
+    }
+
+    function respondInvite(iid, accept) {
+        if (!iid) return;
+        var tail = accept ? '/accept' : '/decline';
+        orgFetch('/api/v0/org/invites/' + encodeURIComponent(iid) + tail, { method: 'POST' })
+            .then(function (res) {
+                if (!res || res.code !== 200) {
+                    toast((res && res.msg) || (accept ? '接受邀请失败' : '拒绝邀请失败'), 'error');
+                    loadJoinCard(true);
+                    return;
+                }
+                if (!accept) {
+                    toast('已拒绝邀请', 'success');
+                    loadJoinCard(true);
+                    return;
+                }
+                var g = (res.data && res.data.group) || {};
+                toast('已加入「' + (g.name || g.id || '该组') + '」', 'success');
+                afterMembershipChange();
+            });
+    }
+
+    /** 成员关系变了：左导航清单 + 加入卡片都要重拉（功能按钮也可能随之变化）。 */
+    function afterMembershipChange() {
+        loadClasses();
+        if (state.activeClass) loadFeatures();
+        loadJoinCard(true);
     }
 
     // ============================================================

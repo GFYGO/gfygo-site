@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="./../css/core.css?v=20260911e">
     <link rel="stylesheet" href="./../css/styles.css?v=20260911e">
     <link rel="stylesheet" href="./../css/components.css?v=20260911e">
-    <link rel="stylesheet" href="./org.css?v=20260924a">
+    <link rel="stylesheet" href="./org.css?v=20261002a">
     <link rel="icon" href="./../favicon.png" type="image/png">
 </head>
 <body>
@@ -90,7 +90,67 @@
 
             <!-- ② 我加入的组 -->
             <div class="org-sidebar__section">
-                <div class="org-sidebar__title">我加入的组</div>
+                <div class="org-sidebar__title">
+                    我加入的组
+                    <!-- ⭐ 2026-10-02「完成组类加入功能」：加入按钮（public 自助加入 /
+                         邀请码 / 单次链接 / 我的申请 / 我收到的邀请） -->
+                    <span class="org-popwrap">
+                        <button type="button" class="org-joinbtn" id="joinToggle"
+                                aria-haspopup="dialog" aria-expanded="false"
+                                title="加入组类：公开组直接加入；私有组用邀请码 / 单次链接 / 申请加入">＋ 加入</button>
+                        <div class="org-popcard org-popcard--join" id="joinCard" role="dialog"
+                             aria-label="加入组类" hidden>
+                            <div class="org-popcard__head">
+                                <span>加入组类</span>
+                                <button type="button" class="org-popcard__close" id="joinCardClose"
+                                        aria-label="关闭">&times;</button>
+                            </div>
+                            <div class="org-popcard__body">
+                                <!-- ① 邀请码 / 单次链接 -->
+                                <div class="org-joinfield">
+                                    <label class="org-joinfield__label" for="joinCodeInput">邀请码 / 加入链接</label>
+                                    <div class="org-joinfield__row">
+                                        <input type="text" id="joinCodeInput" autocomplete="off"
+                                               placeholder="贴上邀请码，或整条加入链接">
+                                        <button type="button" class="org-btn org-btn--primary"
+                                                id="joinCodeBtn">加入</button>
+                                    </div>
+                                    <p class="org-joinfield__hint">
+                                        私密组（private）的两条自助路径：邀请码（可能有次数 / 时限）、
+                                        以及<b>只能用一次</b>的单次链接。链接里已经带了 token，直接粘贴整条即可。
+                                    </p>
+                                </div>
+
+                                <!-- ② 可加入的公开组 -->
+                                <div class="org-joinfield">
+                                    <div class="org-joinfield__row org-joinfield__row--head">
+                                        <label class="org-joinfield__label">可加入的公开组</label>
+                                        <button type="button" class="org-btn org-btn--ghost" id="joinRefreshBtn">↻ 刷新</button>
+                                    </div>
+                                    <div id="joinPublicList" class="org-joinlist" aria-live="polite" aria-busy="false">
+                                        <p class="org-muted">加载中…</p>
+                                    </div>
+                                </div>
+
+                                <!-- ③ 我提交的申请 -->
+                                <div class="org-joinfield">
+                                    <label class="org-joinfield__label">我提交的加入申请</label>
+                                    <div id="joinRequestList" class="org-joinlist" aria-live="polite" aria-busy="false">
+                                        <p class="org-muted">加载中…</p>
+                                    </div>
+                                </div>
+
+                                <!-- ④ 我收到的点名邀请 -->
+                                <div class="org-joinfield">
+                                    <label class="org-joinfield__label">我收到的邀请</label>
+                                    <div id="joinInviteList" class="org-joinlist" aria-live="polite" aria-busy="false">
+                                        <p class="org-muted">加载中…</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </span>
+                </div>
                 <div id="groupList" class="org-grouplist" aria-live="polite">
                     <p class="org-muted">加载中…</p>
                 </div>
@@ -177,6 +237,6 @@
 <script src="./../js/toast.js?v=20260911e"></script>
 <script src="./../js/modal.js?v=20260911e"></script>
 <script src="./../js/index.js?v=20260911e"></script>
-<script src="./org.js?v=20260924a"></script>
+<script src="./org.js?v=20261002a"></script>
 </body>
 </html>

@@ -228,6 +228,141 @@
     gap: 6px;
 }
 
+/* ⭐ 「＋ 加入」按钮（2026-10-02「完成组类加入功能」）：
+   挂在侧栏「我加入的组」标题行，所以刻意做成小号、跟随标题色。
+   它是 `.org-sidebar__title`（display:flex）里的一个 `.org-popwrap`。 */
+.org-joinbtn {
+    flex: 0 0 auto;
+    padding: 2px 8px;
+    border: 1px solid var(--color-primary);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-primary);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    line-height: 18px;
+    cursor: pointer;
+}
+
+.org-joinbtn:hover {
+    background: var(--color-primary);
+    color: #fff;
+}
+
+/* ⭐ 「加入组类」弹出卡片：比通用卡片更宽、更高（里面有 4 个列表），
+   并且**向左展开** —— 锚点在左导航，右对齐会伸出屏幕左边。 */
+.org-popcard--join {
+    left: 0;
+    right: auto;
+    width: 380px;
+    max-height: var(--org-popcard-max-h, calc(100vh - 160px));
+}
+
+.org-popcard--join .org-popcard__body {
+    max-height: min(460px, var(--org-popcard-max-h, 70vh));
+}
+
+.org-joinfield {
+    margin: 0 0 14px;
+}
+
+.org-joinfield:last-child {
+    margin-bottom: 0;
+}
+
+.org-joinfield__label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+}
+
+.org-joinfield__row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.org-joinfield__row--head {
+    justify-content: space-between;
+}
+
+.org-joinfield__row--head .org-joinfield__label {
+    margin-bottom: 0;
+}
+
+.org-joinfield__row input[type="text"] {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 6px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-main);
+    font-size: 13px;
+    font-family: inherit;
+}
+
+.org-joinfield__hint {
+    margin: 6px 0 0;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--color-text-muted);
+}
+
+.org-joinlist {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/*: 卡片里的一行（公开组 / 我的申请 / 我收到的邀请共用） */
+.org-joinrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-secondary);
+}
+
+.org-joinrow__main {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.org-joinrow__title {
+    display: block;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--color-text-main);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.org-joinrow__sub {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.org-joinrow__ops {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 4px;
+}
+
 .org-group {
     display: flex;
     align-items: center;
