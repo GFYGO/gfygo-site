@@ -19,7 +19,7 @@
 | 文档 | 是什么 | 何时读（建议节） |
 |---|---|---|
 | `css/README.md`（本仓库） | 16 个 CSS 的加载关系（已按实际 `<link>` 重写） | 改样式 / 查「哪个 CSS 被谁加载」 |
-| `../file-wiki/09-frontend-overview.md` | ⭐ 前端全局：发布面 / 加载顺序 / CSP / 版本号三套 | **碰前端任何东西前先读**；§2 发布面、§5 安全、§6 版本号 |
+| `../file-wiki/09-frontend-overview.md` | ⭐ 前端全局：发布面 / 加载顺序 / CSP / 版本号（四套+） | **碰前端任何东西前先读**；§2 发布面、§5 安全、§6 版本号 |
 | `../file-wiki/12-frontend-dashboard.md` | ⭐ 仪表盘（全前端最复杂） | 改 `user/dashboard.*` 时 |
 | `../file-wiki/13-frontend-org.md` | 组织页 + `permission-picker` | 改 `org/` 时 |
 | `../file-wiki/15-frontend-callgraph.md` | ⭐ 调用关系总图 + 文件 × 接口全表 | 排查「谁加载了谁 / 谁调了哪个接口」；§1.5 版本号 |
@@ -33,7 +33,7 @@
 | 改主站页面（`index` / `login` / `register` / `document` / `404`） | `file-wiki/11-frontend-site-pages.md` §1–§6 ＋ `09` §6 |
 | 改仪表盘（侧边栏 / 面板 / 个人文档） | `file-wiki/12-frontend-dashboard.md` ＋ `15` §2 |
 | 改组织页 / 权限编辑器 | `file-wiki/13-frontend-org.md`（含 `X-Org-Class` 约定） |
-| 改样式 / 查 CSS 加载 | `css/README.md` ＋ `file-wiki/14-frontend-css.md` §2（§6 是历史存档，勿据此说现状） |
+| 改样式 / 查 CSS 加载 | `css/README.md` ＋ `file-wiki/14-frontend-css.md` §2（§6 旧 README 纠错已清理，现状以 `css/README.md` 为准） |
 | 改「发现页」（11 个静态页） | `file-wiki/11` §7 ＋ `10` §8 ＋ `09` §6 |
 | 找「这个全局函数是谁挂的」 | `file-wiki/10-frontend-shared-js.md`（按全局名搜） |
 | 查「谁调了哪个接口」 | `file-wiki/15` §5（文件 × `/api/v0/*` 全表） |
