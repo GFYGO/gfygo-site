@@ -7,6 +7,7 @@ import { initAuthModules, sendVerificationEmail, initSidebarToggle, initSettings
 import DashboardMenu from './dashboard.menu.js';
 import { initCheckinButtons } from './dashboard.checkin.js';
 import { initDeletion, renderDeletionStatus } from './dashboard.deletion.js';
+import { initProfile } from './dashboard.profile.js';
 import { PDocsState } from './dashboard.pdocs.js';
 
 // ===== 从 window 获取共享资源（config.js / toast.js / theme.js / utils.js 以普通 <script> 加载）=====
@@ -98,6 +99,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     // 初始化注销相关
     initDeletion();
     renderDeletionStatus();
+
+    // 初始化「个人资料 / 修改密码」的交互绑定（幂等，只绑事件不发请求）。
+    // ⚠️ 表单**数据**是懒加载的：第一次打开设置面板时由 dashboard.profile.js 的
+    //    window.initProfilePanel 拉 GET /api/v0/user/profile
+    //    （见 dashboard.menu.js::STATIC_PANEL_HOOKS 的 settings 项）。
+    initProfile();
 
     // 初始化打卡模块全局引用
     if (typeof window.initCheckinModule !== 'function') {

@@ -1997,3 +1997,90 @@
 .charts-area {
     min-height: 200px;
 }
+
+/* ============================================================
+ * 「设置 → 个人资料 / 修改密码」样式
+ *   —— 交互与字段见 user/dashboard.profile.js
+ *   —— 基础行布局复用上面的 .form-row（label + 控件），这里只补本页特有的部分
+ * ============================================================ */
+.settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.settings-form .form-row {
+    align-items: flex-start;
+}
+
+.settings-form .form-row label {
+    padding-top: 9px;   /* 与单行输入框的文字基线对齐 */
+}
+
+.settings-form .form-row textarea {
+    resize: vertical;
+    line-height: 1.6;
+    font-family: inherit;
+}
+
+.settings-form__actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.settings-form__status {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+}
+
+.settings-form__hint {
+    margin: 0;
+    flex-basis: 100%;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--color-text-muted);
+}
+
+/* 头像行：预览小图 + 两个按钮 + 提示 */
+.profile-avatar-editor {
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.profile-avatar-preview {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--color-bg-section-alt, #f3f4f6);
+    border: 1px solid var(--color-border, #e5e7eb);
+}
+
+/* 裁剪预览：固定方形，画面就是将要上传的 512×512 */
+.profile-crop {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+.profile-crop__canvas {
+    width: 200px;
+    height: 200px;
+    border-radius: var(--radius-md, 8px);
+    border: 1px solid var(--color-border, #e5e7eb);
+    background: var(--color-bg-section-alt, #f3f4f6);
+}
+
+.profile-crop__actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}

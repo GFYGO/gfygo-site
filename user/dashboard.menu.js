@@ -53,7 +53,7 @@ var PRIMARY_MENU = [
 // 构建版本号：便于在浏览器控制台一眼确认「当前跑的是哪一版」
 //   window.__DASHBOARD_BUILD__
 //   document.querySelector('script[src*="dashboard.menu.js"]').src
-var BUILD_VERSION = '20261002a';
+var BUILD_VERSION = '20261003a';
 window.__DASHBOARD_BUILD__ = BUILD_VERSION;
 
 var _menuData = null;
@@ -279,12 +279,14 @@ PRIMARY_MENU.forEach(function (item) { STATIC_TABS[item.tab_key] = true; });
  *                     日历标题停在硬编码的「2026年7月」；别让这里再退化成直接调用。
  *   * notifications → 拉取并渲染通知（dashboard.notifications.js）
  *   * docs          → 个人文档：复位到列表视图 + 绑定/加载（dashboard.pdocs.js）
- * settings 的初始化（renderDeletionStatus）走文件顶部的直接 import，不在这里。
+ *   * settings      → 个人资料表单的**懒加载**（dashboard.profile.js：第一次打开设置
+ *                     面板才发 GET /user/profile；注销状态那条仍走文件顶部的直接 import）
  */
 var STATIC_PANEL_HOOKS = {
     home: 'initCheckinModule',
     notifications: 'initNotificationsPanel',
     docs: 'initPersonalDocsPanel',
+    settings: 'initProfilePanel',
 };
 
 /**
@@ -353,9 +355,9 @@ async function renderTab(tabKey, force) {
  * 但**面板本身照常显示** —— 静态内容是 dashboard.html 里的 HTML，不依赖钩子。
  */
 function runStaticPanelHook(tabKey) {
+    // 注销状态每次进入都刷新（它在 deletion.js 里，通过直接 import 拿到）
     if (tabKey === 'settings') {
         renderDeletionStatus();
-        return;
     }
     var hookName = STATIC_PANEL_HOOKS[tabKey];
     if (!hookName) return;

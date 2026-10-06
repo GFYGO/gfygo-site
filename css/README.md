@@ -17,6 +17,8 @@
 ## 页面专用文件
 
 - **`css/login.css`** — 登录页专属样式
+- **`css/forgot.css`** — 密码找回 / 重置页（`forgot.html` / `reset.html`）共用的 `auth-*` 样式；
+  同时提供 `login.html` 上「忘记密码？」链接的 `.login-forgot-link`
 - **`css/register.css`** — 注册页专属样式
 - **`org/org.css`** — 组织页（`org/index.html`）唯一样式来源
 - **`model/styles.css`** — Model 原型页面专属样式（`profile-layout`）⚠️ 全仓**无静态 `<link>`、也无脚本注入**（见文末证据）
@@ -40,8 +42,10 @@
 
 ```
 index.html            → css/core.css + css/styles.css + css/components.css + css/feature-grid.css
-login.html            → css/core.css + css/styles.css + css/login.css + css/components.css
+login.html            → css/core.css + css/styles.css + css/login.css + css/forgot.css + css/components.css
 register.html         → css/core.css + css/styles.css + css/login.css + css/register.css + css/components.css
+forgot.html           → css/core.css + css/styles.css + css/login.css + css/forgot.css + css/components.css
+reset.html            → css/core.css + css/styles.css + css/login.css + css/forgot.css + css/components.css
 document.html         → css/core.css + css/styles.css + css/document.css + css/components.css
 404.html              → css/core.css + css/styles.css + css/components.css
 user/dashboard.html   → css/core.css + css/styles.css + css/components.css
@@ -56,7 +60,7 @@ model/debug.html      → 无外部 CSS 依赖，样式全部内联在 <style> �
 
 要点：
 
-- `gfygo-site` 下共 **11 个 HTML**，其中 **10 个**都加载 `css/components.css`（唯一例外是 `model/debug.html`），不要漏列。
+- `gfygo-site` 下共 **13 个 HTML**，其中 **12 个**都加载 `css/components.css`（唯一例外是 `model/debug.html`），不要漏列。
 - `404.html` 与 `org/index.html` 此前未出现在本表里，已补上。
 - `user/dashboard.html` 的静态 `<link>` 里**没有** `dashboard-perms.css` / `permission-picker.css`（见下节）。
 - `user/dashboard-workspace.css` 不出现在任何一行——它没有任何加载者。
@@ -88,7 +92,7 @@ model/debug.html      → 无外部 CSS 依赖，样式全部内联在 <style> �
 
 | 目录 | 文件 | 数量 |
 |---|---|---|
-| `css/` | `core.css`、`styles.css`、`components.css`、`feature-grid.css`、`document.css`、`login.css`、`register.css` | 7 |
+| `css/` | `core.css`、`styles.css`、`components.css`、`feature-grid.css`、`document.css`、`login.css`、`forgot.css`、`register.css` | 8 |
 | `user/` | `dashboard.css`、`dashboard-admin.css`、`dashboard-perms.css`、`dashboard-profile.css`、`dashboard-workspace.css`、`permission-picker.css` | 6 |
 | `org/` | `org.css` | 1 |
 | `model/` | `styles.css` | 1 |

@@ -1,0 +1,130 @@
+/* =========================================
+   密码找回 / 重置页专属样式（forgot.html + reset.html 共用）
+
+   ⚠️ 这两个页面是**未登录**页面，只加载 core/styles/login/forgot/components
+   五个样式表，不复用 dashboard / register 的类：
+   下面这几个类（auth-*）是本文件自己定义的，别在别处假设它们存在。
+   ========================================= */
+
+/* 卡片宽度：比登录页稍宽，够放「重置链接已失效」这类长文案 */
+.auth-card {
+  max-width: 460px;
+}
+
+/* 页头说明（登录卡片标题下方的灰色小字） */
+.auth-lead {
+  margin: -16px 0 24px;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* 步骤容器：一次只显示一个（用类切换，不依赖 [hidden] 被 CSS 覆盖的顺序） */
+.auth-step {
+  display: none;
+}
+
+.auth-step--active {
+  display: block;
+}
+
+/* 结果面板（发送成功 / 重置成功 / 链接失效） */
+.auth-panel__icon {
+  display: block;
+  font-size: 2.5rem;
+  line-height: 1;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.auth-panel__title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  text-align: center;
+  margin: 0 0 12px;
+  color: var(--color-text-main);
+}
+
+/* ⚠️ 后端返回的 msg 一律走 textContent 写入这里（见 forgot.js / reset.js），
+   所以这里只负责排版，不考虑转义。 */
+.auth-panel__text {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: var(--color-text-muted);
+  text-align: center;
+  word-break: break-word;
+}
+
+/* 提示条（「验证码 30 分钟内有效」这类前置说明） */
+.auth-hint {
+  background: var(--color-bg-section-alt);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+}
+
+.auth-hint p {
+  margin: 0;
+}
+
+/* 当前正在操作的账号（打码邮箱 / 用户名） */
+.auth-target {
+  font-weight: 600;
+  color: var(--color-text-main);
+  word-break: break-all;
+}
+
+/* 6 位验证码输入：等宽 + 字间距，方便核对 */
+.auth-code-input {
+  letter-spacing: 0.5em;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.125rem;
+}
+
+/* 底部链接行（返回登录 / 重新申请） */
+.auth-switch {
+  margin: 20px 0 0;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  line-height: 1.8;
+}
+
+.auth-switch a {
+  color: var(--color-primary);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.auth-switch a:hover {
+  text-decoration: underline;
+}
+
+/* 「忘记密码？」链接（login.html 里那个） */
+.login-forgot-link {
+  display: block;
+  margin: -8px 0 16px;
+  text-align: right;
+  font-size: 0.875rem;
+}
+
+.login-forgot-link a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.login-forgot-link a:hover {
+  text-decoration: underline;
+}
+
+/* 服务端校验中：按钮禁用即可，样式沿用 .btn-primary */
+.auth-step .btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

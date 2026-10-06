@@ -14,18 +14,18 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://maxcdn.bootstrapcdn.com; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net https://maxcdn.bootstrapcdn.com; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>个人主页 | GWL</title>
-    <link rel="stylesheet" href="./../css/core.css?v=20261002a">
-    <link rel="stylesheet" href="./../css/styles.css?v=20261002a">
-    <link rel="stylesheet" href="./../css/components.css?v=20261002a">
-    <link rel="stylesheet" href="./dashboard.css?v=20261002a">
+    <link rel="stylesheet" href="./../css/core.css?v=20261003a">
+    <link rel="stylesheet" href="./../css/styles.css?v=20261003a">
+    <link rel="stylesheet" href="./../css/components.css?v=20261003a">
+    <link rel="stylesheet" href="./dashboard.css?v=20261003a">
     <!--
       ⚠️ dashboard-profile.css 是「个人主页（#panel-home）」的唯一样式来源
       （profile-banner / profile-avatar-large / profile-cards / card / calendar-* / checkin-btn）。
       该文件此前**从未被任何 HTML 引用**（孤儿文件）→ 个人主页长期是无样式的裸 DOM。
       删除或重命名它之前，先确认 #panel-home 的结构是否仍在使用。
     -->
-    <link rel="stylesheet" href="./dashboard-profile.css?v=20261002a">
-    <link rel="stylesheet" href="./dashboard-admin.css?v=20261002a">
+    <link rel="stylesheet" href="./dashboard-profile.css?v=20261003a">
+    <link rel="stylesheet" href="./dashboard-admin.css?v=20261003a">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.css">
     <link rel="icon" href="./../favicon.png" type="image/png">
 </head>
@@ -110,6 +110,104 @@
                             <button class="theme-opt" data-theme="gray">灰色</button>
                             <button class="theme-opt" data-theme="dark_green">暗绿</button>
                         </div>
+                    </div>
+
+                    <hr class="settings-divider">
+
+                    <!-- 个人资料（可编辑）：
+                         结构与交互都在前端，数据走 /api/v0/user/profile 与 /api/v0/user/avatar。
+                         ⚠️ 表单初值由 dashboard.profile.js **懒加载**（第一次打开本面板时才拉），
+                         不在页面加载时白跑一次请求。 -->
+                    <div class="settings-section" id="profileSection">
+                        <h3>个人资料</h3>
+                        <form id="profileForm" class="settings-form" novalidate>
+                            <div class="form-row">
+                                <label for="profileNickname">昵称</label>
+                                <input type="text" id="profileNickname" maxlength="40"
+                                       placeholder="展示名，留空则显示账号名">
+                            </div>
+                            <div class="form-row">
+                                <label for="profileGender">性别</label>
+                                <select id="profileGender">
+                                    <option value="">未设置</option>
+                                    <option value="male">男</option>
+                                    <option value="female">女</option>
+                                    <option value="other">其他</option>
+                                </select>
+                            </div>
+                            <div class="form-row">
+                                <label for="profileLocation">所在地</label>
+                                <input type="text" id="profileLocation" maxlength="64"
+                                       placeholder="例如：浙江 杭州">
+                            </div>
+                            <div class="form-row">
+                                <label for="profileIntroduction">简介</label>
+                                <textarea id="profileIntroduction" maxlength="200" rows="3"
+                                          placeholder="介绍一下自己（最多 200 字）"></textarea>
+                            </div>
+                            <div class="form-row">
+                                <label for="profileBannerUrl">背景图 URL</label>
+                                <input type="text" id="profileBannerUrl"
+                                       placeholder="https://… 或 /path/to.jpg，留空清除">
+                            </div>
+                            <div class="form-row">
+                                <label>头像</label>
+                                <div class="profile-avatar-editor">
+                                    <img id="profileAvatarPreview" class="profile-avatar-preview"
+                                         src="./../favicon.png" alt="头像预览">
+                                    <input type="file" id="profileAvatarFile" accept="image/*" style="display:none;">
+                                    <button type="button" class="deletion-btn deletion-btn--secondary"
+                                            id="profileAvatarPickBtn">选择图片</button>
+                                    <button type="button" class="deletion-btn deletion-btn--secondary"
+                                            id="profileAvatarRemoveBtn">移除头像</button>
+                                    <p class="settings-form__hint" id="profileAvatarHint">
+                                        支持 JPG / PNG / GIF / WebP，自动裁剪为 512×512，最大 2MB
+                                    </p>
+                                </div>
+                            </div>
+                            <!-- 头像裁剪预览（选图后才显示）：固定方形 canvas，内容就是将要上传的 512×512 -->
+                            <div class="profile-crop" id="profileCropArea" style="display:none;">
+                                <canvas id="profileAvatarCanvas" class="profile-crop__canvas"
+                                        width="512" height="512"></canvas>
+                                <div class="profile-crop__actions">
+                                    <button type="button" class="deletion-btn deletion-btn--secondary"
+                                            id="profileCropResetBtn">重新选择</button>
+                                    <button type="button" class="deletion-btn deletion-btn--danger"
+                                            id="profileAvatarUploadBtn">上传头像</button>
+                                </div>
+                            </div>
+                            <div class="settings-form__actions">
+                                <button type="submit" class="btn btn-primary" id="profileSaveBtn">保存资料</button>
+                                <span class="settings-form__status" id="profileFormStatus"></span>
+                            </div>
+                        </form>
+                    </div>
+
+                    <hr class="settings-divider">
+
+                    <!-- 修改密码：成功后必须把新 access_token 写回 AuthGuard
+                         （后端改密会立刻作废所有旧 token，否则用户会被静默踢下线） -->
+                    <div class="settings-section" id="passwordSection">
+                        <h3>修改密码</h3>
+                        <form id="passwordForm" class="settings-form" novalidate>
+                            <div class="form-row">
+                                <label for="passwordOld">当前密码</label>
+                                <input type="password" id="passwordOld" autocomplete="current-password">
+                            </div>
+                            <div class="form-row">
+                                <label for="passwordNew">新密码</label>
+                                <input type="password" id="passwordNew" minlength="6"
+                                       autocomplete="new-password" placeholder="至少 6 位">
+                            </div>
+                            <div class="form-row">
+                                <label for="passwordConfirm">确认新密码</label>
+                                <input type="password" id="passwordConfirm" minlength="6"
+                                       autocomplete="new-password" placeholder="再输一次">
+                            </div>
+                            <div class="settings-form__actions">
+                                <button type="submit" class="btn btn-primary" id="passwordSaveBtn">修改密码</button>
+                            </div>
+                        </form>
                     </div>
 
                     <hr class="settings-divider">
@@ -378,20 +476,21 @@
 
     <script src="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.js"></script>
     <!-- 共享脚本：普通 <script> 加载，暴露到 window -->
-    <script src="./../js/config.js?v=20261002a"></script>
-    <script src="./../js/sanitize.js?v=20261002a"></script>
-    <script src="./../js/utils.js?v=20261002a"></script>
-    <script src="./../js/toast.js?v=20261002a"></script>
-    <script src="./../js/theme.js?v=20261002a"></script>
-    <script src="./../js/modal.js?v=20261002a"></script>
+    <script src="./../js/config.js?v=20261003a"></script>
+    <script src="./../js/sanitize.js?v=20261003a"></script>
+    <script src="./../js/utils.js?v=20261003a"></script>
+    <script src="./../js/toast.js?v=20261003a"></script>
+    <script src="./../js/theme.js?v=20261003a"></script>
+    <script src="./../js/modal.js?v=20261003a"></script>
     <!-- Dashboard 模块：ES Module 加载 -->
-    <script type="module" src="./dashboard.permission.js?v=20261002a"></script>
-    <script type="module" src="./dashboard.auth.js?v=20261002a"></script>
-    <script type="module" src="./dashboard.checkin.js?v=20261002a"></script>
-    <script type="module" src="./dashboard.deletion.js?v=20261002a"></script>
-    <script type="module" src="./dashboard.menu.js?v=20261002a"></script>
-    <script type="module" src="./dashboard.notifications.js?v=20261002a"></script>
-    <script type="module" src="./dashboard.pdocs.js?v=20261002a"></script>
-    <script type="module" src="./dashboard.js?v=20261002a"></script>
+    <script type="module" src="./dashboard.permission.js?v=20261003a"></script>
+    <script type="module" src="./dashboard.auth.js?v=20261003a"></script>
+    <script type="module" src="./dashboard.checkin.js?v=20261003a"></script>
+    <script type="module" src="./dashboard.deletion.js?v=20261003a"></script>
+    <script type="module" src="./dashboard.menu.js?v=20261003a"></script>
+    <script type="module" src="./dashboard.notifications.js?v=20261003a"></script>
+    <script type="module" src="./dashboard.pdocs.js?v=20261003a"></script>
+    <script type="module" src="./dashboard.profile.js?v=20261003a"></script>
+    <script type="module" src="./dashboard.js?v=20261003a"></script>
 </body>
 </html>

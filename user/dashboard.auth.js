@@ -73,6 +73,15 @@ function initSettingsButton() {
     }
 }
 
+/**
+ * 最近一次渲染用的 user 对象。
+ *
+ * 用途：`dashboard.profile.js` 保存资料 / 换头像后要**就地重绘**侧边栏与个人主页，
+ * 而接口只回新的 profile 字典 —— 用这里的缓存补齐 `username` / `current_level`
+ * 等资料以外的字段，避免复制一份 renderUserProfile 的渲染逻辑。
+ */
+let _lastRenderedUser = null;
+
 /** 渲染用户信息 */
 function renderUserProfile(user, DEFAULT_AVATAR, DEFAULT_BANNER) {
     const profile = user.profile || {};
@@ -81,6 +90,9 @@ function renderUserProfile(user, DEFAULT_AVATAR, DEFAULT_BANNER) {
     const curLevel = user.current_level || 1;
     const maxLevel = user.max_level || 1;
     const roleName = ROLE_NAMES[curLevel] || '未知';
+    // 展示名：昵称优先、为空回退账号名。服务端 `UserProfile.to_dict()` 已经算好
+    // `display_name`，这里再兜一层是为了兼容老响应（只带 nickname）与未登录态。
+    const displayName = profile.display_name || profile.nickname || user.username;
 
     const sidebarAvatar = $('sidebarAvatar');
     if (sidebarAvatar) {
@@ -89,7 +101,7 @@ function renderUserProfile(user, DEFAULT_AVATAR, DEFAULT_BANNER) {
     }
 
     const sidebarUsername = $('sidebarUsername');
-    if (sidebarUsername) sidebarUsername.textContent = user.username;
+    if (sidebarUsername) sidebarUsername.textContent = displayName;
 
     const sidebarUserRole = $('sidebarUserRole');
     if (sidebarUserRole) sidebarUserRole.textContent = roleName;
@@ -101,7 +113,7 @@ function renderUserProfile(user, DEFAULT_AVATAR, DEFAULT_BANNER) {
     }
 
     const profileUsername = $('profileUsername');
-    if (profileUsername) profileUsername.textContent = user.username;
+    if (profileUsername) profileUsername.textContent = displayName;
 
     const profileBadge = $('profileBadge');
     if (profileBadge) {
@@ -120,6 +132,31 @@ function renderUserProfile(user, DEFAULT_AVATAR, DEFAULT_BANNER) {
         bannerImg.src = banner;
         bannerImg.onerror = function() { this.style.display = 'none'; };
     }
+
+    _lastRenderedUser = user;
+}
+
+/**
+ * 用新的 profile 字段**就地重绘**侧边栏与个人主页（不刷新页面）。
+ *
+ * `dashboard.profile.js` 在「保存资料 / 上传头像 / 移除头像」成功后调用它：
+ * 服务端回的是完整的 profile 字典（`PUT /api/v0/user/profile` 的 data），
+ * 这里与最近一次渲染的 user 对象合并后走同一条渲染路径，保证两处显示一致。
+ *
+ * @param {object} profilePatch 服务端返回的 profile 字段（可为部分字段）
+ * @returns {boolean} 是否真的重绘了（从未渲染过用户时返回 false，由调用方兜底）
+ */
+function refreshUserProfileLocal(profilePatch) {
+    if (!_lastRenderedUser) return false;
+    const merged = Object.assign({}, _lastRenderedUser, {
+        profile: Object.assign({}, _lastRenderedUser.profile || {}, profilePatch || {}),
+    });
+    renderUserProfile(
+        merged,
+        window.DEFAULT_AVATAR || `${BASE_PATH}/favicon.png`,
+        window.DEFAULT_BANNER || ''
+    );
+    return true;
 }
 
 /** 渲染顶部导航认证状态 */
@@ -510,7 +547,7 @@ async function sendVerificationEmail() {
 export {
     initAuthModules, renderUserProfile, renderTopNavAuth, renderPermissionButtons,
     switchLevel, initSidebarToggle, initSettingsButton, sendVerificationEmail,
-    handlePermissionClick, normalizePermissionArgs, ROLE_NAMES,
+    handlePermissionClick, normalizePermissionArgs, ROLE_NAMES, refreshUserProfileLocal,
 };
 
 // ===== 兼容层 =====

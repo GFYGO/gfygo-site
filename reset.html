@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>GWL | 个人学习平台 - 重置密码</title>
+    <!--
+      两种进入方式，都在 js/reset.js 里分派：
+        /reset.html?token=<64 hex>  邮件里的链接 → GET /api/v1/auth/reset-token 校验后显示改密表单
+        /reset.html                 没有 token → 显示「邮箱 + 6 位验证码」表单
+      ⚠️ 本页全部走 /api/v1/auth/*（**公共接口，无 JWT**）—— 忘记密码的人必然未登录。
+      ⚠️ 本页不需要 Turnstile：verify-reset-code / reset-password 都不校验人机验证。
+    -->
+    <link rel="stylesheet" href="./css/core.css?v=20261003a">
+    <link rel="stylesheet" href="./css/styles.css?v=20261003a">
+    <link rel="stylesheet" href="./css/login.css?v=20261003a">
+    <link rel="stylesheet" href="./css/forgot.css?v=20261003a">
+    <link rel="stylesheet" href="./css/components.css?v=20261003a">
+    <link rel="icon" href="./favicon.png" type="image/png">
+</head>
+<body>
+    <header class="header">
+        <div class="header__logo">GWL Works Lab</div>
+        <button class="header__toggle" id="menuToggle" aria-label="切换菜单">☰</button>
+        <nav class="header__nav" id="headerNav">
+            <a href="./index.html">首页</a>
+            <a href="./document.html">文档</a>
+            <a href="./org/index.html">组织</a>
+            <a href="./discover/index.html">发现</a>
+            <a href="./login.html">登录</a>
+            <a href="./register.html">注册</a>
+        </nav>
+        <div class="header__actions">
+            <div id="auth-container"></div>
+            <div class="permission-buttons" id="permissionButtons"></div>
+        </div>
+    </header>
+
+    <div class="login-page">
+        <div class="login-card auth-card">
+            <!-- 0. 正在校验链接（只有带 ?token= 进来时短暂出现） -->
+            <section class="auth-step" id="resetStepLoading">
+                <h2 class="login-card__title">重置密码</h2>
+                <p class="auth-panel__text" id="resetLoadingText">正在校验重置链接…</p>
+            </section>
+
+            <!-- 1. 没有 token：邮箱 + 6 位验证码
+                 ⚠️ 默认就是激活态：脚本万一没跑起来，用户至少还能看到输码表单，
+                 而不是一张空白卡片（带 ?token= 进来时脚本会立刻切到 loading 面板）。 -->
+            <section class="auth-step auth-step--active" id="resetStepCode">
+                <h2 class="login-card__title">重置密码</h2>
+                <p class="auth-lead">请输入注册邮箱与邮件里的 6 位验证码。</p>
+
+                <form id="resetCodeForm" novalidate>
+                    <div class="form-group">
+                        <input type="email" id="resetEmail" name="email" placeholder="注册邮箱地址"
+                               autocomplete="email" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="resetCode" name="code" class="auth-code-input"
+                               placeholder="6 位验证码" inputmode="numeric" maxlength="6"
+                               autocomplete="one-time-code" required>
+                    </div>
+                    <div class="auth-hint">
+                        <p>💡 验证码与重置链接都能在邮件里找到；本页也支持直接打开邮件里的链接。</p>
+                    </div>
+                    <button type="submit" class="btn-primary" id="resetCodeSubmitBtn">验证并继续</button>
+                    <p class="auth-switch"><a href="./forgot.html">没收到邮件？重新发送</a></p>
+                </form>
+            </section>
+
+            <!-- 2. 已有有效 token（来自链接或验证码）：设置新密码 -->
+            <section class="auth-step" id="resetStepPassword">
+                <h2 class="login-card__title">设置新密码</h2>
+                <p class="auth-lead">
+                    正在为 <span class="auth-target" id="resetTargetHint">该账号</span> 重置密码。
+                </p>
+
+                <form id="resetPasswordForm" novalidate>
+                    <div class="form-group">
+                        <input type="password" id="resetNewPassword" name="new_password"
+                               placeholder="新密码（至少 6 位）" autocomplete="new-password"
+                               minlength="6" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="resetConfirmPassword" name="confirm_password"
+                               placeholder="确认新密码" autocomplete="new-password"
+                               minlength="6" required>
+                    </div>
+                    <button type="submit" class="btn-primary" id="resetPasswordSubmitBtn">重置密码</button>
+                    <p class="auth-switch"><a href="./login.html">← 返回登录</a></p>
+                </form>
+            </section>
+
+            <!-- 3. 凭据无效 / 已过期 / 已使用 -->
+            <section class="auth-step" id="resetStepInvalid">
+                <span class="auth-panel__icon">⚠️</span>
+                <h2 class="auth-panel__title">链接不可用</h2>
+                <p class="auth-panel__text" id="resetInvalidReason"></p>
+                <p class="auth-switch">
+                    <a href="./forgot.html">重新获取重置邮件</a><br>
+                    <a href="./login.html">← 返回登录</a>
+                </p>
+            </section>
+
+            <!-- 4. 重置成功 -->
+            <section class="auth-step" id="resetStepDone">
+                <span class="auth-panel__icon">✅</span>
+                <h2 class="auth-panel__title">密码已重置</h2>
+                <p class="auth-panel__text" id="resetDoneMsg"></p>
+                <p class="auth-switch"><a href="./login.html">去登录 →</a></p>
+            </section>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="footer__container">
+            <div class="footer__top">
+                <div class="footer__brand">
+                    <h3 class="footer__logo">GWL Works Lab</h3>
+                    <p class="footer__slogan">探索学习的无限可能</p>
+                </div>
+                <div class="footer__links">
+                    <div class="footer__links-group">
+                        <h4>快速链接</h4>
+                        <a href="./index.html">首页</a>
+                        <a href="./document.html">文档</a>
+                        <a href="./login.html">登录</a>
+                    </div>
+                    <div class="footer__links-group">
+                        <h4>关于</h4>
+                        <a href="#">关于我们</a>
+                        <a href="#">隐私政策</a>
+                        <a href="#">服务条款</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer__bottom">
+                <p>&copy; 2026 GFYGO. All rights reserved.</p>
+                <div class="footer__social">
+                    <a href="#" aria-label="GitHub">GitHub</a>
+                    <a href="#" aria-label="Bilibili">Bilibili</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
+
+    <script src="./js/config.js?v=20261003a"></script>
+    <script src="./js/theme.js?v=20261003a"></script>
+    <script src="./js/toast.js?v=20261003a"></script>
+    <!-- ⚠️ js/index.js 未改动：版本号沿用与 login/register 相同的 20260911e
+         （tools/test-permission-switch.mjs 会断言引用它的页面就是这一版） -->
+    <script src="./js/index.js?v=20260911e"></script>
+    <script src="./js/reset.js?v=20261003a"></script>
+</body>
+</html>
