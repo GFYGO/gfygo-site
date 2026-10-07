@@ -7,7 +7,7 @@
   <title>文档 | GWL</title>
   <link rel="stylesheet" href="./css/core.css?v=20260911d">
   <link rel="stylesheet" href="./css/styles.css?v=20260911d">
-  <link rel="stylesheet" href="./css/document.css?v=20260911d">
+  <link rel="stylesheet" href="./css/document.css?v=20261006d">
   <link rel="stylesheet" href="./css/components.css?v=20260911d">
   <link rel="icon" href="./favicon.png" type="image/png">
 </head>
@@ -68,6 +68,18 @@
       <nav class="doc-sidebar__tree" id="docSidebarTree" aria-label="文档目录">
         <p class="doc-loading-text">正在加载文档目录...</p>
       </nav>
+      <!-- ⭐ 侧栏「加载更多」（2026-10-06，B1）：必须在 #docSidebarTree **之外**
+           —— 那个 nav 是 innerHTML 整体替换的，放里面会被渲染冲掉 -->
+      <div class="doc-load-more doc-load-more--side" id="docLoadMoreSide" style="display:none;">
+        <span class="doc-load-more__info"></span>
+        <button type="button" class="doc-load-more__btn" id="docLoadMoreSideBtn">加载更多</button>
+      </div>
+      <!-- ⭐ 标签筛选条（2026-10-06，B3）：点详情页的标签后出现在这里，可一键清除 -->
+      <div class="doc-tag-filter" id="docTagFilter" style="display:none;">
+        <span class="doc-tag-filter__label">🏷 标签筛选</span>
+        <span class="doc-tag-filter__name" id="docTagFilterName"></span>
+        <button type="button" class="doc-tag-filter__clear" id="docTagFilterClearBtn">✕ 清除</button>
+      </div>
     </aside>
 
     <main class="doc-main">
@@ -108,6 +120,11 @@
         <section class="home-section">
           <h2 class="home-section__title">文档列表</h2>
           <div class="feature-grid" id="docHomeGrid"></div>
+          <!-- ⭐ 分页「加载更多」（2026-10-06，B1）：在 #docHomeGrid **之外** -->
+          <div class="doc-load-more" id="docLoadMoreHome" style="display:none;">
+            <span class="doc-load-more__info"></span>
+            <button type="button" class="doc-load-more__btn" id="docLoadMoreHomeBtn">加载更多</button>
+          </div>
         </section>
 
         <!-- 私人 / 组 筛选时的空态占位（按 tab 展示） -->
@@ -144,12 +161,19 @@
           <header class="doc-header">
             <a href="#/" class="doc-back-btn" id="docBackBtn">← 返回文档主页</a>
             <h1 class="doc-title" id="docTitle">加载中...</h1>
+            <!-- ⭐ B5：单篇导出 Markdown（能看就能导；组根只读文档也能导） -->
+            <div class="doc-export">
+              <button type="button" class="doc-export__btn" id="docExportMdBtn">⬇ 导出 Markdown</button>
+            </div>
           </header>
 
           <!-- 元信息条：权限、作者、时间等 -->
           <div class="doc-meta" id="docMeta">
             <span class="doc-loading-text">加载元信息中...</span>
           </div>
+
+          <!-- ⭐ 标签（2026-10-06，B3）：详情页只读展示；点标签 = 按该标签筛列表 -->
+          <div class="doc-tags-row" id="docTagsRow" style="display:none;"></div>
 
           <!-- 正文 Markdown 渲染区 -->
           <article class="doc-content" id="docContent">
@@ -239,6 +263,6 @@
   <script src="./js/toast.js?v=20260911d"></script>
   <script src="./js/modal.js?v=20260911d"></script>
   <script src="./js/index.js?v=20260911e"></script>
-  <script src="./js/document.js?v=20260911d"></script>
+  <script src="./js/document.js?v=20261006d"></script>
 </body>
 </html>

@@ -21,6 +21,21 @@ const PDocsState = {
     currentFolderId: null,
     currentUserId: null,
     currentDocs: null,
+    // ⚠️ 服务端分页（`/document/mine`）的**文档列表**页码状态：
+    //    docsPage  = 已经加载到第几页（1 起，后端也是 1 起）
+    //    docsHasMore = 后端是否还有下一页（**只有它为 true 才显示「加载更多」**）
+    //    docsTotal = 后端报告的当前文件夹文档总数（用于「已加载 M / 共 T」）
+    docsPage: 1,
+    docsHasMore: false,
+    docsTotal: 0,
+    // 请求序号：换文件夹 / 重新加载会让在途的旧响应失效，避免把上一个文件夹的第 2 页拼进来
+    docsSeq: 0,
+    // 回收站（`/document/trash`）的分页状态，与文档列表**各自独立**
+    currentTrash: null,
+    trashPage: 1,
+    trashHasMore: false,
+    trashTotal: 0,
+    trashSeq: 0,
     editorInstance: null,
     browserDocId: null,
     browserDocSlug: null
@@ -160,6 +175,217 @@ async function pdocsRequest(path, options = {}) {
     }
 }
 
+// =========================================
+// ⭐ B2（2026-10-06）：文档插图上传
+//   后端：POST /api/v0/document/<id>/media（multipart，字段名 `file`）
+//        上限 config.MAX_DOC_MEDIA_SIZE = **1MB**、类型按魔数白名单、存 WebP。
+// =========================================
+
+//: 与后端 `config.MAX_DOC_MEDIA_SIZE` 对齐；Nginx 默认 client_max_body_size 也是 1MB。
+var PDOCS_IMAGE_LIMIT = 1024 * 1024;
+
+/** 把文件名换成 `.webp` 后缀（内容由 canvas 编成 WebP）。 */
+function pdocsWebpName(name) {
+    var base = String(name || 'image.png').replace(/\.[^.\/\\]+$/, '');
+    return (base || 'image') + '.webp';
+}
+
+/**
+ * 把图片压到 <= maxBytes（默认 1MB），返回 `{ blob, name }`。
+ *
+ * ⚠️ 这**不是优化项**：手机拍照常见 3~8MB，而后端与 Nginx 的硬上限都是 1MB ——
+ *    不压缩几乎必然 413。策略：canvas 逐级降质（0.85 → 0.7 → 0.55），
+ *    仍超限则按比例缩边（×0.8，最多 6 轮）；最终仍超限就把结果交给后端，
+ *    由后端给出统一文案（前端不自己编造"太大"的判定）。
+ * 任何异常都退回原文件（让后端的魔数/体积校验去拒绝，而不是前端静默吞掉）。
+ */
+function pdocsShrinkImage(file, maxBytes) {
+    var LIMIT = maxBytes || PDOCS_IMAGE_LIMIT;
+    return new Promise(function (resolve) {
+        var passthrough = function () { resolve({ blob: file, name: file && file.name }); };
+        if (!file || !file.type || file.type.indexOf('image/') !== 0) { passthrough(); return; }
+        // 已经是小 WebP 就不必重编码（重编码只会掉画质）
+        if (file.size <= LIMIT && file.type === 'image/webp') { passthrough(); return; }
+        if (typeof document === 'undefined' || !document.createElement) { passthrough(); return; }
+
+        var url = URL.createObjectURL(file);
+        var img = new Image();
+        img.onload = function () {
+            URL.revokeObjectURL(url);
+            var canvas = document.createElement('canvas');
+            var scale = 1;
+            var quality = 0.85;
+            var attempt = 0;
+            var encode = function () {
+                canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+                canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+                var ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                if (!canvas.toBlob) { passthrough(); return; }
+                canvas.toBlob(function (blob) {
+                    if (!blob) { passthrough(); return; }
+                    if (blob.size <= LIMIT || attempt >= 6) {
+                        resolve({ blob: blob, name: pdocsWebpName(file.name) });
+                        return;
+                    }
+                    attempt += 1;
+                    if (quality > 0.56) { quality -= 0.15; } else { scale *= 0.8; quality = 0.8; }
+                    encode();
+                }, 'image/webp', quality);
+            };
+            encode();
+        };
+        img.onerror = function () { URL.revokeObjectURL(url); passthrough(); };
+        img.src = url;
+    });
+}
+
+/**
+ * 上传一张图片，返回**可插入正文的绝对 URL**。
+ *
+ * ⚠️ 不能用 `pdocsRequest()`：它强制 `Content-Type: application/json` 且对 body 做
+ *    `JSON.stringify` → FormData 会被串成 `{}`。这里照 `user/dashboard.profile.js`
+ *    上传头像的写法**手写 fetch**。
+ */
+async function pdocsUploadImage(file) {
+    var token = AuthGuard.getToken();
+    if (!token) { AuthGuard.handleAuthError(); throw new Error('登录已失效，请重新登录'); }
+    var docId = pdocsIsValidId(PDocsState.editingId) ? PDocsState.editingId : null;
+    if (docId === null) throw new Error('请先保存文档，再插入图片');
+
+    var out = await pdocsShrinkImage(file, PDOCS_IMAGE_LIMIT);
+    var fd = new FormData();
+    fd.append('file', out.blob, out.name || 'image.webp');
+
+    var res;
+    try {
+        res = await fetch(`${API_BASE_URL}/api/v0/document/${docId}/media`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: fd
+        });
+    } catch (e) {
+        throw new Error('上传失败：网络错误');
+    }
+    if (res.status === 401) { AuthGuard.handleAuthError(); throw new Error('登录已失效，请重新登录'); }
+    // ⚠️ 413 可能是 **Nginx** 自己回的 HTML 错误页（不是我们的 JSON）→ 必须先看状态码再解析
+    if (res.status === 413) throw new Error('图片超过 1MB（压缩后仍超限），请换小图');
+
+    var data = null;
+    try { data = await res.json(); } catch (e) { throw new Error('上传失败：服务端返回异常'); }
+    if (!res.ok || !data || data.code !== 200 || !data.data) {
+        throw new Error((data && data.msg) || '上传失败');
+    }
+    // 后端给的是**绝对 URL**（相对路径在 gwl.net.cn 前端域下会 404）
+    return data.data.url;
+}
+
+/** 上传并插入 Markdown 图片语法（工具栏按钮 / 粘贴 / 拖拽 三处共用）。 */
+async function pdocsInsertImage(file) {
+    var ed = PDocsState.editorInstance;
+    if (!ed) return;
+    try {
+        if (window.showToast) window.showToast('正在上传图片…', 'info');
+        var url = await pdocsUploadImage(file);
+        var alt = String((file && file.name) || '图片').replace(/\.[^.]+$/, '').replace(/[\[\]]/g, '');
+        var md = '![' + alt + '](' + url + ')';
+        if (ed.codemirror && ed.codemirror.replaceSelection) ed.codemirror.replaceSelection(md);
+        else if (typeof ed.value === 'function') ed.value(ed.value() + '\n' + md);
+        if (window.showToast) window.showToast('图片已插入', 'success');
+    } catch (e) {
+        if (window.showToast) window.showToast((e && e.message) || '图片上传失败', 'error');
+    }
+}
+
+// =========================================
+// ⭐ B3（2026-10-06）：统一标签
+//   接口：GET /api/v0/tags/suggest?q=      → 联想（公开）
+//         GET/PUT /api/v0/tags/document/<id> → 读/全量替换（PUT 需该文档的编辑权）
+//   限制与文案与后端逐字一致：最多 8 个、每个不超过 24 字。
+// =========================================
+
+var PDOCS_MAX_TAGS = 8;
+var PDOCS_MAX_TAG_LEN = 24;
+
+/** `[{"id","name"}]` 或字符串数组 → 输入框文本（逗号 + 空格分隔）。 */
+function pdocsTagsToText(tags) {
+    if (!Array.isArray(tags)) return '';
+    return tags.map(function (t) {
+        return (t && typeof t === 'object') ? String(t.name || '') : String(t || '');
+    }).filter(Boolean).join(', ');
+}
+
+/**
+ * 输入框文本 → 标签数组。
+ * 支持中英文逗号与顿号；去重（**按小写归一**，与后端 `normalize_name` 同口径）；
+ * 超限（>8 个 / 单个 >24 字）时**截断并回报**，不静默丢。
+ */
+function pdocsParseTagsText(text) {
+    var raw = String(text || '').split(/[,，、]/);
+    var seen = Object.create(null);
+    var out = [];
+    var dropped = 0;
+    for (var i = 0; i < raw.length; i++) {
+        var name = raw[i].trim().replace(/\s+/g, ' ');
+        if (!name) continue;
+        if (name.length > PDOCS_MAX_TAG_LEN) { dropped += 1; continue; }
+        var key = name.toLowerCase();
+        if (seen[key]) continue;
+        if (out.length >= PDOCS_MAX_TAGS) { dropped += 1; continue; }
+        seen[key] = 1;
+        out.push(name);
+    }
+    return { tags: out, dropped: dropped };
+}
+
+/** 联想：填 `<datalist>`（失败静默 —— 联想是增强，不该弹错误）。 */
+async function pdocsLoadTagSuggestions(q) {
+    var list = $('pdocsTagSuggestions');
+    if (!list || typeof window.apiRequest !== 'function') return;
+    try {
+        var res = await window.apiRequest('/api/v0/tags/suggest',
+            { params: { q: q || '', limit: 10 }, silent: true });
+        if (!res || res.code !== 200 || !res.data || !Array.isArray(res.data.items)) return;
+        list.innerHTML = res.data.items.map(function (t) {
+            return '<option value="' + escapeHtml(t.name || '') + '"></option>';
+        }).join('');
+    } catch (e) { /* 联想失败不打扰用户 */ }
+}
+
+/** 读某文档当前的标签（失败返回 null，调用方保留输入框原值）。 */
+async function pdocsFetchDocTags(docId) {
+    if (typeof window.apiRequest !== 'function') return null;
+    try {
+        var res = await window.apiRequest('/api/v0/tags/document/' + docId, { silent: true });
+        if (!res || res.code !== 200 || !res.data) return null;
+        return res.data.tags || [];
+    } catch (e) { return null; }
+}
+
+/** 保存时同步标签（**全量替换**）。失败只提示，不回滚文档保存。 */
+async function pdocsSaveDocTags(docId, text) {
+    if (!pdocsIsValidId(docId) || typeof window.apiRequest !== 'function') return true;
+    var parsed = pdocsParseTagsText(text);
+    var hint = $('pdocsTagsHint');
+    if (hint && parsed.dropped) {
+        hint.textContent = '已忽略 ' + parsed.dropped + ' 个（最多 ' + PDOCS_MAX_TAGS
+            + ' 个、每个不超过 ' + PDOCS_MAX_TAG_LEN + ' 字）';
+    }
+    try {
+        var res = await window.apiRequest('/api/v0/tags/document/' + docId,
+            { method: 'PUT', body: { tags: parsed.tags }, silent: true });
+        if (!res || res.code !== 200) {
+            showToast((res && res.msg) || '标签保存失败（文档本身已保存）', 'warning');
+            return false;
+        }
+        return true;
+    } catch (e) {
+        showToast('标签保存失败（文档本身已保存）', 'warning');
+        return false;
+    }
+}
+
 function initPdocsEasyMDE() {
     const textarea = $('pdocsContentInput');
     if (!textarea || PDocsState.editorInstance) return;
@@ -182,8 +408,52 @@ function initPdocsEasyMDE() {
             },
             placeholder: '使用 Markdown 编写文档...',
             minHeight: '400px',
-            status: ['lines', 'words', 'cursor']
+            status: ['lines', 'words', 'cursor'],
+            // ⭐ B2：工具栏「image」按钮 → 上传到本站（选项名是 EasyMDE **2.x** 的
+            //    `uploadImage(file, onSuccess, onError)`；1.x 的 imageUploadFunction 已移除）
+            uploadImage: async function (file, onSuccess, onError) {
+                try {
+                    onSuccess(await pdocsUploadImage(file));
+                } catch (e) {
+                    onError((e && e.message) || '图片上传失败');
+                }
+            }
         });
+        // ⚠️ `uploadImage` **只接管工具栏按钮**，粘贴与拖拽必须自己挂（两处都要 preventDefault，
+        //    否则 EasyMDE 会插入文件路径或什么都不做）
+        try {
+            const cm = PDocsState.editorInstance && PDocsState.editorInstance.codemirror;
+            if (cm) {
+                cm.on('paste', function (cmInstance, e) {
+                    const items = (e.clipboardData && e.clipboardData.items) || [];
+                    for (let i = 0; i < items.length; i++) {
+                        const it = items[i];
+                        if (it && it.type && it.type.indexOf('image/') === 0) {
+                            e.preventDefault();
+                            const f = it.getAsFile && it.getAsFile();
+                            if (f) pdocsInsertImage(f);
+                            return;
+                        }
+                    }
+                });
+                const wrap = cm.getWrapperElement && cm.getWrapperElement();
+                if (wrap && wrap.addEventListener) {
+                    wrap.addEventListener('drop', function (e) {
+                        const files = (e.dataTransfer && e.dataTransfer.files) || [];
+                        for (let i = 0; i < files.length; i++) {
+                            const f = files[i];
+                            if (f && f.type && f.type.indexOf('image/') === 0) {
+                                e.preventDefault();
+                                pdocsInsertImage(f);
+                                return;
+                            }
+                        }
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn('[pdocs] 图片粘贴/拖拽绑定失败（不影响其它功能）:', e);
+        }
     } catch (e) {
         console.error('[pdocs] EasyMDE 初始化失败:', e);
     }
@@ -208,6 +478,76 @@ function initPersonalDocsPanel() {
     initPersonalDocs();
 }
 
+// =========================================
+// ⭐ B5（2026-10-06）：导出
+//   接口：GET /api/v0/document/<id>/export.md  （单篇 Markdown；能看就能导）
+//         GET /api/v0/user/export.zip         （个人全量数据；需登录）
+// ⚠️ 这两个是**下载**而不是 JSON 接口 → **不能**用 `pdocsRequest`（它按 JSON 解析响应）：
+//    必须 fetch 拿 blob，再用 `Content-Disposition` 里的文件名触发保存。
+// =========================================
+async function pdocsDownload(url, fallbackName) {
+    const token = AuthGuard.getToken();
+    if (!token) { AuthGuard.handleAuthError(); throw new Error('登录已失效，请重新登录'); }
+    let res;
+    try {
+        res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    } catch (e) {
+        throw new Error('导出失败：网络错误');
+    }
+    if (res.status === 401) { AuthGuard.handleAuthError(); throw new Error('登录已失效，请重新登录'); }
+    if (!res.ok) {
+        // 失败时后端回 JSON（400/429/500）；413 可能是 **Nginx** 的 HTML 错误页 → 两种都兜住
+        let msg = res.status === 413 ? '导出内容过大' : ('导出失败（HTTP ' + res.status + '）');
+        try { const d = await res.json(); msg = d.msg || msg; } catch (e) { /* 不是 JSON */ }
+        throw new Error(msg);
+    }
+    const blob = await res.blob();
+    let name = fallbackName || 'download';
+    const cd = res.headers.get('Content-Disposition') || '';
+    const utf8 = cd.match(/filename\*=UTF-8''([^;]+)/i);
+    const plain = cd.match(/filename="?([^";]+)"?/i);
+    if (utf8 && utf8[1]) name = decodeURIComponent(utf8[1]);
+    else if (plain && plain[1]) name = plain[1];
+
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = href;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => { try { URL.revokeObjectURL(href); } catch (e) { /* 忽略 */ } }, 4000);
+    return name;
+}
+
+async function exportPdocsDocMarkdown(docId) {
+    const btn = $('pdocsBrowserExportBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '导出中...'; }
+    try {
+        const name = await pdocsDownload(
+            `${API_BASE_URL}/api/v0/document/${docId}/export.md?images=absolute`, 'document.md');
+        showToast('已导出 ' + name, 'success');
+    } catch (e) {
+        showToast((e && e.message) || '导出失败', 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '⬇ 导出 .md'; }
+    }
+}
+
+async function exportPdocsAllData() {
+    const btn = $('pdocsExportAllBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '打包中...'; }
+    try {
+        const name = await pdocsDownload(`${API_BASE_URL}/api/v0/user/export.zip`,
+                                         'gfygo-export.zip');
+        showToast('已导出 ' + name, 'success');
+    } catch (e) {
+        showToast((e && e.message) || '导出失败', 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '⬇ 导出全部数据'; }
+    }
+}
+
 function initPersonalDocs() {
     const bind = (id, handler) => {
         const el = $(id);
@@ -218,7 +558,26 @@ function initPersonalDocs() {
     };
     bind('pdocsNewBtn', () => openPdocsEditor(null));
     bind('pdocsTrashBtn', () => showPdocsView('trash'));
+    // 「加载更多」：必须在上面 bind() 里绑定（按钮是 #pdocsListContainer / #pdocsTrashContainer
+    // 的**兄弟节点**，容器 innerHTML 被整体覆盖时不会连带丢监听器）
+    bind('pdocsListMoreBtn', async () => {
+        const btn = $('pdocsListMoreBtn');
+        if (btn) { btn.disabled = true; btn.textContent = '加载中...'; }
+        await loadPersonalDocs({ append: true });
+        if (btn) { btn.disabled = false; btn.textContent = '加载更多'; }
+    });
+    bind('pdocsTrashMoreBtn', async () => {
+        const btn = $('pdocsTrashMoreBtn');
+        if (btn) { btn.disabled = true; btn.textContent = '加载中...'; }
+        await loadPersonalTrash({ append: true });
+        if (btn) { btn.disabled = false; btn.textContent = '加载更多'; }
+    });
     bind('pdocsTrashBackBtn', () => showPdocsView('list'));
+    // ⭐ B5：导出（单篇 Markdown / 个人全量 zip）
+    bind('pdocsBrowserExportBtn', () => {
+        if (pdocsIsValidId(PDocsState.browserDocId)) exportPdocsDocMarkdown(PDocsState.browserDocId);
+    });
+    bind('pdocsExportAllBtn', exportPdocsAllData);
     bind('pdocsBackBtn', () => showPdocsView('list'));
     bind('pdocsUpBtn', () => goUpOneLevel());
     bind('pdocsFolderAddBtn', addPersonalFolder);
@@ -269,6 +628,9 @@ function initPersonalDocs() {
     }
 
     initPdocsEasyMDE();
+    // 面板初始化 = 全新一轮加载：两个列表的页码先复位（在途的旧响应也会被 seq 作废）
+    resetPdocsDocsPaging();
+    resetPdocsTrashPaging();
     loadPersonalDocs();
     loadPersonalFolders();
 }
@@ -330,38 +692,195 @@ function showPdocsView(viewName) {
     });
     if (viewName === 'list') {
         if (window.DashUrl) window.DashUrl.write({ doc: null, mode: null });
+        resetPdocsDocsPaging();   // 每次进入列表视图都从第 1 页重新加载
         loadPersonalDocs();
     }
     if (viewName === 'trash') {
         if (window.DashUrl) window.DashUrl.write({ doc: null, mode: null });
+        resetPdocsTrashPaging();   // 每次进入回收站都从第 1 页重新加载
         loadPersonalTrash();
     }
 }
 
-async function loadPersonalDocs() {
+/** 每页条数：后端 size 默认 20、上限 100；这里显式传 20，行为与旧版一次性全量最接近。 */
+const PDOCS_PAGE_SIZE = 20;
+
+/**
+ * 归一化 `/document/mine` 与 `/document/trash` 的响应 data —— **两种形状都要吃**。
+ *
+ * 后端契约（B1 服务端分页）：
+ *   * **两个参数都不传** → `data` 是**裸数组**（刻意的兼容分支：线上 GitHub Pages
+ *     可能还持旧 JS）；此时当作「只有第一页、没有更多」，total 退回已加载条数。
+ *   * 传了任一个（page / size）→ `data = { items, page, size, total, has_more }`。
+ *
+ * @param {*} raw 响应里的 `data` 字段
+ * @returns {{items: Array, total: number, hasMore: boolean, paginated: boolean}}
+ */
+function pdocsNormalizePage(raw) {
+    if (Array.isArray(raw)) {
+        return { items: raw, total: raw.length, hasMore: false, paginated: false };
+    }
+    if (raw && typeof raw === 'object') {
+        const items = Array.isArray(raw.items) ? raw.items : [];
+        const total = Number(raw.total);
+        return {
+            items,
+            total: (Number.isFinite(total) && total >= items.length) ? total : items.length,
+            hasMore: raw.has_more === true,
+            paginated: true
+        };
+    }
+    return { items: [], total: 0, hasMore: false, paginated: false };
+}
+
+/** 重置文档列表分页（换文件夹 / 重新进入面板 / 删除 / 导入 → 必须回到第 1 页） */
+function resetPdocsDocsPaging() {
+    PDocsState.docsPage = 1;
+    PDocsState.docsHasMore = false;
+    PDocsState.docsTotal = 0;
+    PDocsState.docsSeq++;   // 让在途的旧响应（上一个文件夹 / 上一页）作废
+}
+
+/** 重置回收站分页 */
+function resetPdocsTrashPaging() {
+    PDocsState.trashPage = 1;
+    PDocsState.trashHasMore = false;
+    PDocsState.trashTotal = 0;
+    PDocsState.trashSeq++;
+}
+
+/**
+ * 加载个人文档列表。
+ *
+ * @param {{append?: boolean}} [options] append=true 时是「加载更多」：请求**下一页**并
+ *        把结果 concat 到已加载集合后面；否则是**替换**（第 1 页），页码状态一并重置。
+ */
+async function loadPersonalDocs(options = {}) {
+    const append = options.append === true;
     // 根目录（null 或 0）传 folder_id=0 只显示根目录文档；正整数传指定文件夹
-    let query = '';
+    let folderId = null;
     const fid = PDocsState.currentFolderId;
     if (fid === null || fid === undefined) {
-        query = 'folder_id=0';
+        folderId = 0;
     } else if (typeof fid === 'number' && fid >= 0) {
-        query = `folder_id=${fid}`;
+        folderId = fid;
     }
-    const data = await pdocsRequest('/mine' + (query ? '?' + query : ''));
-    PDocsState.currentDocs = (data && data.code === 200 && Array.isArray(data.data)) ? data.data : [];
+
+    const page = append ? PDocsState.docsPage + 1 : 1;
+    const params = [`page=${page}`, `size=${PDOCS_PAGE_SIZE}`];
+    if (folderId !== null) params.push(`folder_id=${folderId}`);
+
+    const seq = ++PDocsState.docsSeq;
+    const data = await pdocsRequest('/mine?' + params.join('&'));
+    if (seq !== PDocsState.docsSeq) return;   // 已被更新的请求取代（换文件夹 / 重新加载）
+
+    if (!data || data.code !== 200) {
+        if (!append) {
+            // 保持既有语义：首次 / 切换加载失败 → 列表为空（额外给一条可见提示，不再静默）
+            PDocsState.currentDocs = [];
+            resetPdocsDocsPaging();
+            renderExplorerGrid();
+        }
+        showToast((data && data.msg) || '加载文档列表失败', 'error');
+        return;
+    }
+
+    const pageData = pdocsNormalizePage(data.data);
+    // ⚠️ 后端是**稳定序**（id 降序）：追加时只做 concat，绝不重排跨页数据；
+    //    渲染阶段的按标题排序只作用于「已加载集合」，因此不重不漏、顺序稳定。
+    const prev = (append && Array.isArray(PDocsState.currentDocs)) ? PDocsState.currentDocs : [];
+    PDocsState.currentDocs = append ? prev.concat(pageData.items) : pageData.items;
+    PDocsState.docsPage = append ? page : 1;
+    PDocsState.docsHasMore = pageData.hasMore;
+    PDocsState.docsTotal = pageData.total;
     renderExplorerGrid();
 }
 
-async function loadPersonalTrash() {
+/**
+ * 加载回收站列表（与文档列表同一套「替换 / 追加」语义，页码状态各自独立）。
+ * @param {{append?: boolean}} [options]
+ */
+async function loadPersonalTrash(options = {}) {
+    const append = options.append === true;
     const container = $('pdocsTrashContainer');
     if (!container) return;
-    container.innerHTML = '<p class="loading-text">加载中...</p>';
-    const data = await pdocsRequest('/trash');
+    if (!append) container.innerHTML = '<p class="loading-text">加载中...</p>';
+
+    const page = append ? PDocsState.trashPage + 1 : 1;
+    const seq = ++PDocsState.trashSeq;
+    const data = await pdocsRequest(`/trash?page=${page}&size=${PDOCS_PAGE_SIZE}`);
+    if (seq !== PDocsState.trashSeq) return;   // 已被更新的请求取代
+
     if (!data || data.code !== 200) {
-        container.innerHTML = '<p class="loading-text">加载失败</p>';
+        if (!append) {
+            PDocsState.currentTrash = [];
+            resetPdocsTrashPaging();
+            container.innerHTML = '<p class="loading-text">加载失败</p>';
+            renderPdocsTrashPager();
+        }
+        showToast((data && data.msg) || '加载回收站失败', 'error');
         return;
     }
-    renderPdocsTrash(data.data || []);
+
+    const pageData = pdocsNormalizePage(data.data);
+    const prev = (append && Array.isArray(PDocsState.currentTrash)) ? PDocsState.currentTrash : [];
+    PDocsState.currentTrash = append ? prev.concat(pageData.items) : pageData.items;
+    PDocsState.trashPage = append ? page : 1;
+    PDocsState.trashHasMore = pageData.hasMore;
+    PDocsState.trashTotal = pageData.total;
+    renderPdocsTrash(PDocsState.currentTrash);
+}
+
+/** 「已加载 M / 共 T」文案（total 缺失时退回已加载条数，绝不显示 0） */
+function pdocsPagerText(loaded, total) {
+    const t = (typeof total === 'number' && isFinite(total) && total >= loaded) ? total : loaded;
+    return `已加载 ${loaded} / 共 ${t}`;
+}
+
+/**
+ * 渲染一个分页条（计数 + 「加载更多」）。
+ *
+ * ⚠️ 这两个元素**必须**在 `#pdocsListContainer` / `#pdocsTrashContainer` **之外**（HTML 里是兄弟节点）：
+ *    那两个容器的 innerHTML 每次渲染都被**整体覆盖**，按钮放进去会被抹掉、监听器也一起丢。
+ *
+ * @param {{wrap: Element|null, count: Element|null, moreBtn: Element|null,
+ *          loaded: number, total: number, hasMore: boolean}} opts
+ */
+function renderPdocsPager(opts) {
+    const loaded = opts.loaded || 0;
+    const hasMore = opts.hasMore === true;
+    if (opts.count) opts.count.textContent = pdocsPagerText(loaded, opts.total);
+    if (opts.moreBtn) {
+        opts.moreBtn.style.display = hasMore ? '' : 'none';
+        opts.moreBtn.disabled = false;
+        opts.moreBtn.textContent = '加载更多';
+    }
+    // 一条都没加载时整体隐藏（空态文案已经说明情况），避免出现「已加载 0 / 共 0」
+    if (opts.wrap) opts.wrap.style.display = (loaded > 0) ? '' : 'none';
+}
+
+/** 文档列表分页条 */
+function renderPdocsListPager() {
+    renderPdocsPager({
+        wrap: $('pdocsListPager'),
+        count: $('pdocsListCount'),
+        moreBtn: $('pdocsListMoreBtn'),
+        loaded: Array.isArray(PDocsState.currentDocs) ? PDocsState.currentDocs.length : 0,
+        total: PDocsState.docsTotal,
+        hasMore: PDocsState.docsHasMore
+    });
+}
+
+/** 回收站分页条 */
+function renderPdocsTrashPager() {
+    renderPdocsPager({
+        wrap: $('pdocsTrashPager'),
+        count: $('pdocsTrashCount'),
+        moreBtn: $('pdocsTrashMoreBtn'),
+        loaded: Array.isArray(PDocsState.currentTrash) ? PDocsState.currentTrash.length : 0,
+        total: PDocsState.trashTotal,
+        hasMore: PDocsState.trashHasMore
+    });
 }
 
 function renderExplorerGrid() {
@@ -374,6 +893,7 @@ function renderExplorerGrid() {
 
     if (PDocsState.currentDocs === null) {
         container.innerHTML = '<p class="loading-text">加载中...</p>';
+        renderPdocsListPager();
         return;
     }
 
@@ -431,6 +951,7 @@ function renderExplorerGrid() {
                 <div class="pdocs-empty__icon">${inFolder ? '📂' : '📝'}</div>
                 <p class="pdocs-empty__text">${inFolder ? '此文件夹为空' : '还没有文档，点击「新建文档」开始记录'}</p>
             </div>`;
+        renderPdocsListPager();
         return;
     }
 
@@ -505,11 +1026,15 @@ function renderExplorerGrid() {
         });
         on(sel, 'click', (e) => e.stopPropagation());
     });
+
+    // 渲染完成后更新「加载更多」按钮与计数（它们在容器**之外**，不会被上面的 innerHTML 覆盖）
+    renderPdocsListPager();
 }
 
 function navigateToFolder(folderId) {
     PDocsState.currentFolderId = (typeof folderId === 'number' && folderId > 0) ? folderId : null;
     PDocsState.currentDocs = null;
+    resetPdocsDocsPaging();   // 换文件夹 = 换数据集：必须回到第 1 页
     if (window.DashUrl) window.DashUrl.write({ folder: PDocsState.currentFolderId, doc: null, mode: null });
     renderExplorerGrid();
     renderPdocsBreadcrumb();
@@ -520,6 +1045,7 @@ function goUpOneLevel() {
     if (typeof PDocsState.currentFolderId !== 'number' || PDocsState.currentFolderId <= 0) return;
     const parent = PDocsState.folders.find(f => f.id === PDocsState.currentFolderId);
     const parentId = (parent && parent.parent_id) ? parent.parent_id : null;
+    // 上一级同样是另一个数据集 —— 页码重置由 navigateToFolder() 统一负责
     navigateToFolder(parentId);
 }
 
@@ -585,6 +1111,7 @@ function renderPdocsTrash(docs) {
                 <div class="pdocs-empty__icon">🗑</div>
                 <p class="pdocs-empty__text">回收站为空</p>
             </div>`;
+        renderPdocsTrashPager();
         return;
     }
 
@@ -617,6 +1144,9 @@ function renderPdocsTrash(docs) {
             else if (action === 'permanent') permanentDeletePersonalDoc(id);
         });
     });
+
+    // 渲染完成后更新「加载更多」按钮与计数（容器之外的兄弟节点）
+    renderPdocsTrashPager();
 }
 
 async function openPdocsEditor(docId) {
@@ -637,6 +1167,25 @@ async function openPdocsEditor(docId) {
     const preview = $('pdocsPreview');
 
     if (!PDocsState.editorInstance) initPdocsEasyMDE();
+
+    // ⭐ B3：标签输入复位 + 联想绑定（幂等；`dataset` 标记防重复绑定）
+    const tagsInput = $('pdocsTagsInput');
+    const tagsHint = $('pdocsTagsHint');
+    if (tagsHint) tagsHint.textContent = '';
+    if (tagsInput) {
+        tagsInput.value = '';
+        if (!tagsInput.dataset.pdocsTagsBound) {
+            tagsInput.dataset.pdocsTagsBound = '1';
+            let tagTimer = null;
+            tagsInput.addEventListener('input', () => {
+                clearTimeout(tagTimer);
+                // 联想词 = 光标所在的那一段（最后一个逗号之后）
+                const seg = tagsInput.value.split(/[,，、]/).pop().trim();
+                tagTimer = setTimeout(() => pdocsLoadTagSuggestions(seg), 250);
+            });
+            tagsInput.addEventListener('focus', () => pdocsLoadTagSuggestions(''));
+        }
+    }
 
     if (isNew) {
         titleInput.value = '';
@@ -659,6 +1208,11 @@ async function openPdocsEditor(docId) {
     if (PDocsState.editorInstance) PDocsState.editorInstance.value(data.data.content || '');
     preview.style.display = 'none';
     preview.innerHTML = '';
+    // ⭐ B3：把已存标签填回输入框（单独一个请求；失败保留空值，不阻塞编辑）
+    if (tagsInput) {
+        const savedTags = await pdocsFetchDocTags(docId);
+        tagsInput.value = pdocsTagsToText(savedTags || []);
+    }
 }
 
 async function savePersonalDoc() {
@@ -708,6 +1262,9 @@ async function savePersonalDoc() {
 
     showToast('保存成功', 'success');
     PDocsState.editingId = data.data.id;
+    // ⭐ B3：标签随保存一起提交（**全量替换**；失败只提示，不回滚文档保存）
+    const tagsEl = $('pdocsTagsInput');
+    if (tagsEl) await pdocsSaveDocTags(PDocsState.editingId, tagsEl.value);
     const preview = $('pdocsPreview');
     if (preview && preview.style.display !== 'none') renderPdocsPreview();
 }

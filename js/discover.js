@@ -26,6 +26,13 @@
  *      * 组条目（`ref_type='group'`）→ 直接加入（公开组即时入组；私有组转成**申请**，
  *        等管理员批准）。
  *    `use` 仍是占位（工具板块没有真实接口）。
+ *
+ * ⭐ 2026-10-06「服务端分页（B1）」：
+ *    * `feed({section, limit})` —— **旧路径，逐字不变**（随机抽样一页；`total` ≠ `items.length`）。
+ *    * `feed({section, page, size})` —— 分页路径（稳定序，`has_more` / `scan_truncated` 透传）。
+ *    * 内容流入口统一为 `startFeed()`：首屏 `renderFeed`（整体替换）+ 「加载更多」`appendFeed`
+ *      （**只追加**，翻页失败不会冲掉已渲染的卡片）。按钮由 JS 动态挂到 `#discoverMeta`
+ *      所在工具栏 → **11 个静态页零 HTML 改动**（只提升 `js/discover.js` 的 `?v=`）。
  */
 (function () {
   'use strict';
@@ -86,6 +93,11 @@
   var FEED_LIMIT_DEFAULT = 12;   // 与后端默认一致
   var FEED_LIMIT_MIN = 1;
   var FEED_LIMIT_MAX = 60;       // 与后端夹取范围一致
+  //: ⭐ B1「服务端分页」：`page`/`size` 是**另一套**参数（见 feed()，两套不混着发）
+  var FEED_SIZE_DEFAULT = 12;    // 与后端 size 默认一致
+  var FEED_SIZE_MIN = 1;
+  var FEED_SIZE_MAX = 100;       // 与后端 size 上限一致（⚠️ 与 limit 的 60 不是同一个上限）
+  var FEED_PAGE_SIZE = 24;       // 发现页首屏每页条数（沿用原来写死的 limit:24）
   var SKELETON_COUNT = 6;
 
   /**
@@ -142,6 +154,15 @@
     var num = Number(str);
     if (!Number.isFinite(num) || num <= 0) return null;
     return num;
+  }
+
+  /**
+   * boolOf(value) -> 布尔。后端可能回 `true` / `1` / `'true'`，
+   * 其余（`undefined` / `0` / `'false'` / 乱值）一律 false —— 用于
+   * `has_more` / `scan_truncated` 这两个**只可能为真**的标记，缺省即"没有"。
+   */
+  function boolOf(value) {
+    return value === true || value === 1 || value === '1' || value === 'true';
   }
 
   /** 读 URL 查询参数（URL 不可用时返回 null，不抛） */
@@ -213,25 +234,76 @@
     return Math.min(FEED_LIMIT_MAX, Math.max(FEED_LIMIT_MIN, Math.floor(num)));
   }
 
+  /** 夹取 size（分页用）：非法 → 返回 null（交给后端默认 12），合法 → 夹到 [1,100] */
+  function normalizeSize(size) {
+    var num = Number(size);
+    if (!Number.isFinite(num) || num <= 0) return null;
+    return Math.min(FEED_SIZE_MAX, Math.max(FEED_SIZE_MIN, Math.floor(num)));
+  }
+
   /**
-   * feed({section, limit}) -> Promise<{section,total,items}|null>
-   * null = 网络失败 / 响应格式异常 / 非 200（由 renderFeed 显示错误态）。
+   * feed({section, limit})       → **旧路径**（随机抽样一页，行为逐字不变）
+   * feed({section, page, size})  → ⭐ B1 分页路径（稳定序 sort_weight↓ + id↑，不再随机）
+   *
+   * 返回 Promise<{section,total,items,page,size,has_more,scan_truncated}|null>；
+   *   null = 网络失败 / 响应格式异常 / 非 200（由 renderFeed 显示错误态）。
+   *
+   * ⚠️ 两套参数**不同时发**：给了 `page`/`size` 就只发 `page`/`size`（不发 `limit`），
+   *    否则只发 `limit` —— 后端"传任一 page/size 即分页"的判定因此不会含糊。
+   * ⚠️ `total` 在两套路径下都是"符合条件的**总数**"，**不等于** items.length
+   *    （旧路径随机抽 12 条、total 可能几百）—— 别拿它当"已加载条数"，
+   *    所以这里额外把 `page`/`size`/`has_more`/`scan_truncated` 一并透传给调用方。
+   * ⚠️ 拿不到 `page`/`size`/`has_more` 的响应（旧后端）→ 当作"只有一页、has_more=false"，
+   *    「加载更多」会显示"没有更多了"，不会去翻不存在的下一页。
    */
   async function feed(opts) {
     if (typeof window.apiRequest !== 'function') return null;
     opts = opts || {};
     var section = (typeof opts.section === 'string' && opts.section) ? opts.section : 'all';
     var params = { section: section };
-    var limit = normalizeLimit(opts.limit);
-    if (limit !== null) params.limit = limit;
+
+    var page = toPositiveInt(opts.page);
+    var size = normalizeSize(opts.size);
+    var paged = (page !== null) || (size !== null);
+    if (paged) {
+      if (page !== null) params.page = page;
+      if (size !== null) params.size = size;
+    } else {
+      var limit = normalizeLimit(opts.limit);
+      if (limit !== null) params.limit = limit;
+    }
 
     var res = await window.apiRequest(FEED_API, { params: params, silent: true });
-    if (!res || Number(res.code) !== 200 || !res.data || typeof res.data !== 'object') return null;
+    if (!res || Number(res.code) !== 200 || !res.data) return null;
     var data = res.data;
+
+    // ⭐ 兼容分支：`data` 直接是**数组**（旧形态 / 别的部署）→ 当作"只有一页"：
+    //    total = 本页条数、has_more = false（不能凭空造出"还有下一页"）。
+    if (Array.isArray(data)) {
+      return {
+        section: section,
+        total: data.length,
+        items: data,
+        page: 1,
+        size: data.length,
+        has_more: false,
+        scan_truncated: false
+      };
+    }
+    if (typeof data !== 'object') return null;
+
+    var items = Array.isArray(data.items) ? data.items : [];
+    var servedPage = toPositiveInt(data.page);
+    var servedSize = normalizeSize(data.size);
     return {
       section: (typeof data.section === 'string' && data.section) ? data.section : section,
-      total: Number.isFinite(Number(data.total)) ? Number(data.total) : 0,
-      items: Array.isArray(data.items) ? data.items : []
+      total: Number.isFinite(Number(data.total)) ? Number(data.total) : items.length,
+      items: items,
+      // 后端回显的 page/size 优先；没回显就用本次请求的（旧路径两者都没有 → 1 / 本页条数）
+      page: servedPage !== null ? servedPage : (page !== null ? page : 1),
+      size: servedSize !== null ? servedSize : (size !== null ? size : items.length),
+      has_more: boolOf(data.has_more),
+      scan_truncated: boolOf(data.scan_truncated)
     };
   }
 
@@ -644,6 +716,227 @@
     return data;
   }
 
+  /**
+   * appendHtml(container, html) —— **追加**子节点，一个已有节点都不动。
+   *
+   * 为什么不用 `container.insertAdjacentHTML('beforeend', ...)`：先在游离的 div 里解析、
+   * 再逐个 `appendChild`，语义一样，但只依赖 `appendChild`（页面/测试桩都实现了它），
+   * 不让"追加"这一语义绑在一个冷门 API 上。
+   */
+  function appendHtml(container, html) {
+    var tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    var nodes = [];
+    for (var i = 0; i < tmp.children.length; i++) nodes.push(tmp.children[i]);
+    for (var j = 0; j < nodes.length; j++) container.appendChild(nodes[j]);
+  }
+
+  /**
+   * ⭐ appendFeed(container, opts) -> Promise<data|null>
+   * 「加载更多」专用：**只追加**卡片，**绝不整体替换** container 的 innerHTML。
+   *
+   * 为什么不复用 renderFeed()：它在上面那行 `container.innerHTML = html` 处**整体替换**
+   *   —— 分页失败（或第 2 页只回了 0 条）时，那一行会把**已经渲染好的卡片全冲掉**
+   *   （用户翻到第 3 页失败 → 前两页白看）。首屏仍旧走 renderFeed（骨架 / 空态 /
+   *   错误态的替换语义保持不变）。
+   *
+   * 失败（null）时**容器保持原样**，由调用方（分页按钮）显示失败态。
+   */
+  async function appendFeed(container, opts) {
+    if (!container) return null;
+    opts = opts || {};
+    var data = await feed(opts);
+    if (!data) return null;
+
+    var html = '';
+    for (var i = 0; i < data.items.length; i++) {
+      html += cardHtml(data.items[i], opts);
+    }
+    if (html) appendHtml(container, html);   // 空页：一个节点都不加（不留空节点）
+    return data;
+  }
+
+  // ===== ⭐ 分页装配（B1「服务端分页」：首屏替换 + 「加载更多」追加）=====
+
+  /**
+   * 「加载更多」按钮的文案 —— 三态沿用 `stateHtml()`（上方）的既有措辞：
+   *   loading → `TEXT.loading`（'加载中…'）
+   *   failed  → `TEXT.error`（'加载失败，请稍后重试'；再点一下就是重试）
+   *   done    → 与空态同风格的灰字（按钮 disabled，不再重复请求）
+   * ⚠️ 按钮的样式类复用 `stateHtml()` 里那个按钮的 `.discover-state__retry`
+   *    → **不必改 css/discover.css**，11 个页面的 `css/*.css` 版本号因此保持不动。
+   */
+  var MORE_TEXT = {
+    more: '加载更多',
+    loading: TEXT.loading,
+    done: '没有更多了',
+    failed: TEXT.error
+  };
+
+  /**
+   * 当前分页态（一个页面只有一个内容流，模块级够用；`startFeed()` 每次整体重置）。
+   *   `page`   已加载到第几页 —— 0 = 首屏还没成功（用来区分"首屏失败"与"翻页失败"，
+   *            两者重试的东西不一样：前者整页重来，后者只补一页）
+   *   `loaded` 已渲染条数（M）—— **不拿 total 冒充**（见 updateMeta 的说明）
+   *   `btn`    动态创建的那个按钮（HTML 里没有它 → 11 个静态页零改动）
+   */
+  var pager = {
+    container: null, section: 'all', showSection: true, size: FEED_SIZE_DEFAULT,
+    page: 0, loaded: 0, total: 0, hasMore: false, busy: false,
+    metaId: 'discoverMeta', btn: null
+  };
+
+  /**
+   * 动态创建「加载更多」按钮并挂到 `#discoverMeta` 所在的工具栏里。
+   * 挂不上（页面上没有这个工具栏 / 没有 meta）就返回 null —— 调用方据此静默跳过，
+   * 不因为"少个按钮"而中断首屏渲染。
+   */
+  function mountMoreButton(metaId) {
+    var meta = document.getElementById(metaId);
+    var host = (meta && meta.parentNode) ? meta.parentNode : null;
+    if (!host) return null;
+
+    // 重复初始化（同一页理论上只跑一次；桩里 initPage 可能被调多次）不叠加按钮
+    var old = host.querySelector('.discover-more');
+    if (old) {
+      if (typeof old.remove === 'function') old.remove();
+      else if (old.parentNode) old.parentNode.removeChild(old);
+    }
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'discover-state__retry discover-more';
+    btn.textContent = MORE_TEXT.more;
+    btn.disabled = true;      // 首屏结果没回来之前不可点
+    btn.hidden = true;        // 也不知道有没有下一页 → 先不显示
+    btn.addEventListener('click', onMoreClick);
+    host.appendChild(btn);
+    return btn;
+  }
+
+  /**
+   * 按钮四态：`hidden`（首屏结果未知/首屏失败交给容器里的错误态）/ `loading` /
+   * `done` / `failed` / 其余一律当 `more`。
+   * 一律改 `textContent`（不拼 innerHTML），不写任何内联 `on*=`。
+   */
+  function setMoreState(kind) {
+    var btn = pager.btn;
+    if (!btn) return;
+    if (kind === 'hidden') {
+      btn.hidden = true;
+      btn.disabled = true;
+      return;
+    }
+    btn.hidden = false;
+    if (kind === 'loading') {
+      btn.disabled = true;
+      btn.textContent = MORE_TEXT.loading;
+      return;
+    }
+    if (kind === 'done') {
+      btn.disabled = true;
+      btn.textContent = MORE_TEXT.done;
+      return;
+    }
+    if (kind === 'failed') {
+      btn.disabled = false;
+      btn.textContent = MORE_TEXT.failed;
+      return;
+    }
+    btn.disabled = false;
+    btn.textContent = MORE_TEXT.more;
+  }
+
+  /** 第 page 页的 feed 参数（⚠️ 只发 page/size，绝不把旧路径的 limit 掺进来） */
+  function pageOpts(page) {
+    return {
+      section: pager.section,
+      page: page,
+      size: pager.size,
+      showSection: pager.showSection
+    };
+  }
+
+  /** 首屏（第 1 页）：走 renderFeed —— 骨架 / 卡片 / 空态 / 错误态的替换语义不变 */
+  async function loadFirstPage() {
+    if (!pager.container) return null;
+    setMoreState('loading');
+    var data = await renderFeed(pager.container, pageOpts(1));
+    if (!data) {
+      // 首屏就失败：容器里已经有带「重新加载」的错误态，工具条这个按钮也切成失败态
+      // （点它 = 重来一次首屏，见 onMoreClick），两者殊途同归。
+      pager.page = 0;
+      pager.loaded = 0;
+      setMoreState('failed');
+      return null;
+    }
+    pager.page = data.page;
+    pager.loaded = data.items.length;
+    pager.total = data.total;
+    pager.hasMore = data.has_more === true;
+    updateMeta(pager.metaId, data);                        // 首屏文案不变：共 T 条公开内容
+    setMoreState(pager.hasMore ? 'more' : 'done');
+    return data;
+  }
+
+  /** 下一页：走 appendFeed（**只追加**），失败时已渲染的卡片原样留在页面上 */
+  async function loadNextPage() {
+    if (!pager.container || pager.busy || !pager.hasMore) return null;
+    pager.busy = true;
+    setMoreState('loading');
+    var data = await appendFeed(pager.container, pageOpts(pager.page + 1));
+    pager.busy = false;
+    if (!data) {
+      setMoreState('failed');
+      return null;
+    }
+
+    var served = toPositiveInt(data.page);
+    pager.page = served !== null ? served : (pager.page + 1);
+    pager.loaded += data.items.length;
+    pager.total = data.total;
+    // 后端说"还有"却回了空页 → 再点下去只会原地打转，就此收尾
+    pager.hasMore = (data.has_more === true) && data.items.length > 0;
+    updateMeta(pager.metaId, data, pager.loaded);          // ⭐ 已加载 M / 共 T
+    setMoreState(pager.hasMore ? 'more' : 'done');
+    return data;
+  }
+
+  /** 按钮点击：首屏还没成功过 → 整页重来；否则只补下一页 */
+  function onMoreClick() {
+    if (pager.busy) return;
+    // 按钮本身就是"在途 / 已到底"的信号（loading 与 done 都是 disabled）：
+    // 浏览器不会给 disabled 按钮派 click，这里再挡一道，防程序化触发把请求打重。
+    if (pager.btn && pager.btn.disabled) return;
+    if (pager.page === 0) { loadFirstPage(); return; }
+    loadNextPage();
+  }
+
+  /**
+   * ⭐ 发现页内容流的唯一入口（`initIndexPage` / `initSectionPage` 都走它）：
+   *   首屏 `renderFeed`（替换）+ 「加载更多」`appendFeed`（追加）。
+   * `opts.size` = 每页条数（第一页也走 size，不再用旧的 `limit:24`）。
+   */
+  function startFeed(container, opts) {
+    if (!container) return null;
+    opts = opts || {};
+    var size = normalizeSize(opts.size);
+    // ⚠️ 逐字段重置（**不换对象**）：`window.Discover.pager` 拿的是同一个引用，
+    //    换成新对象会让门面上那个键永远停在初始态（自测/排查会被误导）。
+    pager.container = container;
+    pager.section = (typeof opts.section === 'string' && opts.section) ? opts.section : 'all';
+    pager.showSection = opts.showSection !== false;
+    pager.size = size === null ? FEED_SIZE_DEFAULT : size;
+    pager.page = 0;
+    pager.loaded = 0;
+    pager.total = 0;
+    pager.hasMore = false;
+    pager.busy = false;
+    pager.metaId = (typeof opts.metaId === 'string' && opts.metaId) ? opts.metaId : 'discoverMeta';
+    pager.btn = mountMoreButton(pager.metaId);
+    return loadFirstPage();
+  }
+
   function boardNavHtml() {
     var html = '';
     for (var i = 0; i < SECTIONS.length; i++) {
@@ -662,21 +955,34 @@
     if (el) el.textContent = text;
   }
 
-  function updateMeta(id, data) {
+  /**
+   * 工具栏状态条文案。
+   *   updateMeta(id, data)         → 首屏：「共 T 条公开内容」（既有语义不变）
+   *   updateMeta(id, data, loaded) → ⭐ 加载更多之后：「已加载 M / 共 T」
+   *
+   * ⚠️ `M` **必须由调用方按实际渲染条数传进来**，不能拿 `total` 顶替：
+   *    旧路径（不带 page/size）下 `total` 是"过滤后**总数**"，随机抽样时
+   *    `total`（几百）远大于 `items.length`（12）—— 两者一混，
+   *    "已加载 375 / 共 375" 这种假进度就出来了。
+   */
+  function updateMeta(id, data, loaded) {
     if (!data) return;
+    if (Number.isFinite(Number(loaded))) {
+      setText(id, '已加载 ' + Number(loaded) + ' / 共 ' + data.total);
+      return;
+    }
     setText(id, '共 ' + data.total + ' 条公开内容');
   }
 
-  /** 聚合页：板块导航 + feed({section:'all', limit:24})，卡片显示板块标签 */
+  /** 聚合页：板块导航 + 内容流（首屏 size:24 第一页 + 「加载更多」按 page 追加），卡片显示板块标签 */
   function initIndexPage() {
     var navEl = document.getElementById('discoverBoardNav');
     if (navEl) navEl.innerHTML = boardNavHtml();
 
     var feedEl = document.getElementById('discoverFeed');
     if (!feedEl) return;
-    renderFeed(feedEl, { section: 'all', limit: 24, showSection: true }).then(function (data) {
-      updateMeta('discoverMeta', data);
-    });
+    // ⭐ B1 分页：`limit:24` → `size:24` 的第一页（`startFeed` 里已含 page:1）
+    startFeed(feedEl, { section: 'all', size: FEED_PAGE_SIZE, showSection: true });
   }
 
   /**
@@ -702,9 +1008,8 @@
 
     var feedEl = document.getElementById('discoverFeed');
     if (!feedEl) return;
-    renderFeed(feedEl, { section: section.key, limit: 24, showSection: false }).then(function (data) {
-      updateMeta('discoverMeta', data);
-    });
+    // ⭐ B1 分页：同上（第一页走 size；下一页由动态创建的「加载更多」按钮按 page 追加）
+    startFeed(feedEl, { section: section.key, size: FEED_PAGE_SIZE, showSection: false });
   }
 
   /** 详情页：读 ?id=，按 item.actions 渲染按钮 */
@@ -874,6 +1179,12 @@
     detailState: detailState,   // 详情页靠它区分 缺少 id / 404 / 网络失败
     ACTION_LABELS: ACTION_LABELS,
     TEXT: TEXT,
+    // ⭐ 分页（B1 服务端分页）：`appendFeed` 只追加、不替换；`startFeed` 是 11 个
+    //    发现页内容流的入口（首屏替换 + 动态「加载更多」按钮）；`pager` 是它的运行态
+    appendFeed: appendFeed,
+    startFeed: startFeed,
+    updateMeta: updateMeta,
+    pager: pager,
     // ⭐ 加入（2026-10-02）：`join` 是真动作，自测靠这三个复盘"点了到底发了什么"
     joinFromItem: joinFromItem,
     doJoin: doJoin,

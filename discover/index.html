@@ -13,7 +13,7 @@
 </head>
 <body data-discover-page="index">
   <!--
-    发现页（聚合）：板块导航 + feed({section:'all', limit:24})。
+    发现页（聚合）：板块导航 + 全板块内容流（首屏 feed({section:'all', page:1, size:24})，之后由 JS 动态创建并挂到工具栏的「加载更多」按 page 追加）。
     页面逻辑全部在 js/discover.js（本页 body 的 data-discover-page="index" 触发），
     页面内不写内联脚本标签、不写内联事件处理器（CSP 会拦）。
     本页在 /discover/ 下：静态资源前缀 ../，window.BASE_PATH = '..'。
@@ -103,6 +103,6 @@
   <script src="../js/theme.js?v=20261002a"></script>
   <script src="../js/toast.js?v=20261002a"></script>
   <script src="../js/index.js?v=20261002a"></script>
-  <script src="../js/discover.js?v=20261003a"></script>
+  <script src="../js/discover.js?v=20261006a"></script>
 </body>
 </html>

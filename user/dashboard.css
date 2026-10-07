@@ -2084,3 +2084,34 @@
     gap: 8px;
     flex-wrap: wrap;
 }
+
+/* =========================================
+   ⭐ 统一标签（2026-10-06，B3）：个人文档编辑器的标签行
+   ========================================= */
+.pdocs-editor-tags {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--color-border-light, #e5e7eb);
+}
+.pdocs-editor-tags__label {
+    font-size: 0.85rem;
+    color: var(--color-text-sub, #4b5563);
+    white-space: nowrap;
+}
+.pdocs-editor-tags__input {
+    flex: 1 1 260px;
+    min-width: 180px;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    border: 1px solid var(--color-border, #d1d5db);
+    border-radius: 6px;
+    background: var(--color-bg-primary, #fff);
+    color: var(--color-text-main, #111827);
+}
+.pdocs-editor-tags__hint {
+    font-size: 0.75rem;
+    color: var(--color-warning, #b45309);
+}

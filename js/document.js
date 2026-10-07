@@ -15,6 +15,7 @@ const __DOC = {
     group: 'default'
   },
   currentSlug: null,       // 当前详情页 slug（用于 active 高亮）
+  currentDocId: null,      // ⭐ B5：当前详情页的文档 id（导出用；slug 不能直接换 id）
   revisions: [],           // 当前文档修订缓存
   markedReady: false,      // marked.js 是否已加载
   markedLoading: false,    // marked.js 是否正在加载中（防止并发脚本注入）
@@ -22,7 +23,20 @@ const __DOC = {
   visFilter: 'public',     // 侧栏可见类型筛选：public / group / private
   folders: [],              // 文件夹列表：匿名时仅公共文件夹；登录时=个人(personal)+公共(public)合并
   currentFolderId: 0,       // 0=根目录（默认）；正整数=该文件夹
-  isAdmin: false            // 等级≥5 才为 true
+  isAdmin: false,           // 等级≥5 才为 true
+  // ⭐ B3（2026-10-06）：当前生效的**标签筛选**（空串 = 不筛）。服务端 `?tags=` 生效。
+  tagsFilter: '',
+  // ⭐ B4：服务端标题搜索的运行态（`docSearchState()` 惰性初始化）与在途请求句柄
+  search: null,
+  searchAbort: null,
+  // ⭐ 服务端分页状态（2026-10-06，B1）：`docs` 是**已累积的页**，不再是"全集"
+  //   ⚠️ 切 tab / 点文件夹 / 面包屑 / 返回首页一律**替换**（重置 page=1），
+  //      只有点「加载更多」才追加 —— 否则会累积上一个筛选条件下的脏数据。
+  page: 1,                  // 已加载到第几页（1 起算）
+  size: 20,                 // 每页条数（后端默认 20、上限 100）
+  total: 0,                 // 后端给的「过滤后总数」（不是当前已加载条数）
+  hasMore: false,           // 是否还有下一页
+  loadingMore: false        // 防连点
 };
 
 const DOC_LEVEL_ROLES = {
@@ -55,6 +69,10 @@ document.addEventListener('DOMContentLoaded', () => {
       bindVisTabs();
       bindRevisionsToggle();
       updateVisEmptyPlaceholders();
+      bindDocLoadMore();
+      renderDocLoadMore();
+      bindDocTagFilter();
+      bindDocExport();
       renderDocBreadcrumb();
       // 最后按当前 URL 决定去哪（支持 ?slug= / ?id= 直达 与 #/doc/<slug> 路由）
       applyQueryRouteOrHash();
@@ -200,7 +218,20 @@ function permToSummaryText(bits, visibility) {
 // 3. 数据获取
 // =========================================
 
-async function fetchDocList() {
+/**
+ * 拉取文档列表（服务端分页 + 双形状兼容）。
+ *
+ * @param {{append?: boolean}} [opts]
+ *   `append=true`  → 取**下一页**并追加到 `__DOC.docs`；
+ *   省略/false     → 取第 1 页并**替换**（切 tab / 点文件夹 / 面包屑 / 返回首页都走这条）。
+ *
+ * ⭐ 2026-10-06（B1）：请求显式带 `page`/`size`。后端**两个都不传时才返回裸数组**
+ * （刻意保留的兼容分支：线上 GitHub Pages 可能仍持旧 JS），所以这里两种形状都能吃：
+ *   * `Array`            → 视为「只有一页」，`hasMore=false`；
+ *   * `{items,page,...}` → 累积/替换 + `total` / `has_more`。
+ */
+async function fetchDocList(opts) {
+  const append = !!(opts && opts.append);
   try {
     const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
@@ -212,6 +243,7 @@ async function fetchDocList() {
       const f = __DOC.folders.find(x => x.id === __DOC.currentFolderId);
       if (f && f.scope) actualScope = f.scope;
     }
+    const page = append ? (__DOC.page + 1) : 1;
     let url = `${API_BASE_URL}/api/v0/document/list`;
     const qp = [];
     qp.push(`scope=${encodeURIComponent(actualScope)}`);
@@ -219,16 +251,40 @@ async function fetchDocList() {
     if (typeof __DOC.currentFolderId === 'number' && __DOC.currentFolderId >= 0) {
       qp.push(`folder_id=${encodeURIComponent(__DOC.currentFolderId)}`);
     }
+    qp.push(`page=${encodeURIComponent(page)}`);
+    qp.push(`size=${encodeURIComponent(__DOC.size)}`);
+    // ⭐ B3：标签筛选（服务端过滤，与分页/判权同一套语义）
+    if (__DOC.tagsFilter) qp.push(`tags=${encodeURIComponent(__DOC.tagsFilter)}`);
     if (qp.length) url += '?' + qp.join('&');
     const r = await fetch(url, { headers });
     const d = await r.json();
     if (r.ok && d.code === 200) {
-      __DOC.docs = d.data || [];
-    } else {
-      console.warn('[list] 获取失败:', d.msg);
+      const data = d.data;
+      if (Array.isArray(data)) {
+        // 旧形状（无分页信息）：只有一页
+        __DOC.docs = data;
+        __DOC.page = 1;
+        __DOC.total = data.length;
+        __DOC.hasMore = false;
+      } else if (data && Array.isArray(data.items)) {
+        __DOC.docs = append ? __DOC.docs.concat(data.items) : data.items.slice();
+        __DOC.page = (typeof data.page === 'number' && data.page > 0) ? data.page : page;
+        if (typeof data.size === 'number' && data.size > 0) __DOC.size = data.size;
+        __DOC.total = (typeof data.total === 'number') ? data.total : __DOC.docs.length;
+        __DOC.hasMore = !!data.has_more;
+      } else {
+        __DOC.docs = [];
+        __DOC.page = 1;
+        __DOC.total = 0;
+        __DOC.hasMore = false;
+      }
+      return true;
     }
+    console.warn('[list] 获取失败:', d.msg);
+    return false;
   } catch (e) {
     console.error('[list] 网络错误:', e);
+    return false;
   }
 }
 
@@ -325,6 +381,13 @@ function renderDocSidebarTree(keyword = '') {
   const root = document.getElementById('docSidebarTree');
   if (!root) return;
 
+  // ⭐ B4：搜索模式优先（服务端结果 / 服务端不可用时的本地降级结果）
+  const searchState = docSearchState();
+  if (searchState.active && searchState.kw) {
+    renderDocSearchResults(root, searchState);
+    return;
+  }
+
   // 先做权限过滤（前端预过滤）
   const lvl = __DOC.user.permissionLevel;
   const uid = __DOC.user.id;
@@ -350,7 +413,9 @@ function renderDocSidebarTree(keyword = '') {
   );
 
   if (list.length === 0) {
-    const reason = __DOC.docs.length === 0 ? '暂无可访问的文档'
+    // ⚠️ 空态判据用 `total`（后端给的过滤后总数），不是 `docs.length`：
+    //    分页后 `docs` 只是"已加载的页"，用长度判会与"没有更多"混淆。
+    const reason = __DOC.total === 0 ? '暂无可访问的文档'
       : (kw ? `没有匹配「${escapeHtml(kw)}」的文档` : `当前「${({public:'公共',group:'组',private:'私有'})[__DOC.visFilter] || '全部'}」分类下暂无文档`);
     root.innerHTML = `<p class="doc-loading-text">${reason}</p>`;
     return;
@@ -405,6 +470,290 @@ function renderHomeCategoryGrids() {
 }
 
 // =========================================
+// 5.1 服务端分页：「加载更多」（2026-10-06，B1）
+// =========================================
+// ⚠️ 按钮**不能放进 `#docSidebarTree` / `#docHomeGrid`**：这两个容器都是
+//    `innerHTML` 整体替换的（见 renderDocSidebarTree / renderHomeCategoryGrids），
+//    按钮放进去会被下一次渲染冲掉。所以按钮在 `document.html` 里是它们的**兄弟节点**：
+//      * `#docLoadMoreHome`（「文档列表」section 内、`#docHomeGrid` 之后）
+//      * `#docLoadMoreSide`（侧栏 `#docSidebarTree` 之后）
+//    两处都能点，谁可见就点谁（文档详情视图下主页那块是隐藏的）。
+function renderDocLoadMore() {
+  const loaded = __DOC.docs.length;
+  const total = (typeof __DOC.total === 'number') ? __DOC.total : loaded;
+  const pairs = [
+    ['docLoadMoreHome', 'docLoadMoreHomeBtn'],
+    ['docLoadMoreSide', 'docLoadMoreSideBtn']
+  ];
+  pairs.forEach(pair => {
+    const wrap = document.getElementById(pair[0]);
+    const btn = document.getElementById(pair[1]);
+    if (!wrap || !btn) return;
+    if (!__DOC.hasMore) {
+      // 只有一页 / 已到底 / 没数据 → 整块隐藏，避免"点了没反应"
+      wrap.style.display = 'none';
+      return;
+    }
+    wrap.style.display = '';
+    const info = wrap.querySelector('.doc-load-more__info');
+    if (info) info.textContent = `已加载 ${loaded} / ${total} 篇`;
+    btn.disabled = !!__DOC.loadingMore;
+    btn.textContent = __DOC.loadingMore ? '加载中…' : '加载更多';
+  });
+}
+
+async function loadMoreDocs() {
+  if (__DOC.loadingMore || !__DOC.hasMore) return;
+  __DOC.loadingMore = true;
+  renderDocLoadMore();
+  const ok = await fetchDocList({ append: true });
+  __DOC.loadingMore = false;
+  if (!ok) docToast('加载更多失败，请稍后重试', 'error');
+  // 三处视图必须**同源重渲**（侧栏 / 主页网格 / 空态），否则条数会不一致
+  const input = document.getElementById('docSearchInput');
+  renderDocSidebarTree(input ? input.value : '');
+  renderHomeCategoryGrids();
+  updateVisEmptyPlaceholders();
+  renderDocLoadMore();
+}
+
+function bindDocLoadMore() {
+  ['docLoadMoreHomeBtn', 'docLoadMoreSideBtn'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn && !btn.dataset.docLoadMoreBound) {
+      btn.dataset.docLoadMoreBound = '1';
+      btn.addEventListener('click', loadMoreDocs);
+    }
+  });
+}
+
+// =========================================
+// 5.2 ⭐ 统一标签（2026-10-06，B3）
+// =========================================
+// 详情页展示**只读**标签；点标签 = 把列表按该标签筛选（服务端 `?tags=`，与分页/判权同一套语义）。
+// 接口：`GET /api/v0/tags/document/<id>`（公开 —— 能看文档就能看它的标签）。
+// ⚠️ 详情接口本身**不带** tags：不给文档序列化器加字段（避免键集漂移与 N+1），
+//    所以这里单独发一个请求，失败就当没有标签（不影响阅读）。
+function renderDocTagFilterBar() {
+  const bar = document.getElementById('docTagFilter');
+  const nameEl = document.getElementById('docTagFilterName');
+  if (!bar) return;
+  if (!__DOC.tagsFilter) { bar.style.display = 'none'; return; }
+  bar.style.display = '';
+  if (nameEl) nameEl.textContent = __DOC.tagsFilter;
+}
+
+async function renderDocDetailTags(docId) {
+  const row = document.getElementById('docTagsRow');
+  if (!row || typeof docId !== 'number') return;
+  row.style.display = 'none';
+  row.innerHTML = '';
+  try {
+    const r = await fetch(`${API_BASE_URL}/api/v0/tags/document/${docId}`);
+    const d = await r.json();
+    if (!r.ok || d.code !== 200 || !d.data || !Array.isArray(d.data.tags) || !d.data.tags.length) return;
+    row.innerHTML = '<span class="doc-tags-row__label">🏷</span>' + d.data.tags.map(t =>
+      `<button type="button" class="doc-tag-chip" data-tag="${escapeAttr(t.name)}">${escapeHtml(t.name)}</button>`
+    ).join('');
+    row.style.display = '';
+    row.querySelectorAll('.doc-tag-chip').forEach(btn => {
+      btn.addEventListener('click', () => setDocTagFilter(btn.getAttribute('data-tag') || ''));
+    });
+  } catch (e) {
+    console.warn('[tags] 标签读取失败（不影响阅读）:', e);
+  }
+}
+
+async function setDocTagFilter(name) {
+  const next = String(name || '').trim();
+  // 再点同一个标签 = 取消筛选（与可见类型 tab「再点取消」的手感一致）
+  __DOC.tagsFilter = (__DOC.tagsFilter && __DOC.tagsFilter === next) ? '' : next;
+  __DOC.currentFolderId = 0;
+  await applyDocFolderFilter();
+  renderDocTagFilterBar();
+}
+
+function bindDocTagFilter() {
+  const btn = document.getElementById('docTagFilterClearBtn');
+  if (btn && !btn.dataset.docTagFilterBound) {
+    btn.dataset.docTagFilterBound = '1';
+    btn.addEventListener('click', async () => {
+      __DOC.tagsFilter = '';
+      __DOC.currentFolderId = 0;
+      await applyDocFolderFilter();
+      renderDocTagFilterBar();
+    });
+  }
+  renderDocTagFilterBar();
+}
+
+// =========================================
+// 6.1 ⭐ 服务端标题搜索（2026-10-06，B4）
+// =========================================
+// 接口：`GET /api/v0/search?q=&types=document&scope=&tags=&page=1&size=`
+// ⚠️ 后端契约是**只搜标题**（文档标题 / 组织名 / 组名 / 发现条目标题）；
+//    这里只取 `types=document`，与三个可见类型 tab 通过 `scope` 对齐。
+// ⚠️ **本地过滤保留为降级路径**（服务端不可用时自动回退），但界面必须**明说**
+//    现在是"在已加载列表里本地过滤"——否则用户会以为"结果就这么多"。
+function docSearchState() {
+  if (!__DOC.search) {
+    __DOC.search = { active: false, kw: '', items: [], total: 0, fallback: false, truncated: false };
+  }
+  return __DOC.search;
+}
+
+function clearDocSearchState() {
+  const st = docSearchState();
+  st.active = false;
+  st.kw = '';
+  st.items = [];
+  st.total = 0;
+  st.fallback = false;
+  st.truncated = false;
+  if (__DOC.searchAbort) {
+    try { __DOC.searchAbort.abort(); } catch (e) { /* 忽略 */ }
+    __DOC.searchAbort = null;
+  }
+}
+
+async function runDocSearch(keyword) {
+  const kw = String(keyword || '').trim();
+  if (__DOC.searchAbort) {
+    // 取消上一次在途请求 —— 防竞态：慢的旧请求回来会覆盖新结果
+    try { __DOC.searchAbort.abort(); } catch (e) { /* 忽略 */ }
+    __DOC.searchAbort = null;
+  }
+  if (!kw) {
+    clearDocSearchState();
+    renderDocSidebarTree('');
+    return;
+  }
+
+  const st = docSearchState();
+  __DOC.searchAbort = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  const params = new URLSearchParams({
+    q: kw, types: 'document', page: '1', size: String(__DOC.size)
+  });
+  if (__DOC.visFilter) params.set('scope', __DOC.visFilter);
+  if (__DOC.tagsFilter) params.set('tags', __DOC.tagsFilter);
+
+  try {
+    const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    const r = await fetch(`${API_BASE_URL}/api/v0/search/?${params.toString()}`, {
+      headers,
+      signal: __DOC.searchAbort ? __DOC.searchAbort.signal : undefined
+    });
+    const d = await r.json();
+    if (!r.ok || d.code !== 200 || !d.data) throw new Error(d.msg || '搜索失败');
+    st.active = true;
+    st.kw = kw;
+    st.fallback = false;
+    st.items = (d.data.items || []).filter(it => it && it.type === 'document');
+    st.total = (typeof d.data.total === 'number') ? d.data.total : st.items.length;
+    st.truncated = !!d.data.scan_truncated;
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;      // 主动取消：不是失败，也别动界面
+    console.warn('[search] 服务端搜索不可用，降级为本地过滤:', e);
+    st.active = true;
+    st.kw = kw;
+    st.fallback = true;                            // 界面会显示"本地过滤"提示
+    st.items = [];
+    st.total = 0;
+    st.truncated = false;
+  }
+  renderDocSidebarTree(kw);
+}
+
+function renderDocSearchResults(root, st) {
+  let list;
+  let note;
+  if (st.fallback) {
+    const k = st.kw.toLowerCase();
+    list = __DOC.docs.filter(d =>
+      (d.title || '').toLowerCase().includes(k) || (d.summary || '').toLowerCase().includes(k));
+    note = '<p class="doc-search-note doc-search-note--fallback">'
+      + '服务端搜索不可用，正在<b>已加载列表</b>里本地过滤（结果可能不全）</p>';
+  } else {
+    list = st.items;
+    const more = st.total > list.length
+      ? `（匹配 ${st.total} 条，这里显示前 ${list.length} 条）` : '';
+    const cut = st.truncated ? '，候选过多已截断' : '';
+    note = `<p class="doc-search-note">标题搜索「${escapeHtml(st.kw)}」：${list.length} 条${more}${cut}</p>`;
+  }
+  if (!list.length) {
+    root.innerHTML = note
+      + `<p class="doc-loading-text">没有匹配「${escapeHtml(st.kw)}」的文档标题</p>`;
+    return;
+  }
+  root.innerHTML = note + list.map(d => docItemHTML(d)).join('');
+}
+
+// =========================================
+// 5.3 ⭐ 导出（2026-10-06，B5）
+// =========================================
+// 接口：`GET /api/v0/document/<id>/export.md?images=absolute|relative|none`
+// ⚠️ 这是**下载**不是 JSON 接口 → 不能用普通 `fetch().json()`：
+//    要拿 blob + 从 `Content-Disposition` 解析文件名（后端用 RFC 5987 编码中文名）。
+// ⚠️ 私有/组文档需要 JWT（`<img>`/`<a>` 带不了 Authorization）→ 必须走 fetch。
+async function docDownload(url, fallbackName) {
+  const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
+  const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+  let r;
+  try {
+    r = await fetch(url, { headers });
+  } catch (e) {
+    throw new Error('导出失败：网络错误');
+  }
+  if (!r.ok) {
+    let msg = (r.status === 413) ? '导出内容过大' : ('导出失败（HTTP ' + r.status + '）');
+    try { const d = await r.json(); msg = d.msg || msg; } catch (e) { /* 非 JSON（可能是 Nginx 错误页） */ }
+    throw new Error(msg);
+  }
+  const blob = await r.blob();
+  let name = fallbackName || 'download';
+  const cd = r.headers.get('Content-Disposition') || '';
+  const utf8 = cd.match(/filename\*=UTF-8''([^;]+)/i);
+  const plain = cd.match(/filename="?([^";]+)"?/i);
+  if (utf8 && utf8[1]) name = decodeURIComponent(utf8[1]);
+  else if (plain && plain[1]) name = plain[1];
+
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => { try { URL.revokeObjectURL(href); } catch (e) { /* 忽略 */ } }, 4000);
+  return name;
+}
+
+async function exportCurrentDocMarkdown() {
+  const id = __DOC.currentDocId;
+  if (typeof id !== 'number') { docToast('请先打开一篇文档', 'warning'); return; }
+  const btn = document.getElementById('docExportMdBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '导出中…'; }
+  try {
+    const name = await docDownload(
+      `${API_BASE_URL}/api/v0/document/${id}/export.md?images=absolute`, 'document.md');
+    docToast(`已导出 ${name}`, 'success');
+  } catch (e) {
+    docToast((e && e.message) || '导出失败', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⬇ 导出 Markdown'; }
+  }
+}
+
+function bindDocExport() {
+  const btn = document.getElementById('docExportMdBtn');
+  if (btn && !btn.dataset.docExportBound) {
+    btn.dataset.docExportBound = '1';
+    btn.addEventListener('click', exportCurrentDocMarkdown);
+  }
+}
+
+// =========================================
 // 6. 搜索
 // =========================================
 function bindDocSearch() {
@@ -413,7 +762,8 @@ function bindDocSearch() {
   let t = null;
   input.addEventListener('input', e => {
     clearTimeout(t);
-    t = setTimeout(() => renderDocSidebarTree(e.target.value || ''), 150);
+    // 250ms（原本地过滤是 150ms）：服务端搜索要一次网络往返，防抖长一点更省
+    t = setTimeout(() => runDocSearch(e.target.value || ''), 250);
   });
 }
 
@@ -603,14 +953,20 @@ function __bindDocBreadcrumbClicks(container, scrollToTop = false) {
  * 注:内部读取搜索框当前值传给 renderDocSidebarTree,保证搜索关键字不丢失
  */
 async function applyDocFolderFilter() {
+  // ⭐ 这里**必须**走替换分支（fetchDocList 默认 append=false）→ 重置到第 1 页。
+  //    切 tab / 点文件夹 / 面包屑 / 返回首页全部经由本函数。
   await fetchDocList();
   await fetchDocFolders();
   const input = document.getElementById('docSearchInput');
   const kw = input ? input.value : '';
+  // ⭐ B4：输入框被清空（切 tab / 复位筛选都会清）→ 退出搜索模式，回到正常列表
+  if (!kw) clearDocSearchState();
   renderDocSidebarTree(kw);
   renderHomeCategoryGrids();
   renderDocFolders();
   updateVisEmptyPlaceholders();
+  renderDocLoadMore();
+  renderDocTagFilterBar();
   renderDocBreadcrumb();
 }
 
@@ -939,6 +1295,8 @@ async function showDocDetail(slug) {
 
     const doc = d.data;
     renderDocDetailView(doc);
+    // ⭐ B3：标签单独一个请求（详情接口不带 tags，避免给列表/详情序列化器加字段）
+    renderDocDetailTags(doc.id);
 
     // 侧边栏 active 同步
     document.querySelectorAll('.doc-item').forEach(el => {
@@ -965,6 +1323,8 @@ function renderDocDetailView(doc) {
   const $meta = document.getElementById('docMeta');
   const $content = document.getElementById('docContent');
   if ($title) $title.textContent = doc.title || '（无标题）';
+  // ⭐ B5：记下当前文档 id（导出单篇 Markdown 要用；id 可能是 0，所以用存在性判断）
+  __DOC.currentDocId = (typeof doc.id === 'number') ? doc.id : null;
 
   // 组根目录只读警示横幅：slug=group-readme 或 is_readonly=true 或 (visibility=group && folder_id 为空)
   const isGroupRoot = doc.slug === 'group-readme' || doc.is_readonly === true ||
