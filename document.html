@@ -7,7 +7,7 @@
   <title>文档 | GWL</title>
   <link rel="stylesheet" href="./css/core.css?v=20260911d">
   <link rel="stylesheet" href="./css/styles.css?v=20260911d">
-  <link rel="stylesheet" href="./css/document.css?v=20261006d">
+  <link rel="stylesheet" href="./css/document.css?v=20261011a">
   <link rel="stylesheet" href="./css/components.css?v=20260911d">
   <link rel="icon" href="./favicon.png" type="image/png">
 </head>
@@ -202,6 +202,26 @@
             <ol class="doc-revisions__timeline" id="docRevisionTimeline" hidden></ol>
           </section>
 
+          <!-- ⭐ C1（2026-10-11）修订查看弹层：取某一版全文 / 恢复到这一版
+               ⚠️ 刻意**不放进** #docSidebarTree / #docHomeGrid（那两个容器是 innerHTML 整体替换的），
+                  也刻意不依赖 js/modal.js（document.html 不加载它，见本页脚本清单）。 -->
+          <div class="doc-revmodal" id="docRevModal" style="display:none;">
+            <div class="doc-revmodal__overlay" data-act="rev-close"></div>
+            <div class="doc-revmodal__box" role="dialog" aria-modal="true" aria-labelledby="docRevModalTitle">
+              <div class="doc-revmodal__head">
+                <h3 class="doc-revmodal__title" id="docRevModalTitle">修订详情</h3>
+                <button type="button" class="doc-revmodal__close" data-act="rev-close" aria-label="关闭">×</button>
+              </div>
+              <div class="doc-revmodal__meta" id="docRevModalMeta"></div>
+              <div class="doc-revmodal__body" id="docRevModalBody"></div>
+              <div class="doc-revmodal__foot">
+                <button type="button" class="btn-secondary" data-act="rev-raw">查看原文</button>
+                <button type="button" class="btn-secondary" data-act="rev-restore" id="docRevRestoreBtn">恢复到这一版</button>
+                <button type="button" class="btn-primary" data-act="rev-close">关闭</button>
+              </div>
+            </div>
+          </div>
+
           <!-- 错误态 / 空态 -->
           <div class="doc-state doc-state--empty" id="docState404" style="display:none;">
             <div class="doc-state__icon">🧭</div>
@@ -263,6 +283,6 @@
   <script src="./js/toast.js?v=20260911d"></script>
   <script src="./js/modal.js?v=20260911d"></script>
   <script src="./js/index.js?v=20260911e"></script>
-  <script src="./js/document.js?v=20261006d"></script>
+  <script src="./js/document.js?v=20261011a"></script>
 </body>
 </html>

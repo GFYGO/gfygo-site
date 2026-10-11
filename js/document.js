@@ -68,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
       bindDocSearch();
       bindVisTabs();
       bindRevisionsToggle();
+      bindRevisionModal();
       updateVisEmptyPlaceholders();
       bindDocLoadMore();
       renderDocLoadMore();
@@ -1541,15 +1542,167 @@ async function fetchAndRenderRevisions(docId) {
   $wrap.style.display = '';
   if ($count) $count.textContent = String(__DOC.revisions.length);
   if ($list) {
+    // ⭐ C1（2026-10-11）：每条加「查看」按钮 —— 在此之前修订历史**只看得到元数据**，
+    //    正文永远取不回（`DocumentRevision.to_dict()` 刻意不含快照）。
+    //    `has_content === false` 的是种子/历史数据（快照是 NULL），置灰并说明。
     $list.innerHTML = __DOC.revisions.map(rev => `<li class="doc-rev__item">
       <div class="doc-rev__head">
         <span class="doc-rev__badge">${escapeHtml(rev.revision_num)}</span>
         <span class="doc-rev__time">⏱ ${escapeHtml(fmtTime(rev.created_at))}</span>
         <span class="doc-rev__editor">👤 ${escapeHtml(rev.editor_username || '系统')}</span>
+        ${rev.has_content === false
+          ? '<span class="doc-rev__noContent" title="该修订没有保存正文快照（历史数据）">无正文</span>'
+          : `<button type="button" class="doc-rev__view" data-rev="${escapeAttr(rev.revision_num)}">查看</button>`}
       </div>
       ${rev.summary ? `<p class="doc-rev__summary">📝 ${escapeHtml(rev.summary)}</p>` : ''}
     </li>`).join('');
+    // 事件委托只绑一次（列表每次都是整体替换 innerHTML）
+    if (!$list.dataset.revBound) {
+      $list.dataset.revBound = '1';
+      $list.addEventListener('click', (e) => {
+        const btn = e.target && e.target.closest ? e.target.closest('[data-rev]') : null;
+        if (!btn) return;
+        openRevisionModal(btn.dataset.rev);
+      });
+    }
   }
+}
+
+// =========================================
+// 10.1 修订查看 / 恢复（C1 编辑锁，2026-10-11）
+//
+// 后端：
+//   GET  /api/v0/document/<id>/revisions/<rev>   取某一版全文（能看就能取）
+//   POST /api/v0/document/<id>/revisions/<rev>   恢复到这一版（能改才能恢复；可逆）
+// ⚠️ 本页**不加载** js/utils.js / js/modal.js → 弹层用本页自己的 DOM + docToast。
+// =========================================
+
+//: 当前弹层里展示的修订（恢复时要拿它的 revision_num / content / current_version）
+__DOC.revisionView = null;
+
+function _revModalEls() {
+  return {
+    modal: document.getElementById('docRevModal'),
+    title: document.getElementById('docRevModalTitle'),
+    meta: document.getElementById('docRevModalMeta'),
+    body: document.getElementById('docRevModalBody'),
+    restore: document.getElementById('docRevRestoreBtn'),
+  };
+}
+
+function closeRevisionModal() {
+  const { modal } = _revModalEls();
+  __DOC.revisionView = null;
+  if (modal) modal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+async function openRevisionModal(revNum) {
+  const els = _revModalEls();
+  if (!els.modal) return;
+  const docId = __DOC.currentDocId;
+  if (typeof docId !== 'number') { docToast('无法确定文档 id，请刷新页面后重试'); return; }
+
+  els.modal.style.display = '';
+  document.body.style.overflow = 'hidden';
+  els.title.textContent = `修订 #${revNum}`;
+  els.meta.textContent = '加载中...';
+  els.body.innerHTML = '<p class="doc-revmodal__loading">加载中...</p>';
+  if (els.restore) els.restore.style.display = 'none';
+
+  const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
+  const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+  let d = null;
+  try {
+    const r = await fetch(`${API_BASE_URL}/api/v0/document/${docId}/revisions/${encodeURIComponent(revNum)}`, { headers });
+    d = await r.json();
+  } catch (e) {
+    console.warn('[revisions] 取修订失败:', e);
+  }
+  if (!d || d.code !== 200) {
+    els.meta.textContent = '';
+    els.body.innerHTML = `<p class="doc-revmodal__error">${escapeHtml((d && d.msg) || '读取该修订失败')}</p>`;
+    return;
+  }
+
+  __DOC.revisionView = {
+    revision_num: d.data.revision_num,
+    content: d.data.content || '',
+    current_version: (typeof d.data.current_version === 'number') ? d.data.current_version : null,
+  };
+  els.title.textContent = `修订 #${d.data.revision_num}`;
+  els.meta.textContent = `⏱ ${fmtTime(d.data.created_at)} · 👤 ${d.data.editor_username || '系统'}`
+    + (d.data.summary ? ` · 📝 ${d.data.summary}` : '')
+    + ` · 当前版本 ${d.data.current_version}`;
+  els.body.innerHTML = `<div class="doc-revmodal__content doc-markdown">${renderMarkdownSafe(d.data.content)}</div>`;
+  if (els.restore) {
+    els.restore.style.display = d.data.can_restore ? '' : 'none';
+  }
+}
+
+async function restoreViewedRevision() {
+  const view = __DOC.revisionView;
+  const docId = __DOC.currentDocId;
+  if (!view || typeof docId !== 'number') return;
+  // ⚠️ 这里用原生 confirm 是**刻意的**：本页（`document.html`）不加载 `js/utils.js`
+  //    也**不加载** `js/modal.js`（`window.Modal` 不存在）—— 与 `docToast()` 的取舍同源。
+  if (!window.confirm(`确认把正文恢复到修订 #${view.revision_num} 吗？\n\n当前正文会先被存成一条新修订，所以这个操作可以再恢复回来。`)) return;
+
+  const token = (typeof AuthGuard !== 'undefined' && AuthGuard.getToken) ? AuthGuard.getToken() : null;
+  if (!token) { docToast('请先登录', 'warning'); return; }
+  const body = {};
+  // ⭐ C1 乐观锁：带上当前版本号；不一致后端会回 409（不会静默覆盖别人）
+  if (typeof view.current_version === 'number') body.version = view.current_version;
+
+  try {
+    const r = await fetch(`${API_BASE_URL}/api/v0/document/${docId}/revisions/${encodeURIComponent(view.revision_num)}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (!d || d.code !== 200) {
+      docToast((d && d.msg) || '恢复失败', 'error');
+      return;
+    }
+    docToast(d.msg || '已恢复', 'success');
+    closeRevisionModal();
+    // 重新拉详情 + 修订列表。⚠️ 不能只调 `routeByHash()`：hash 没变，浏览器不会触发
+    // `hashchange`，什么都没发生。直接按当前 slug 重跑详情流程。
+    if (__DOC.currentSlug) {
+      showDocDetail(__DOC.currentSlug).catch(err => console.warn('[revisions] 刷新失败:', err));
+    }
+  } catch (e) {
+    console.warn('[revisions] 恢复失败:', e);
+    docToast('恢复失败：网络错误', 'error');
+  }
+}
+
+function bindRevisionModal() {
+  const { modal, body } = _revModalEls();
+  if (!modal || modal.dataset.revModalBound) return;
+  modal.dataset.revModalBound = '1';
+  let raw = false;
+  const original = () => (__DOC.revisionView ? __DOC.revisionView.content : '');
+  modal.addEventListener('click', (e) => {
+    const hit = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
+    if (!hit) return;
+    const act = hit.dataset.act;
+    if (act === 'rev-close') { closeRevisionModal(); return; }
+    if (act === 'rev-raw') {
+      raw = !raw;
+      const html = raw
+        ? `<pre class="doc-revmodal__raw">${escapeHtml(original())}</pre>`
+        : `<div class="doc-revmodal__content doc-markdown">${renderMarkdownSafe(original())}</div>`;
+      if (body) body.innerHTML = html;
+      hit.textContent = raw ? '查看渲染' : '查看原文';
+      return;
+    }
+    if (act === 'rev-restore') { restoreViewedRevision(); }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeRevisionModal();
+  });
 }
 
 function bindRevisionsToggle() {

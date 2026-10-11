@@ -15,6 +15,13 @@ var setBtnState = window.setBtnState;
 
 const PDocsState = {
     editingId: null,
+    // ⭐ C1（2026-10-11）编辑锁：打开文档时记下**当时**的 version 与正文，
+    //    保存时把 version 回传（后端不一致会回 409），正文作为 `base_content`
+    //    让后端能在"改动行不重叠"时**自动合并**而不是直接判冲突。
+    //    ⚠️ 不带这两个字段时后端不判定（兼容旧前端），所以任何"清空"都必须
+    //    把 editingVersion 置回 null —— 否则会把上一篇的版本号发给下一篇。
+    editingVersion: null,
+    editingBaseContent: null,
     markedReady: false,
     markedLoading: null,
     folders: [],
@@ -1190,6 +1197,9 @@ async function openPdocsEditor(docId) {
     if (isNew) {
         titleInput.value = '';
         if (PDocsState.editorInstance) PDocsState.editorInstance.value('');
+        // ⭐ C1：新建没有版本基线（保存走 POST）
+        PDocsState.editingVersion = null;
+        PDocsState.editingBaseContent = null;
         preview.style.display = 'none';
         preview.innerHTML = '';
         titleInput.focus();
@@ -1206,6 +1216,9 @@ async function openPdocsEditor(docId) {
     }
     titleInput.value = data.data.title || '';
     if (PDocsState.editorInstance) PDocsState.editorInstance.value(data.data.content || '');
+    // ⭐ C1 编辑锁：记下"我基于哪一版、哪份正文"——保存时回传，供后端判冲突/自动合并
+    PDocsState.editingVersion = pdocsParseId(data.data.version);
+    PDocsState.editingBaseContent = data.data.content || '';
     preview.style.display = 'none';
     preview.innerHTML = '';
     // ⭐ B3：把已存标签填回输入框（单独一个请求；失败保留空值，不阻塞编辑）
@@ -1213,6 +1226,59 @@ async function openPdocsEditor(docId) {
         const savedTags = await pdocsFetchDocTags(docId);
         tagsInput.value = pdocsTagsToText(savedTags || []);
     }
+}
+
+/**
+ * ⭐ C1（2026-10-11）**保存冲突对话框**（编辑锁）。
+ *
+ * 后端在「你基于的版本 ≠ 当前版本」时回 **409**，响应体带 `data.current_version` /
+ * `editor_username`（文档域里唯一带 `data` 的错误体）。
+ *
+ * ⚠️ 为什么自己拼一个弹窗、而不是给 `js/modal.js` 加一个 `choose()`：
+ *    `modal.js` 是**全站共享**文件（主站/org/发现页都加载），动它要连带提升所有页面的
+ *    `?v=`（`file-wiki/09` §6.2 的硬约束）。这个三按钮对话框只在两处编辑文档的地方用到，
+ *    放在本文件里代价更小、影响面为零。
+ *
+ * @returns {Promise<'copy'|'overwrite'|'cancel'>}
+ */
+function pdocsShowConflictDialog(conflict, editorName) {
+    return new Promise((resolve) => {
+        const M = window.Modal;
+        const cur = pdocsSafeValue(conflict && conflict.current_version, '?');
+        const who = editorName ? `（最后修改者：${escapeHtml(String(editorName))}）` : '';
+        const message =
+            `<p class="modal-message">这篇文档刚被别人改过：当前版本 <b>${cur}</b>，` +
+            `而你正在编辑的是版本 <b>${pdocsSafeValue(PDocsState.editingVersion, '?')}</b>${who}。</p>` +
+            `<p class="modal-message">如果两边改的不是同一处，点「用我的覆盖」会把你的版本存上去` +
+            `（对方的改动可能被覆盖）；点「另存为副本」最安全，不会动对方的内容。</p>`;
+
+        if (!M || typeof M._createModal !== 'function') {
+            // 极端兜底：Modal 没加载成功时，用 confirm 两选一（不引入原生 alert）
+            (window.Modal && window.Modal.confirm
+                ? window.Modal.confirm('这篇文档刚被别人改过。点「确定」用我的版本覆盖，点「取消」放弃保存。',
+                    { title: '文档已被他人修改', confirmText: '用我的覆盖' })
+                : Promise.resolve(false)
+            ).then((ok) => resolve(ok ? 'overwrite' : 'cancel'));
+            return;
+        }
+
+        const buttons = [
+            {
+                text: '放弃我的修改', cls: 'modal-btn-cancel',
+                onClick: () => { M._closeModal(modal); resolve('cancel'); }
+            },
+            {
+                text: '用我的覆盖', cls: 'modal-btn-danger',
+                onClick: () => { M._closeModal(modal); resolve('overwrite'); }
+            },
+            {
+                text: '另存为副本', cls: 'modal-btn-confirm',
+                onClick: () => { M._closeModal(modal); resolve('copy'); }
+            }
+        ];
+        const modal = M._createModal({ title: '文档已被他人修改', content: message, buttons });
+        M._showModal(modal);
+    });
 }
 
 async function savePersonalDoc() {
@@ -1243,13 +1309,55 @@ async function savePersonalDoc() {
     if (editingId === null && typeof PDocsState.currentFolderId === 'number' && PDocsState.currentFolderId > 0) {
         bodyObj.folder_id = PDocsState.currentFolderId;
     }
-    const body = JSON.stringify(bodyObj);
+
+    // ⭐ C1 编辑锁：编辑既有文档时带上「我基于哪一版 + 我读到的那份正文」。
+    //    版本号让后端能判冲突；base_content 让后端在改动行不重叠时**自动合并**。
+    //    ⚠️ 不带 version 后端不判定（兼容路径）——所以能带就必须带。
+    let forceVersion = null;
+    if (editingId !== null) {
+        if (pdocsIsValidId(PDocsState.editingVersion)) {
+            bodyObj.version = PDocsState.editingVersion;
+            if (typeof PDocsState.editingBaseContent === 'string') {
+                bodyObj.base_content = PDocsState.editingBaseContent;
+            }
+        }
+    }
 
     let data;
     if (editingId !== null) {
-        data = await pdocsRequest('/' + editingId, { method: 'PUT', body });
+        data = await pdocsRequest('/' + editingId, { method: 'PUT', body: JSON.stringify(bodyObj) });
     } else {
-        data = await pdocsRequest('/', { method: 'POST', body });
+        data = await pdocsRequest('/', { method: 'POST', body: JSON.stringify(bodyObj) });
+    }
+
+    // ⭐ C1：版本冲突 → 交给用户决定（另存为副本 / 用我的覆盖 / 放弃）。
+    //    自动合并成功时后端回 200 + msg「已自动合并他人修改」，顺便提示一下。
+    if (data && data.code === 409 && editingId !== null) {
+        const choice = await pdocsShowConflictDialog(data.data || {}, (data.data || {}).editor_username);
+        if (choice === 'cancel') {
+            setBtnState(saveBtn, false);
+            saveBtn.textContent = '保存';
+            showToast('已放弃本次保存（你的改动还在编辑器里）', 'info');
+            return;
+        }
+        if (choice === 'copy') {
+            // 另存为副本：标题加后缀避免与原文重名（slug 由后端自动生成）
+            const copyBody = JSON.stringify({
+                title: title + '（副本）',
+                content,
+                summary: pdocsExtractSummary(content),
+                visibility: 'private',
+                permission_bits: '100000'
+            });
+            data = await pdocsRequest('/', { method: 'POST', body: copyBody });
+            if (data && data.code === 200) showToast('已另存为副本，原文没有被改动', 'success');
+        } else {
+            // 用我的覆盖：拿**当前**版本号重发一次（这是一次显式的、用户确认过的覆盖）
+            forceVersion = pdocsParseId((data.data || {}).current_version);
+            bodyObj.version = forceVersion;
+            delete bodyObj.base_content;   // 覆盖语义：不做合并
+            data = await pdocsRequest('/' + editingId, { method: 'PUT', body: JSON.stringify(bodyObj) });
+        }
     }
 
     setBtnState(saveBtn, false);
@@ -1260,8 +1368,17 @@ async function savePersonalDoc() {
         return;
     }
 
-    showToast('保存成功', 'success');
-    PDocsState.editingId = data.data.id;
+    // 保存成功 → 用服务端返回的**新**版本号刷新基线（否则下一次保存必然误报冲突）
+    if (data.data && pdocsIsValidId(data.data.id)) {
+        PDocsState.editingId = data.data.id;
+        PDocsState.editingVersion = pdocsParseId(data.data.version);
+        PDocsState.editingBaseContent = data.data.content || content;
+    }
+    if (data.msg === '已自动合并他人修改') {
+        showToast('已自动合并他人修改（你们改的不是同一处）', 'success');
+    } else {
+        showToast(forceVersion !== null ? '已用你的版本覆盖' : '保存成功', 'success');
+    }
     // ⭐ B3：标签随保存一起提交（**全量替换**；失败只提示，不回滚文档保存）
     const tagsEl = $('pdocsTagsInput');
     if (tagsEl) await pdocsSaveDocTags(PDocsState.editingId, tagsEl.value);
