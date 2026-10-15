@@ -23,6 +23,12 @@ const __DOC = {
   visFilter: 'public',     // 侧栏可见类型筛选：public / group / private
   folders: [],              // 文件夹列表：匿名时仅公共文件夹；登录时=个人(personal)+公共(public)合并
   currentFolderId: 0,       // 0=根目录（默认）；正整数=该文件夹
+  // ⭐ 2026-10-15：**文件夹树的展开状态**（Set<number>）。
+  //   根因：树是 `list.innerHTML = ...` 整体重建的（切 tab / 点文件夹 / 加载更多 /
+  //   解析到新 folders 都会重渲），而"展开"此前只写在 DOM 类名 + display 上
+  //   → 任何一次重渲都会把用户刚展开的节点收回去（"不能一直展开"）。
+  //   现在展开态放在这里，渲染时按它还原；重建前先 cleanTreeExpanded()。
+  expandedFolders: new Set(),
   isAdmin: false,           // 等级≥5 才为 true
   // ⭐ B3（2026-10-06）：当前生效的**标签筛选**（空串 = 不筛）。服务端 `?tags=` 生效。
   tagsFilter: '',
@@ -783,6 +789,10 @@ function bindVisTabs() {
       const vis = tab.getAttribute('data-vis');
       // 统一筛选状态机:切 tab 时 folder 重置为根目录,清空搜索框
       __DOC.currentFolderId = 0;
+      // ⭐ 2026-10-15：换 tab 会换一批文件夹（scope 过滤），展开态跟着重置，
+      //    否则上一个 tab 的展开集合会串到这一批 id 上（id 是全局唯一的，不会错渲，
+      //    但会让新 tab 里"没点过的文件夹自己展开"，观感像 bug）。
+      __DOC.expandedFolders.clear();
       const input = document.getElementById('docSearchInput');
       if (input) input.value = '';
       // 再次点击已激活的 tab 视为取消筛选（回到全部）
@@ -841,10 +851,31 @@ function buildDocFolderTree(flat) {
       roots.push(node);
     }
   }
-  const sortFn = (a, b) => (a.name || '').localeCompare(b.name || '');
+  // 展示名参与排序：组根文件夹显示成「开发组-dev(acm)」后，按显示名排更符合直觉
+  const sortFn = (a, b) => String(docFolderLabel(a)).localeCompare(String(docFolderLabel(b)));
   roots.sort(sortFn);
   for (const node of map.values()) node.children.sort(sortFn);
   return roots;
+}
+
+/**
+ * ⭐ 2026-10-15：组文件夹的**展示名**。
+ *
+ * 组文档的三个根目录：根级组文件夹（`scope='group'` 且无父级）显示成
+ * `<组名><组类id>(<组织id>)`，例如 `开发组-dev(acm)` —— 让用户一眼看出这是哪个组、
+ * 属于哪个组织（组名可能重名，组类 id 才是权威）。
+ *
+ * ⚠️ 只改**显示**：`folder.name` 是后端 / 文件夹接口的权威值（同名校验、重命名都基于它），
+ *    不能在渲染前就地改写。`class_id` / `org_id` 由后端列表接口补（可能为空串 ——
+ *    那时退化成只显示组名）。
+ */
+function docFolderLabel(f) {
+  if (!f) return '';
+  const plain = f.name || '';
+  if (f.scope !== 'group' || f.group_root !== true) return plain;
+  const cid = f.class_id ? String(f.class_id) : '';
+  if (!cid) return plain;
+  return plain + '-' + cid + '(' + (f.org_id ? String(f.org_id) : '') + ')';
 }
 
 /**
@@ -853,12 +884,18 @@ function buildDocFolderTree(flat) {
 function renderDocFolderTreeNode(node, depth = 0) {
   const hasChildren = Array.isArray(node.children) && node.children.length > 0;
   const isActive = __DOC.currentFolderId === node.id;
+  // ⭐ 2026-10-15：展开态从 __DOC.expandedFolders 还原（不再每次重渲都收起）
+  const isExpanded = hasChildren && __DOC.expandedFolders.has(node.id);
+  const childrenStyle = isExpanded ? '' : 'display:none';
+  const arrowCls = 'doc-folder-node__arrow'
+    + (hasChildren ? ' is-expandable' : '')
+    + (isExpanded ? ' is-expanded' : '');
   return `
     <div class="doc-folder-node" data-folder-id="${escapeAttr(node.id)}" style="padding-left:${10 + depth * 16}px">
       <div class="doc-folder-node__row ${isActive ? 'is-active' : ''}">
-        <span class="doc-folder-node__arrow ${hasChildren ? 'is-expandable' : ''}" data-action="toggle" title="${hasChildren ? '展开/折叠' : ''}">▶</span>
+        <span class="${arrowCls}" data-action="toggle" title="${hasChildren ? '展开/折叠' : ''}">▶</span>
         <span class="doc-folder-node__icon">📁</span>
-        <span class="doc-folder-node__name">${escapeHtml(node.name)}</span>
+        <span class="doc-folder-node__name">${escapeHtml(docFolderLabel(node))}</span>
         <span class="doc-folder-node__actions">
           ${__DOC.isAdmin ? `
             <button class="doc-folder-item__btn" data-action="rename" data-id="${escapeAttr(node.id)}" data-name="${escapeAttr(node.name)}" title="重命名">✏️</button>
@@ -866,7 +903,7 @@ function renderDocFolderTreeNode(node, depth = 0) {
           ` : ''}
         </span>
       </div>
-      <div class="doc-folder-node__children" style="display:none">
+      <div class="doc-folder-node__children" style="${childrenStyle}">
         ${hasChildren ? node.children.map(c => renderDocFolderTreeNode(c, depth + 1)).join('') : ''}
       </div>
     </div>
@@ -925,7 +962,7 @@ async function __buildDocBreadcrumbHTML(folderId) {
   chain.forEach((f, idx) => {
     items.push(`<span class="doc-path-breadcrumb__sep">/</span>`);
     const isLast = idx === chain.length - 1;
-    items.push(`<button class="doc-path-breadcrumb__item ${isLast ? 'is-active' : ''}" data-folder-id="${escapeAttr(f.id)}">${escapeHtml(f.name)}</button>`);
+    items.push(`<button class="doc-path-breadcrumb__item ${isLast ? 'is-active' : ''}" data-folder-id="${escapeAttr(f.id)}">${escapeHtml(docFolderLabel(f))}</button>`);
   });
   return `<div class="doc-path-breadcrumb">${items.join('')}</div>`;
 }
@@ -975,6 +1012,26 @@ async function applyDocFolderFilter() {
 }
 
 /**
+ * ⭐ 2026-10-15：重渲前对展开态做一次"卫生清理"。
+ *
+ * ```list.innerHTML``` 整体重建 → 展开态必须放在 JS 里（见 __DOC.expandedFolders）。
+ * 但 folders 会随 tab / 搜索 / 权限变化换一批，所以：
+ *   1. 丢掉**已经不在这批 folders 里**的 id（防止集合无限增长 / 换 scope 后串味）；
+ *   2. 把 `currentFolderId` 的**整条祖先链**自动展开 —— 否则点进深层文件夹后，
+ *      刷新页面 / 切回来时当前项会被折叠在看不见的地方（选中态却高亮在闭着的树里）。
+ */
+function cleanTreeExpanded() {
+  const byId = new Map((__DOC.folders || []).map(f => [f.id, f]));
+  __DOC.expandedFolders.forEach(id => { if (!byId.has(id)) __DOC.expandedFolders.delete(id); });
+  let cur = byId.get(__DOC.currentFolderId);
+  let guard = 0;
+  while (cur && cur.parent_id && guard++ < 12) {
+    __DOC.expandedFolders.add(cur.parent_id);
+    cur = byId.get(cur.parent_id);
+  }
+}
+
+/**
  * 渲染侧栏文件夹（树形，替代原 chip 结构）
  */
 function renderDocFolders() {
@@ -1003,6 +1060,10 @@ function renderDocFolders() {
   }
   section.style.display = '';
 
+  // ⭐ 2026-10-15：先清理展开态（丢弃不存在的 id + 自动展开当前项的祖先链），
+  //    再渲染 —— 否则重渲会把用户展开的节点收回去。
+  cleanTreeExpanded();
+
   let html = `
     <div class="doc-folder-quick">
       <div class="doc-folder-node__row ${__DOC.currentFolderId === 0 ? 'is-active' : ''}" data-folder-id="__all__" style="padding-left:10px">
@@ -1021,6 +1082,7 @@ function renderDocFolders() {
   }
 
   const roots = buildDocFolderTree(filteredFolders);
+  // 展开态在 cleanTreeExpanded() 里清理，renderDocFolderTreeNode 按它还原
   html += roots.map(r => renderDocFolderTreeNode(r, 0)).join('');
   list.innerHTML = html;
   bindDocFolderActions();
@@ -1096,13 +1158,17 @@ function bindDocFolderActions() {
       if (!node) return;
       const childrenEl = node.querySelector(':scope > .doc-folder-node__children');
       if (!childrenEl) return;
+      const fid = Number(node.dataset.folderId);
       const expanded = arrow.classList.contains('is-expanded');
+      // ⭐ 2026-10-15：展开态写进 __DOC.expandedFolders，重渲后仍保持展开
       if (expanded) {
         childrenEl.style.display = 'none';
         arrow.classList.remove('is-expanded');
+        __DOC.expandedFolders.delete(fid);
       } else {
         childrenEl.style.display = '';
         arrow.classList.add('is-expanded');
+        __DOC.expandedFolders.add(fid);
       }
     });
   });

@@ -4,11 +4,13 @@
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="GWL 用户公开主页：查看该用户公开分享的文档与加入的公开组。">
+  <meta name="robots" content="noindex">
   <title>用户主页 | GWL</title>
-  <link rel="stylesheet" href="./css/core.css?v=20261015a">
-  <link rel="stylesheet" href="./css/styles.css?v=20261015a">
-  <link rel="stylesheet" href="./css/components.css?v=20261015a">
-  <link rel="icon" href="./favicon.png?v=20261015a" type="image/png">
+  <link rel="stylesheet" href="./css/core.css?v=20261016a">
+  <link rel="stylesheet" href="./css/styles.css?v=20261016a">
+  <link rel="stylesheet" href="./css/components.css?v=20261016a">
+  <link rel="icon" href="./favicon.png?v=20261016a" type="image/png">
   <style>
     /* =========================================
        u.html（公开用户主页 /「他人主页」）本页专属样式
@@ -87,7 +89,8 @@
       border-radius: var(--radius-md);
       border: 1px solid var(--color-primary);
       background: var(--color-primary);
-      color: #fff;
+      /* ⭐ P2（2026-10-15 审查）：对比度 —— 主色之上的文字色走主题变量 */
+      color: var(--color-on-primary, #fff);
       font-size: 0.875rem;
       font-weight: 600;
       text-decoration: none;
@@ -297,7 +300,7 @@
     .up-load-more__btn:hover:not(:disabled) {
       background: var(--color-primary);
       border-color: var(--color-primary);
-      color: #fff;
+      color: var(--color-on-primary, #fff);
     }
     .up-load-more__btn:disabled {
       opacity: 0.6;
@@ -422,12 +425,12 @@
   <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
   <!-- 脚本顺序固定：config → utils → sanitize → theme → toast → index → user-profile（契约 §7.2 / 设计 §4.3.4） -->
-  <script src="./js/config.js?v=20261015a"></script>
-  <script src="./js/utils.js?v=20261015a"></script>
-  <script src="./js/sanitize.js?v=20261015a"></script>
-  <script src="./js/theme.js?v=20261015a"></script>
-  <script src="./js/toast.js?v=20261015a"></script>
-  <script src="./js/index.js?v=20261015a"></script>
-  <script src="./js/user-profile.js?v=20261015a"></script>
+  <script src="./js/config.js?v=20261016a"></script>
+  <script src="./js/utils.js?v=20261016a"></script>
+  <script src="./js/sanitize.js?v=20261016a"></script>
+  <script src="./js/theme.js?v=20261016a"></script>
+  <script src="./js/toast.js?v=20261016a"></script>
+  <script src="./js/index.js?v=20261016a"></script>
+  <script src="./js/user-profile.js?v=20261016a"></script>
 </body>
 </html>

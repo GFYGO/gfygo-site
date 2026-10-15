@@ -61,7 +61,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     Toast.init();
     ThemeEngine.init();
     ThemeEngine.bindSwitchEvent();
-    bindThemeOptButtons();
+    // ⭐ P2（2026-10-15 审查）：主题选项的点击**只由 dashboard.auth.js::initThemeOptions
+    //    的委托处理器负责**（它还会给一次 toast）。这里原先又逐按钮绑了一份 →
+    //    每次点击 applyTheme + syncThemeToServer 各跑两遍（2 个 PUT）。
+    //    bindThemeOptButtons() 已随之删除。
 
     const token = AuthGuard.getToken();
     if (!token) {
@@ -183,23 +186,6 @@ function primePersonalDocsUserId(menuData) {
     if (!ui) return;
     const userObj = ui.id || ui.user_id || (window.getUserId ? window.getUserId() : null) || null;
     if (userObj && PDocsState) PDocsState.currentUserId = userObj;
-}
-
-/** 绑定设置面板中的主题选择按钮 */
-function bindThemeOptButtons() {
-    const buttons = document.querySelectorAll('.theme-opt');
-    buttons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const theme = btn.dataset.theme;
-            if (theme && ThemeEngine) {
-                ThemeEngine.applyTheme(theme);
-                const token = AuthGuard.getToken();
-                if (token) {
-                    ThemeEngine.syncThemeToServer(theme, token);
-                }
-            }
-        });
-    });
 }
 
 /** 绑定全局事件（退出按钮已由 renderTopNavAuth 处理，userTrigger 已由 initSidebarToggle 处理） */

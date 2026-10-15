@@ -15,6 +15,35 @@
 //: 站点密钥（与 site-back/.env 的 TURNSTILE_SITE_KEY、Cloudflare 后台的 widget 必须一致）
 const LOGIN_SITEKEY = '0x4AAAAAAECyOCbL7qIJUOgg';
 
+/**
+ * ⭐ P2（2026-10-15 审查）：登录后的回跳地址（`?redirect=`）。
+ *
+ * 背景：发现页在需要登录时会跳 `login.html?redirect=<当前路径>`（见 js/discover.js 的
+ * requireLogin），但本页原先恒定跳 `./user/dashboard.html` → `?redirect=` 被完全忽略，
+ * 用户登录后回不到刚才看的详情页。
+ *
+ * ⚠️ **只接受站内相对路径**（防开放重定向）：
+ *   * 必须以单个 `/` 开头（`//evil.com` 与 `/\\evil.com` 都是协议相对跳转，拒绝）；
+ *   * 不含 scheme（`:`）、反斜杠、控制字符；
+ *   * 长度上限 2048。
+ * 任何不合规的取值一律**静默回落到**默认页，不报错（用户看到的只是正常登录）。
+ */
+function safeLoginRedirect() {
+    var fallback = './user/dashboard.html';
+    var raw = '';
+    try {
+        raw = new URLSearchParams(window.location.search).get('redirect') || '';
+    } catch (e) {
+        return fallback;
+    }
+    if (!raw || raw.length > 2048) return fallback;
+    if (raw.charAt(0) !== '/') return fallback;
+    if (raw.charAt(1) === '/' || raw.charAt(1) === '\\') return fallback;
+    if (raw.indexOf('\\') !== -1 || raw.indexOf(':') !== -1) return fallback;
+    // eslint-disable-next-line no-control-regex
+    if (/[\u0000-\u001f\u007f]/.test(raw)) return fallback;
+    return raw;
+}
 //: 由 js/turnstile-widget.js 的 mount() 返回，负责取 token / 重置
 let loginWidget = null;
 let loginBound = false;
@@ -101,7 +130,8 @@ function bindLoginForm() {
             if (response.ok && data?.code === 200) {
                 AuthGuard.setToken(data.data.access_token, data.data.expires_in);
                 if (typeof Toast !== 'undefined') Toast.show('登录成功', 'success');
-                setTimeout(() => window.location.href = './user/dashboard.html', 500);
+                // ⭐ P2：支持 ?redirect=（只接受站内相对路径，见 safeLoginRedirect）
+                setTimeout(() => { window.location.href = safeLoginRedirect(); }, 500);
             } else {
                 // 失败原因以后端 msg 为准：site-back/utils/turnstile.py 会把
                 // Turnstile 的 error-codes（timeout-or-duplicate 等）翻译成人话再返回

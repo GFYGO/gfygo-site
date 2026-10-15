@@ -87,6 +87,17 @@ a.feature-tile {
   display: flex;
 }
 
+/* ⭐ P2（2026-10-15 审查）：无链接的占位卡（首页「更多功能」）不该看起来可点：
+   去掉手型光标与悬浮上浮，并明确暴露给辅助技术"不可用"。 */
+.feature-tile--soon {
+  cursor: default;
+  opacity: 0.75;
+}
+.feature-tile--soon:hover {
+  transform: none;
+  box-shadow: none;
+}
+
 a.feature-tile:hover .feature-tile__title,
 a.feature-tile:hover .feature-tile__desc {
   color: inherit;

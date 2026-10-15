@@ -12,6 +12,11 @@ var Toast = {
         if (!this.container) {
             this.container = document.createElement('div');
             this.container.className = 'toast-container';
+            // ⭐ P2 可访问性（2026-10-15 审查）：屏幕阅读器此前完全读不到轻提示。
+            //    role=status + aria-live=polite：内容变化会被朗读，但不打断当前朗读。
+            this.container.setAttribute('role', 'status');
+            this.container.setAttribute('aria-live', 'polite');
+            this.container.setAttribute('aria-atomic', 'false');
             document.body.appendChild(this.container);
         }
     },

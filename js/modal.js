@@ -126,10 +126,14 @@ var Modal = {
             return '<button type="button" class="modal-btn ' + btn.cls + '" data-index="' + index + '">' + self._escapeHtml(btn.text) + '</button>';
         }).join('');
 
+        // ⭐ P2 可访问性（2026-10-15 审查）：
+        //   * 标题与对话框建立 aria-labelledby 关联（此前 role=dialog 无 accessible name）；
+        //   * 每个实例用唯一 id（同一时刻可能叠加两层弹窗，固定 id 会撞）。
+        var titleId = 'modalTitle-' + (Modal._seq = (Modal._seq || 0) + 1);
         var modalHtml =
             '<div class="modal-overlay">' +
-                '<div class="modal-container" role="dialog" aria-modal="true">' +
-                    '<div class="modal-header"><h3 class="modal-title">' + title + '</h3></div>' +
+                '<div class="modal-container" role="dialog" aria-modal="true" aria-labelledby="' + titleId + '">' +
+                    '<div class="modal-header"><h3 class="modal-title" id="' + titleId + '">' + title + '</h3></div>' +
                     '<div class="modal-body">' + cfg.content + '</div>' +
                     '<div class="modal-footer">' + buttonsHtml + '</div>' +
                 '</div>' +
@@ -185,6 +189,20 @@ var Modal = {
 
         document.addEventListener('keydown', modal._handleKeydown);
 
+        // ⭐ P2 可访问性（2026-10-15 审查）：把焦点移进对话框，关闭后归还 ——
+        //    此前键盘用户打开弹窗后焦点仍留在页面按钮上，Tab 会跑到弹窗后面去。
+        modal._prevFocus = document.activeElement;
+        try {
+            var firstBtn = modal.querySelector('.modal-footer .modal-btn');
+            var target = firstBtn || modal.querySelector('.modal-container');
+            if (target && typeof target.focus === 'function') {
+                if (!target.hasAttribute('tabindex') && target === modal.querySelector('.modal-container')) {
+                    target.setAttribute('tabindex', '-1');
+                }
+                target.focus();
+            }
+        } catch (e) { /* 焦点失败不影响弹窗本身 */ }
+
         requestAnimationFrame(function() {
             modal.querySelector('.modal-overlay').classList.add('modal-show');
         });
@@ -196,6 +214,12 @@ var Modal = {
 
     _closeModal: function(modal) {
         document.removeEventListener('keydown', modal._handleKeydown);
+
+        // ⭐ P2：把焦点还给打开弹窗的那个元素（键盘用户不会"迷路"回页面顶部）
+        try {
+            var prev = modal && modal._prevFocus;
+            if (prev && typeof prev.focus === 'function' && document.contains(prev)) prev.focus();
+        } catch (e) { /* 忽略 */ }
 
         var overlay = modal.querySelector('.modal-overlay');
         if (overlay) {

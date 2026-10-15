@@ -135,9 +135,10 @@
   white-space: nowrap;
 }
 .doc-tab:hover { background: var(--color-bg-section-alt); }
+/* ⭐ P2（2026-10-15 审查）：对比度 —— 主色之上的文字色走主题变量 */
 .doc-tab.is-active {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary, #fff);
   border-color: var(--color-primary);
 }
 

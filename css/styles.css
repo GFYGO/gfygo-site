@@ -103,11 +103,14 @@ body.theme-gray .header {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
 }
+/* ⭐ P2（2026-10-15 审查）：白字压 --color-primary 的对比度不达标
+   （green 2.56:1 / gray 2.54:1 / dark_green 1.86:1，AA 要 4.5:1）。
+   主色之上的文字色改为主题变量 --color-on-primary（深色），light 主题仍是白字。 */
 .btn-primary {
   width: 100%;
   padding: 14px;
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary, #fff);
   border: none;
   border-radius: var(--radius-md);
   font-size: 1rem;
@@ -123,6 +126,9 @@ body.theme-gray .header {
 /* =========================================
    7. Theme Switcher Button
    ========================================= */
+/* ⭐ P2（2026-10-15 审查）：这个按钮原先是个**没有任何内容**的色块
+   （无图标、无 title，只有 aria-label）→ 用户看不出它是干什么的。
+   用伪元素补一个"调色板"图标并居中（不改 HTML，11 个页面都不用动）。 */
 .theme-switcher {
   position: fixed;
   bottom: 32px;
@@ -136,6 +142,16 @@ body.theme-gray .header {
   box-shadow: var(--shadow-lg);
   z-index: 200;
   transition: background-color 0.3s ease, transform 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--color-on-primary, #fff);
+}
+.theme-switcher::before {
+  content: '\1F3A8';   /* 🎨 */
+  pointer-events: none;
 }
 .theme-switcher:hover {
   background-color: var(--color-primary-hover);

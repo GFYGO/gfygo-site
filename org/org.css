@@ -87,7 +87,8 @@
     padding: 0 5px;
     border-radius: 9px;
     background: var(--color-primary);
-    color: #fff;
+    /* ⭐ P2（2026-10-15 审查）：主色之上的文字色走主题变量，修 WCAG AA 对比度 */
+  color: var(--color-on-primary, #fff);
     font-size: 11px;
     line-height: 18px;
     text-align: center;
@@ -171,7 +172,8 @@
     padding: 2px 6px;
     border-radius: var(--radius-sm);
     background: var(--color-primary);
-    color: #fff;
+    /* ⭐ P2（2026-10-15 审查）：主色之上的文字色走主题变量，修 WCAG AA 对比度 */
+  color: var(--color-on-primary, #fff);
     text-transform: lowercase;
 }
 
@@ -213,7 +215,8 @@
 .org-tag--owner {
     background: var(--color-primary);
     border-color: var(--color-primary);
-    color: #fff;
+    /* ⭐ P2（2026-10-15 审查）：主色之上的文字色走主题变量，修 WCAG AA 对比度 */
+  color: var(--color-on-primary, #fff);
 }
 
 .org-tag--kind {
@@ -248,7 +251,8 @@
 
 .org-joinbtn:hover {
     background: var(--color-primary);
-    color: #fff;
+    /* ⭐ P2（2026-10-15 审查）：主色之上的文字色走主题变量，修 WCAG AA 对比度 */
+  color: var(--color-on-primary, #fff);
 }
 
 /* ⭐ 「加入组类」弹出卡片：比通用卡片更宽、更高（里面有 4 个列表），
@@ -672,7 +676,8 @@
 .org-splitpick__opt[aria-checked="true"] {
     border-color: var(--color-primary);
     background: var(--color-primary);
-    color: #fff;
+    /* ⭐ P2（2026-10-15 审查）：主色之上的文字色走主题变量，修 WCAG AA 对比度 */
+  color: var(--color-on-primary, #fff);
 }
 
 .org-slotpick {

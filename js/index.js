@@ -162,7 +162,19 @@ function renderGlobalNotifications(notifications) {
 
   container.innerHTML = '';
 
-  if (!notifications || notifications.length === 0) {
+  // ⭐ P2（2026-10-15 审查）：`styles.css` 在移动端写了
+  //    `#global-notifications-container { display: none }`，但这里的内联
+  //    `display:flex` 优先级更高 → 窄屏照样弹通知（把手机屏遮掉一块）。
+  //    现在窄屏一律不显示（内联也置 none），恢复那条 CSS 的意图。
+  function notificationsAllowed() {
+    try {
+      return !(window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+    } catch (e) {
+      return true;
+    }
+  }
+
+  if (!notifications || notifications.length === 0 || !notificationsAllowed()) {
     container.style.display = 'none';
     return;
   }

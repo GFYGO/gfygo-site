@@ -4,15 +4,16 @@
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="GWL 文档中心：浏览公共文档、按标签与文件夹筛选、查看修订历史并导出 Markdown。">
   <title>文档 | GWL</title>
-  <link rel="stylesheet" href="./css/core.css?v=20260911d">
-  <link rel="stylesheet" href="./css/styles.css?v=20260911d">
-  <link rel="stylesheet" href="./css/document.css?v=20261015a">
+  <link rel="stylesheet" href="./css/core.css?v=20261016a">
+  <link rel="stylesheet" href="./css/styles.css?v=20261016a">
+  <link rel="stylesheet" href="./css/document.css?v=20261016a">
   <!-- ⭐ P1-2（2026-10-15 审查）：本页 .feature-grid / .feature-tile 的唯一来源是
        feature-grid.css（首页也用它），此前本页没加载 → 主页「文档列表」卡片网格
        与两个外链入口都是裸链接。见 css/README.md 的加载关系表。 -->
-  <link rel="stylesheet" href="./css/feature-grid.css?v=20260911d">
-  <link rel="stylesheet" href="./css/components.css?v=20260911d">
+  <link rel="stylesheet" href="./css/feature-grid.css?v=20261016a">
+  <link rel="stylesheet" href="./css/components.css?v=20261016a">
   <link rel="icon" href="./favicon.png" type="image/png">
 </head>
 <body>
@@ -137,14 +138,18 @@
             <div class="doc-state__icon">🔒</div>
             <h3 class="doc-state__title">暂无私有文档</h3>
             <p class="doc-state__desc">您当前还没有创建任何私有文档。可以在个人资料页（Dashboard）的个人文档中新建。</p>
-            <a href="./user/dashboard.html#personal-docs" class="btn-primary doc-state__btn">去 Dashboard 新建</a>
+            <!-- ⭐ P2（2026-10-15 审查）：dashboard 只认 #panel-<tab_key>（见 dashboard.menu.js），
+                 #personal-docs 不是合法 hash → 点了会落在工作台而不是「个人文档」。 -->
+            <a href="./user/dashboard.html#panel-docs" class="btn-primary doc-state__btn">去 Dashboard 新建</a>
           </div>
         </section>
         <section class="home-section home-section--group-empty" id="visGroupEmpty" style="display:none;">
           <div class="doc-state doc-state--empty">
             <div class="doc-state__icon">👥</div>
-            <h3 class="doc-state__title">暂无组文档（功能占位）</h3>
-            <p class="doc-state__desc">组权限文档功能尚未实现，后续会基于权限节点式管理开放。</p>
+            <!-- ⭐ P2（2026-10-15 审查）：组文档**早已实现**（org-func/group-docs 全套 +
+                 js/document.js 的组只读分支），旧文案说"功能占位/尚未实现"是错的。 -->
+            <h3 class="doc-state__title">暂无组文档</h3>
+            <p class="doc-state__desc">你所属的组暂时没有可查看的文档。组文档由各组的成员在「组文档」功能页里维护，默认仅组成员可见。</p>
           </div>
         </section>
       </section>
@@ -284,9 +289,9 @@
   <script src="./js/config.js?v=20261002a"></script>
   <script src="./js/sanitize.js?v=20260911d"></script>
   <script src="./js/theme.js?v=20260911d"></script>
-  <script src="./js/toast.js?v=20260911d"></script>
-  <script src="./js/modal.js?v=20260911d"></script>
-  <script src="./js/index.js?v=20260911e"></script>
-  <script src="./js/document.js?v=20261013a"></script>
+  <script src="./js/toast.js?v=20261016a"></script>
+  <script src="./js/modal.js?v=20261016a"></script>
+  <script src="./js/index.js?v=20261016a"></script>
+  <script src="./js/document.js?v=20261016a"></script>
 </body>
 </html>

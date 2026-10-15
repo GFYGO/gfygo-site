@@ -569,6 +569,33 @@
       .catch(function () { /* 静默：预览失败不该影响详情页其余内容 */ });
   }
 
+/** `ref_type` 的内部枚举 → 中文（认不出就原样返回，绝不吞掉信息） */
+var REF_TYPE_TEXT = {
+  document: '文档',
+  organization: '组织',
+  group: '组',
+  manual: '手动展示条目'
+};
+function refTypeText(t) {
+  var k = String(t || '').toLowerCase();
+  return REF_TYPE_TEXT[k] || t;
+}
+
+/**
+ * ISO 时间串 → `YYYY-MM-DD HH:mm`（本地时区）。
+ * 解析失败（旧数据 / 已被格式化过的串）→ 原样返回，不显示 Invalid Date。
+ */
+function fmtDateTime(s) {
+  var raw = String(s || '');
+  if (!raw) return '';
+  try {
+    var d = new Date(raw);
+    if (isNaN(d.getTime())) return raw;
+    var p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+      + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  } catch (e) { return raw; }
+}
   /** 条目是不是「组」板块（`ref_type='group'`；后端 `ref_type_for` 保证与 section 一致） */
   function isGroupItem(item) {
     return !!item && String(item.ref_type || '').toLowerCase() === 'group';
@@ -1152,10 +1179,13 @@
 
   function factsHtml(item) {
     var rows = '';
-    if (item.ref_type) rows += '<div class="discover-detail__fact"><dt>来源类型</dt><dd>' + escapeHtml(item.ref_type) + '</dd></div>';
+    // ⭐ P2（2026-10-15 审查）：这里原先**直出内部枚举与 ISO 时间串**
+    //    （ref_type=document/organization/group/manual、2026-10-11T13:22:33+00:00），
+    //    对访客是"实现细节泄漏"。改成中文标签 + 本地可读时间；认不出的值原样显示。
+    if (item.ref_type) rows += '<div class="discover-detail__fact"><dt>来源类型</dt><dd>' + escapeHtml(refTypeText(item.ref_type)) + '</dd></div>';
     if (item.ref_id) rows += '<div class="discover-detail__fact"><dt>来源标识</dt><dd>' + escapeHtml(item.ref_id) + '</dd></div>';
-    if (item.created_at) rows += '<div class="discover-detail__fact"><dt>展示时间</dt><dd>' + escapeHtml(item.created_at) + '</dd></div>';
-    if (item.updated_at) rows += '<div class="discover-detail__fact"><dt>最近更新</dt><dd>' + escapeHtml(item.updated_at) + '</dd></div>';
+    if (item.created_at) rows += '<div class="discover-detail__fact"><dt>展示时间</dt><dd>' + escapeHtml(fmtDateTime(item.created_at)) + '</dd></div>';
+    if (item.updated_at) rows += '<div class="discover-detail__fact"><dt>最近更新</dt><dd>' + escapeHtml(fmtDateTime(item.updated_at)) + '</dd></div>';
     if (!rows) return '';
     return '<dl class="discover-detail__facts">' + rows + '</dl>';
   }

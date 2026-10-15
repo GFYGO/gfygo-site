@@ -272,6 +272,9 @@ body.theme-gray .notification-close:hover {
   color: var(--color-text-main, #064e3b);
   line-height: 1.6;
   word-break: break-word;
+  /* ⭐ P2（2026-10-15 审查）：Modal.confirm 的文案里带换行（灰度预览/归档说明、
+     错误详情）时，HTML 默认把换行折叠成空格 → 糊成一坨。保留换行与多空格。 */
+  white-space: pre-line;
 }
 
 .modal-input {
@@ -406,10 +409,11 @@ body.theme-gray .notification-close:hover {
   box-shadow: 0 2px 6px rgba(0,0,0,0.08);
 }
 
+/* ⭐ P2（2026-10-15 审查）：对比度 —— 主色之上的文字色走主题变量 */
 .perm-btn--current {
   background: var(--color-primary, #2563eb);
   border-color: var(--color-primary, #2563eb);
-  color: #fff;
+  color: var(--color-on-primary, #fff);
 }
 
 .perm-btn--current:hover {

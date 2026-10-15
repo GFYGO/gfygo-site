@@ -22,6 +22,12 @@ const PDocsState = {
     //    把 editingVersion 置回 null —— 否则会把上一篇的版本号发给下一篇。
     editingVersion: null,
     editingBaseContent: null,
+    // ⭐ P2（2026-10-15 审查）：编辑既有文档时记住它**原本**的可见性与权限位。
+    //    个人文档面板的保存原先把 `visibility:'private'` 写死 —— 超管在浏览视图里
+    //    打开一篇**公开**文档再保存，就会把它悄悄改成私有（后端对 level>=5 直接放行）。
+    //    现在：编辑既有文档时沿用原值；只有新建才用 private/100000 默认值。
+    editingVisibility: null,
+    editingPermissionBits: null,
     markedReady: false,
     markedLoading: null,
     folders: [],
@@ -468,7 +474,23 @@ function initPdocsEasyMDE() {
             console.warn('[pdocs] 图片粘贴/拖拽绑定失败（不影响其它功能）:', e);
         }
     } catch (e) {
+        // ⭐ P2（2026-10-15 审查）：原来只 `console.error` —— CDN 被拦（离线/广告拦截器/
+        //    CSP 变动）时编辑器**静默降级**成纯文本 textarea，用户以为"工具栏坏了"。
+        //    现在给一次可见提示（用 sessionStorage 去重：切 tab 会反复进这里）。
         console.error('[pdocs] EasyMDE 初始化失败:', e);
+        pdocsWarnEditorFallbackOnce();
+    }
+}
+
+/** 编辑器降级提示：每个会话只说一次（切 tab 会重新跑 initPdocsEasyMDE） */
+function pdocsWarnEditorFallbackOnce() {
+    var KEY = 'pdocs-easymde-fallback-warned';
+    try {
+        if (window.sessionStorage && sessionStorage.getItem(KEY) === '1') return;
+        if (window.sessionStorage) sessionStorage.setItem(KEY, '1');
+    } catch (e) { /* 隐私模式：拿不到 storage，那就每次都提示 */ }
+    if (typeof showToast === 'function') {
+        showToast('富文本编辑器未能加载（可能是网络或浏览器扩展拦截），已切换为纯文本编辑，功能不受影响', 'warning');
     }
 }
 
@@ -1443,6 +1465,9 @@ async function openPdocsEditor(docId) {
         // ⭐ C1：新建没有版本基线（保存走 POST）
         PDocsState.editingVersion = null;
         PDocsState.editingBaseContent = null;
+        // 新建：没有"原可见性"，保存用 private 默认值（见 savePersonalDoc）
+        PDocsState.editingVisibility = null;
+        PDocsState.editingPermissionBits = null;
         preview.style.display = 'none';
         preview.innerHTML = '';
         titleInput.focus();
@@ -1462,6 +1487,10 @@ async function openPdocsEditor(docId) {
     // ⭐ C1 编辑锁：记下"我基于哪一版、哪份正文"——保存时回传，供后端判冲突/自动合并
     PDocsState.editingVersion = pdocsParseId(data.data.version);
     PDocsState.editingBaseContent = data.data.content || '';
+    // ⭐ P2（2026-10-15 审查）：记住**原本**的可见性 / 权限位，保存时原样带回 ——
+    //    否则在浏览视图里编辑一篇公开文档再保存会把它悄悄改成私有。
+    PDocsState.editingVisibility = (data.data && data.data.visibility) || null;
+    PDocsState.editingPermissionBits = (data.data && data.data.permission_bits) || null;
     preview.style.display = 'none';
     preview.innerHTML = '';
     // ⭐ B3：把已存标签填回输入框（单独一个请求；失败保留空值，不阻塞编辑）
@@ -1539,12 +1568,14 @@ async function savePersonalDoc() {
     setBtnState(saveBtn, true);
     saveBtn.textContent = '保存中...';
 
+    // ⭐ P2（2026-10-15 审查）：可见性 / 权限位**沿用原文**，只有新建才用默认值。
+    //    原先写死 'private' → 超管编辑一篇公开文档再保存会把它变成私有。
     const bodyObj = {
         title,
         content,
         summary: pdocsExtractSummary(content),
-        visibility: 'private',
-        permission_bits: '100000'
+        visibility: PDocsState.editingVisibility || 'private',
+        permission_bits: PDocsState.editingPermissionBits || '100000'
     };
     // 「是否编辑中」用存在性判断：editingId = 0 是合法主键。
     // ⚠️ 旧写法 `if (PDocsState.editingId)` 在 id=0 时走 else 分支 → **POST 新建一篇重复文档**。
@@ -1616,6 +1647,9 @@ async function savePersonalDoc() {
         PDocsState.editingId = data.data.id;
         PDocsState.editingVersion = pdocsParseId(data.data.version);
         PDocsState.editingBaseContent = data.data.content || content;
+        // 保存成功后同步基线（后端可能规范化过字段）
+        PDocsState.editingVisibility = (data.data && data.data.visibility) || PDocsState.editingVisibility;
+        PDocsState.editingPermissionBits = (data.data && data.data.permission_bits) || PDocsState.editingPermissionBits;
     }
     if (data.msg === '已自动合并他人修改') {
         showToast('已自动合并他人修改（你们改的不是同一处）', 'success');

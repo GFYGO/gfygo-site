@@ -10,11 +10,11 @@
     <title>GWL | 个人学习平台 - 注册</title>
     <!-- Cloudflare Turnstile：SDK 与组件挂载都在 js/turnstile-widget.js 里，
          register.js 只负责「取 token + 提交」，两者互不依赖（SDK 挂掉也能正常提示） -->
-    <link rel="stylesheet" href="./css/core.css?v=20260911d">
-    <link rel="stylesheet" href="./css/styles.css?v=20260911d">
+    <link rel="stylesheet" href="./css/core.css?v=20261016a">
+    <link rel="stylesheet" href="./css/styles.css?v=20261016a">
     <link rel="stylesheet" href="./css/login.css?v=20260923a">
     <link rel="stylesheet" href="./css/register.css?v=20260911d">
-    <link rel="stylesheet" href="./css/components.css?v=20260911d">
+    <link rel="stylesheet" href="./css/components.css?v=20261016a">
     <link rel="icon" href="./favicon.png" type="image/png">
 </head>
 <body>
@@ -47,16 +47,20 @@
 
             <form id="emailForm" class="register-form register-form--active">
                 <div class="form-group">
-                    <input type="email" name="email" placeholder="邮箱地址" required>
+                    <input type="email" name="email" placeholder="邮箱地址" required
+                           aria-label="邮箱地址" autocomplete="email">
                 </div>
                 <div class="form-group">
-                    <input type="text" name="username" placeholder="用户名（不可重复）" required minlength="3" maxlength="20">
+                    <input type="text" name="username" placeholder="用户名（不可重复）" required minlength="3" maxlength="20"
+                           aria-label="用户名" autocomplete="username">
                 </div>
                 <div class="form-group">
-                    <input type="password" name="password" placeholder="密码（至少6位）" required minlength="6">
+                    <input type="password" name="password" placeholder="密码（至少6位）" required minlength="6"
+                           aria-label="密码" autocomplete="new-password">
                 </div>
                 <div class="form-group">
-                    <input type="password" name="confirm_password" placeholder="确认密码" required minlength="6">
+                    <input type="password" name="confirm_password" placeholder="确认密码" required minlength="6"
+                           aria-label="确认密码" autocomplete="new-password">
                 </div>
                 <label class="register-agreement">
                     <input type="checkbox" name="agree" required>
@@ -71,16 +75,20 @@
 
             <form id="phoneForm" class="register-form">
                 <div class="form-group">
-                    <input type="tel" name="phone" placeholder="手机号码（+86开头）" required>
+                    <input type="tel" name="phone" placeholder="手机号码（+86开头）" required
+                           aria-label="手机号码" autocomplete="tel">
                 </div>
                 <div class="form-group">
-                    <input type="text" name="username" placeholder="用户名（不可重复）" required minlength="3" maxlength="20">
+                    <input type="text" name="username" placeholder="用户名（不可重复）" required minlength="3" maxlength="20"
+                           aria-label="用户名" autocomplete="username">
                 </div>
                 <div class="form-group">
-                    <input type="password" name="password" placeholder="密码（至少6位）" required minlength="6">
+                    <input type="password" name="password" placeholder="密码（至少6位）" required minlength="6"
+                           aria-label="密码" autocomplete="new-password">
                 </div>
                 <div class="form-group">
-                    <input type="password" name="confirm_password" placeholder="确认密码" required minlength="6">
+                    <input type="password" name="confirm_password" placeholder="确认密码" required minlength="6"
+                           aria-label="确认密码" autocomplete="new-password">
                 </div>
                 <label class="register-agreement">
                     <input type="checkbox" name="agree" required>
@@ -95,13 +103,17 @@
 
             <form id="tempForm" class="register-form">
                 <div class="form-group">
-                    <input type="text" name="username" placeholder="真实用户名" required minlength="3" maxlength="20">
+                    <input type="text" name="username" placeholder="真实用户名" required minlength="3" maxlength="20"
+                           aria-label="真实用户名" autocomplete="username">
                 </div>
                 <div class="form-group">
-                    <input type="text" name="invite_code" placeholder="邀请码" required>
+                    <input type="text" name="invite_code" placeholder="邀请码" required
+                           aria-label="邀请码" autocomplete="off">
                 </div>
                 <div class="register-hint">
-                    <p>💡 临时访问由邀请码创建，权限等级为 1，有效期为 7 天。</p>
+                    <!-- ⭐ P2（2026-10-15 审查）：有效期由**邀请码自身**的 duration_days 决定
+                         （默认 7 天），写死数字会与实际不符。 -->
+                    <p>💡 临时访问由邀请码创建，权限等级为 1，有效期以该邀请码设置为准（默认 7 天）。</p>
                 </div>
                 <div class="turnstile-mount">
                     <div id="turnstile-widget-temp"></div>
@@ -148,8 +160,8 @@
 
     <script src="./js/config.js?v=20261002a"></script>
     <script src="./js/theme.js?v=20260911d"></script>
-    <script src="./js/toast.js?v=20260911d"></script>
-    <script src="./js/index.js?v=20260911e"></script>
+    <script src="./js/toast.js?v=20261016a"></script>
+    <script src="./js/index.js?v=20261016a"></script>
     <script src="./js/turnstile-widget.js?v=20260923a"></script>
     <script src="./js/register.js?v=20260923a"></script>
 </body>

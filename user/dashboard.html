@@ -14,18 +14,18 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://maxcdn.bootstrapcdn.com; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net https://maxcdn.bootstrapcdn.com; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>个人主页 | GWL</title>
-    <link rel="stylesheet" href="./../css/core.css?v=20261015a">
-    <link rel="stylesheet" href="./../css/styles.css?v=20261015a">
-    <link rel="stylesheet" href="./../css/components.css?v=20261015a">
-    <link rel="stylesheet" href="./dashboard.css?v=20261015a">
+    <link rel="stylesheet" href="./../css/core.css?v=20261016a">
+    <link rel="stylesheet" href="./../css/styles.css?v=20261016a">
+    <link rel="stylesheet" href="./../css/components.css?v=20261016a">
+    <link rel="stylesheet" href="./dashboard.css?v=20261016a">
     <!--
       ⚠️ dashboard-profile.css 是「个人主页（#panel-home）」的唯一样式来源
       （profile-banner / profile-avatar-large / profile-cards / card / calendar-* / checkin-btn）。
       该文件此前**从未被任何 HTML 引用**（孤儿文件）→ 个人主页长期是无样式的裸 DOM。
       删除或重命名它之前，先确认 #panel-home 的结构是否仍在使用。
     -->
-    <link rel="stylesheet" href="./dashboard-profile.css?v=20261015a">
-    <link rel="stylesheet" href="./dashboard-admin.css?v=20261015a">
+    <link rel="stylesheet" href="./dashboard-profile.css?v=20261016a">
+    <link rel="stylesheet" href="./dashboard-admin.css?v=20261016a">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.css">
     <link rel="icon" href="./../favicon.png" type="image/png">
 </head>
@@ -165,7 +165,7 @@
                                 <label for="profileIsPublic">开启公开主页</label>
                                 <label class="settings-form__checkbox">
                                     <input type="checkbox" id="profileIsPublic">
-                                    <span>允许任何人（含未登录）通过上面的地址查看我**公开**的文档与公开组</span>
+                                    <span>允许任何人（含未登录）通过上面的地址查看我的<strong>公开</strong>文档与公开组</span>
                                 </label>
                             </div>
                             <div class="form-row">
@@ -523,7 +523,8 @@
             <div class="deletion-modal__body">
                 <div class="deletion-modal__warning">
                     <strong>你确定要注销吗？</strong><br><br>
-                    你使用数据将在注销后 <strong>14天</strong> 被永久删除<br>
+                    <!-- ⭐ P2（2026-10-15 审查）：原文缺「的」，且与上方同一流程的表述不一致 -->
+                    你的使用数据将在注销后 <strong>14 天</strong> 被永久删除<br>
                     <span style="font-size:0.8rem;color:#dc2626;">（真的很久！）</span><br><br>
                     14天内登录可自动取消注销，账号将恢复正常。
                 </div>
@@ -547,21 +548,21 @@
 
     <script src="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.js"></script>
     <!-- 共享脚本：普通 <script> 加载，暴露到 window -->
-    <script src="./../js/config.js?v=20261015a"></script>
-    <script src="./../js/sanitize.js?v=20261015a"></script>
-    <script src="./../js/utils.js?v=20261015a"></script>
-    <script src="./../js/toast.js?v=20261015a"></script>
-    <script src="./../js/theme.js?v=20261015a"></script>
-    <script src="./../js/modal.js?v=20261015a"></script>
+    <script src="./../js/config.js?v=20261016a"></script>
+    <script src="./../js/sanitize.js?v=20261016a"></script>
+    <script src="./../js/utils.js?v=20261016a"></script>
+    <script src="./../js/toast.js?v=20261016a"></script>
+    <script src="./../js/theme.js?v=20261016a"></script>
+    <script src="./../js/modal.js?v=20261016a"></script>
     <!-- Dashboard 模块：ES Module 加载 -->
-    <script type="module" src="./dashboard.permission.js?v=20261015a"></script>
-    <script type="module" src="./dashboard.auth.js?v=20261015a"></script>
-    <script type="module" src="./dashboard.checkin.js?v=20261015a"></script>
-    <script type="module" src="./dashboard.deletion.js?v=20261015a"></script>
-    <script type="module" src="./dashboard.menu.js?v=20261015a"></script>
-    <script type="module" src="./dashboard.notifications.js?v=20261015a"></script>
-    <script type="module" src="./dashboard.pdocs.js?v=20261015a"></script>
-    <script type="module" src="./dashboard.profile.js?v=20261015a"></script>
-    <script type="module" src="./dashboard.js?v=20261015a"></script>
+    <script type="module" src="./dashboard.permission.js?v=20261016a"></script>
+    <script type="module" src="./dashboard.auth.js?v=20261016a"></script>
+    <script type="module" src="./dashboard.checkin.js?v=20261016a"></script>
+    <script type="module" src="./dashboard.deletion.js?v=20261016a"></script>
+    <script type="module" src="./dashboard.menu.js?v=20261016a"></script>
+    <script type="module" src="./dashboard.notifications.js?v=20261016a"></script>
+    <script type="module" src="./dashboard.pdocs.js?v=20261016a"></script>
+    <script type="module" src="./dashboard.profile.js?v=20261016a"></script>
+    <script type="module" src="./dashboard.js?v=20261016a"></script>
 </body>
 </html>

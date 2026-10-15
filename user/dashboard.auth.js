@@ -347,10 +347,12 @@ async function switchLevel(targetLevel) {
     }
 }
 
-/** 初始化主题切换 */
+/** 初始化主题切换（幂等：initAuthModules 可能被多次调用，重复绑定会让一次点击发 2 个 PUT） */
+let _themeOptionsBound = false;
 function initThemeOptions(token) {
     const options = $('themeOptions');
-    if (!options) return;
+    if (!options || _themeOptionsBound) return;
+    _themeOptionsBound = true;
     on(options, 'click', (e) => {
         const btn = e.target.closest('.theme-opt');
         if (!btn) return;

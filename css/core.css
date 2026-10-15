@@ -38,6 +38,39 @@
   --color-text-sub: #059669;
   --color-text-secondary: #059669;
   --color-border: #a7f3d0;
+
+  /* ⭐ P2（2026-10-15 审查）：以下变量此前**只被引用、从未定义** ——
+     `var(--x, fallback)` 的 fallback 成了唯一取值来源，主题（body.theme-*）无法覆盖它们。
+     这里用"别名"定义：`var()` 在**计算值**时按元素替换，所以别名会跟随各主题对
+     `--color-bg-white` 等的覆盖自动变化，不需要在每个主题块里重复写一遍。 */
+  --color-surface: var(--color-bg-white);
+  --color-surface-muted: var(--color-bg-secondary);
+  --color-border-light: var(--color-border);
+  --color-bg: var(--color-bg-section-alt);
+  --color-bg-primary: var(--color-bg-white);
+}
+
+/* =========================================
+   ⭐ P2 可访问性（2026-10-15 审查）
+   =========================================
+   ① 键盘焦点必须可见：全站此前 **0 个 :focus-visible**，而 7 处写了 `outline: none`
+      （components.css / styles.css / dashboard.css）。那些规则与本条同为 (0,1,0) 特异性，
+      靠后加载的页面 CSS 会赢 —— 所以这里用 `!important` 兜底（焦点可见性优先）。
+   ② 动效：尊重系统的"减少动态效果"偏好（此前全站无 prefers-reduced-motion）。 */
+:focus-visible {
+  outline: 2px solid var(--color-primary) !important;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* =========================================
@@ -46,6 +79,10 @@
 /* 默认主题：绿色 (Green) */
 body.theme-green {
   --color-primary: #10b981;
+  /* ⭐ P2：危险 / 警告 + 主色之上的文字色（WCAG AA：白字压 #10b981 只有 2.56:1） */
+  --color-danger: #b91c1c;
+  --color-warning: #b45309;
+  --color-on-primary: #052e1a;
   --color-primary-hover: #059669;
   --color-bg-body: #8aff92;
   --color-bg-white: #ffffff;
@@ -64,6 +101,9 @@ body.theme-green {
 /* 白色主题 (Light) */
 body.theme-light {
   --color-primary: #4f46e5;
+  --color-danger: #b91c1c;
+  --color-warning: #b45309;
+  --color-on-primary: #ffffff;
   --color-primary-hover: #4338ca;
   --color-bg-body: #aad5ff;
   --color-bg-white: #ffffff;
@@ -82,6 +122,9 @@ body.theme-light {
 /* 灰色主题 (Gray) */
 body.theme-gray {
   --color-primary: #60a5fa;
+  --color-danger: #b91c1c;
+  --color-warning: #b45309;
+  --color-on-primary: #0b1220;
   --color-primary-hover: #3b82f6;
   --color-bg-body: #374151;
   --color-bg-white: #4b5563;
@@ -100,6 +143,9 @@ body.theme-gray {
 /* 蓝绿主题 (Dark Green / Teal) */
 body.theme-dark_green {
   --color-primary: #2dd4bf;
+  --color-danger: #b91c1c;
+  --color-warning: #b45309;
+  --color-on-primary: #04211d;
   --color-primary-hover: #14b8a6;
   --color-bg-body: #0f172a;
   --color-bg-white: #1e293b;

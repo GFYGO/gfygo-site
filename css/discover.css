@@ -218,12 +218,13 @@
   margin-top: 12px;
 }
 
+/* ⭐ P2（2026-10-15 审查）：对比度 —— 主色之上的文字色走主题变量 */
 .discover-action {
   padding: 9px 20px;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-primary);
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary, #fff);
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
@@ -350,6 +351,23 @@
 
 .discover-state__retry:hover {
   background: var(--color-primary-hover);
+}
+
+/* ⭐ P2（2026-10-15 审查）：这个按钮被复用为「加载更多」的三态按钮
+   （more / loading / done，见 js/discover.js 的 setMoreState）。
+   loading 与 done 都是 disabled —— 原先只有 :hover，禁用后看起来仍像可点。 */
+.discover-state__retry:disabled,
+.discover-state__retry[disabled] {
+  background: var(--color-bg-secondary, #f3f4f6);
+  border-color: var(--color-border, #d1d5db);
+  color: var(--color-text-muted, #9ca3af);
+  cursor: default;
+  opacity: 0.85;
+}
+
+.discover-state__retry:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 /* =========================================
