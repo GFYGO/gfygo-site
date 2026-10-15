@@ -45,7 +45,13 @@ const PDocsState = {
     trashSeq: 0,
     editorInstance: null,
     browserDocId: null,
-    browserDocSlug: null
+    browserDocSlug: null,
+    // ⭐ C2 批量操作（2026-10-11）：多选状态放**内存**（Set），不放 DOM ——
+    //    两个列表容器的 innerHTML 每次渲染都被整体覆盖，DOM 里存不住选中态。
+    //    ⚠️ 翻页 / 切视图 / 换文件夹 / 重载一律清空：否则会出现
+    //    「在第 1 页选了 5 篇，翻到第 3 页点删除」→ 删掉看不见的东西。
+    selection: new Set(),
+    trashSelection: new Set()
 };
 window.PDocsState = PDocsState;
 
@@ -569,16 +575,29 @@ function initPersonalDocs() {
     // 的**兄弟节点**，容器 innerHTML 被整体覆盖时不会连带丢监听器）
     bind('pdocsListMoreBtn', async () => {
         const btn = $('pdocsListMoreBtn');
+        // ⭐ C2：翻页（加载更多）也要清空多选 —— 设计 §4.2.4 的硬要求
+        pdocsClearSelection('docs');
         if (btn) { btn.disabled = true; btn.textContent = '加载中...'; }
         await loadPersonalDocs({ append: true });
         if (btn) { btn.disabled = false; btn.textContent = '加载更多'; }
     });
     bind('pdocsTrashMoreBtn', async () => {
         const btn = $('pdocsTrashMoreBtn');
+        pdocsClearSelection('trash');
         if (btn) { btn.disabled = true; btn.textContent = '加载中...'; }
         await loadPersonalTrash({ append: true });
         if (btn) { btn.disabled = false; btn.textContent = '加载更多'; }
     });
+    // ⭐ C2 批量条（按钮都在列表容器**之外**，绑定一次即可，不会随列表重绘丢失）
+    bind('pdocsBulkSelectPageBtn', () => pdocsToggleSelectPage('docs'));
+    bind('pdocsBulkClearBtn', () => pdocsClearSelection('docs'));
+    bind('pdocsBulkDeleteBtn', () => pdocsBulkTrash('docs', 'delete'));
+    bind('pdocsBulkMoveBtn', pdocsBulkMove);
+    bind('pdocsBulkVisibilityBtn', pdocsBulkVisibility);
+    bind('pdocsTrashBulkSelectPageBtn', () => pdocsToggleSelectPage('trash'));
+    bind('pdocsTrashBulkClearBtn', () => pdocsClearSelection('trash'));
+    bind('pdocsTrashBulkRestoreBtn', () => pdocsBulkTrash('trash', 'restore'));
+    bind('pdocsTrashBulkPermanentBtn', () => pdocsBulkTrash('trash', 'permanent'));
     bind('pdocsTrashBackBtn', () => showPdocsView('list'));
     // ⭐ B5：导出（单篇 Markdown / 个人全量 zip）
     bind('pdocsBrowserExportBtn', () => {
@@ -697,6 +716,9 @@ function showPdocsView(viewName) {
         const el = $('pdocs-view-' + v);
         if (el) el.style.display = (v === viewName) ? '' : 'none';
     });
+    // ⭐ C2：切视图一律清空两侧多选（否则会把列表视图里选的 id 带进回收站的批量条）
+    pdocsClearSelection('docs');
+    pdocsClearSelection('trash');
     if (viewName === 'list') {
         if (window.DashUrl) window.DashUrl.write({ doc: null, mode: null });
         resetPdocsDocsPaging();   // 每次进入列表视图都从第 1 页重新加载
@@ -713,12 +735,13 @@ function showPdocsView(viewName) {
 const PDOCS_PAGE_SIZE = 20;
 
 /**
- * 归一化 `/document/mine` 与 `/document/trash` 的响应 data —— **两种形状都要吃**。
+ * 归一化 `/document/mine` 与 `/document/trash` 的响应 data。
  *
- * 后端契约（B1 服务端分页）：
- *   * **两个参数都不传** → `data` 是**裸数组**（刻意的兼容分支：线上 GitHub Pages
- *     可能还持旧 JS）；此时当作「只有第一页、没有更多」，total 退回已加载条数。
- *   * 传了任一个（page / size）→ `data = { items, page, size, total, has_more }`。
+ * 后端契约（2026-10-11「双形状收口」之后，决策 Q8=B / `UNTRUSTED.md` J4）：
+ *   * **恒返回包络** `data = { items, page, size, total, has_more }`；不传 `page`/`size`
+ *     时 `page=1`、`size=20`（后端 `utils/paging.py`）。
+ *   * 裸数组分支是**部署窗口保护**（Pages 前端先于后端「人工重启」生效），**不是契约**；
+ *     此时当作「只有第一页、没有更多」，total 退回已加载条数。收口稳定后可删。
  *
  * @param {*} raw 响应里的 `data` 字段
  * @returns {{items: Array, total: number, hasMore: boolean, paginated: boolean}}
@@ -740,20 +763,26 @@ function pdocsNormalizePage(raw) {
     return { items: [], total: 0, hasMore: false, paginated: false };
 }
 
-/** 重置文档列表分页（换文件夹 / 重新进入面板 / 删除 / 导入 → 必须回到第 1 页） */
+/** 重置文档列表分页（换文件夹 / 重新进入面板 / 删除 / 导入 → 必须回到第 1 页）
+ *  ⭐ C2：同时**清空多选**（换数据集后旧的选中 id 可能已不在列表里）。
+ */
 function resetPdocsDocsPaging() {
     PDocsState.docsPage = 1;
     PDocsState.docsHasMore = false;
     PDocsState.docsTotal = 0;
     PDocsState.docsSeq++;   // 让在途的旧响应（上一个文件夹 / 上一页）作废
+    PDocsState.selection.clear();
+    renderPdocsBulkBar('docs');
 }
 
-/** 重置回收站分页 */
+/** 重置回收站分页（⭐ C2：同样清空多选） */
 function resetPdocsTrashPaging() {
     PDocsState.trashPage = 1;
     PDocsState.trashHasMore = false;
     PDocsState.trashTotal = 0;
     PDocsState.trashSeq++;
+    PDocsState.trashSelection.clear();
+    renderPdocsBulkBar('trash');
 }
 
 /**
@@ -890,6 +919,193 @@ function renderPdocsTrashPager() {
     });
 }
 
+// =========================================
+// ⭐ C2 批量操作（2026-10-11，能力补齐 C2 / TODO.txt C4）
+//   后端：POST /document/batch/trash  {action:'delete'|'restore'|'permanent', ids:[…]}
+//         POST /document/batch/update {ids:[…], folder_id?, visibility?, owning?}
+//   ⚠️ 语义是「**逐条判权 + 部分成功**」：越权/状态不符的条目回在 `data.results` 里
+//      （`ok:false` + 中文 `reason`），**不是**整批失败 —— 200 且 `skipped>0` 是正常结果。
+//   ⚠️ 上限 100 篇/次（后端 `MAX_BATCH_IDS`）；前端也先拦一次，避免白跑一趟。
+//   ⚠️ **不做撤销**（决策 §8 #16：危险动作只有二次确认）。
+//   ⚠️ 批量条必须在两个列表容器**之外**（容器 innerHTML 每次整体覆盖）。
+// =========================================
+
+var PDOCS_BATCH_MAX = 100;
+
+/** 批量条的状态容器：`docs` → 文档列表；`trash` → 回收站。 */
+function pdocsBulkRefs(kind) {
+    if (kind === 'trash') {
+        return {
+            bar: $('pdocsTrashBulkBar'), count: $('pdocsTrashBulkCount'),
+            selectBtn: $('pdocsTrashBulkSelectPageBtn'), set: PDocsState.trashSelection,
+            items: PDocsState.currentTrash || [], total: PDocsState.trashTotal
+        };
+    }
+    return {
+        bar: $('pdocsListBulkBar'), count: $('pdocsListBulkCount'),
+        selectBtn: $('pdocsBulkSelectPageBtn'), set: PDocsState.selection,
+        items: PDocsState.currentDocs || [], total: PDocsState.docsTotal
+    };
+}
+
+/** 同步批量条：可见性 + 计数文案 + 「全选本页」按钮文案。 */
+function renderPdocsBulkBar(kind) {
+    const ref = pdocsBulkRefs(kind);
+    if (!ref.bar) return;
+    const pageIds = ref.items.map(d => d.id).filter(pdocsIsValidId);
+    const allPageSelected = pageIds.length > 0 && pageIds.every(id => ref.set.has(id));
+    if (ref.selectBtn) ref.selectBtn.textContent = allPageSelected ? '取消全选本页' : '全选本页';
+    ref.bar.style.display = ref.set.size ? 'flex' : 'none';
+    if (ref.count) {
+        const loaded = ref.items.length;
+        const total = (typeof ref.total === 'number' && ref.total >= loaded) ? ref.total : loaded;
+        ref.count.textContent = `已选 ${ref.set.size} / 本页 ${loaded} / 共 ${total}`;
+    }
+}
+
+/** 勾选/取消勾选一篇（内存 Set 与批量条保持同步）。 */
+function pdocsToggleSelection(kind, docId, checked) {
+    if (!pdocsIsValidId(docId)) return;
+    const ref = pdocsBulkRefs(kind);
+    if (checked) ref.set.add(docId); else ref.set.delete(docId);
+    renderPdocsBulkBar(kind);
+}
+
+/** 清空某一侧的多选（并同步批量条）。 */
+function pdocsClearSelection(kind) {
+    pdocsBulkRefs(kind).set.clear();
+    renderPdocsBulkBar(kind);
+}
+
+/** 「全选本页」：只作用于**当前已加载的这一页**（分页下"全选"语义含糊，见设计 §4.2.4）。 */
+function pdocsToggleSelectPage(kind) {
+    const ref = pdocsBulkRefs(kind);
+    const pageIds = ref.items.map(d => d.id).filter(pdocsIsValidId);
+    const allSelected = pageIds.length > 0 && pageIds.every(id => ref.set.has(id));
+    pageIds.forEach(id => { if (allSelected) ref.set.delete(id); else ref.set.add(id); });
+    // 勾选态只存在于 DOM：整块重渲染（列表本来就是整体替换，不做局部手术）
+    if (kind === 'trash') renderPdocsTrash(PDocsState.currentTrash || []);
+    else renderExplorerGrid();
+}
+
+/** 批量条的 `ids`（去重 + 升序，便于稳定日志与断言）。 */
+function pdocsBatchIds(set) {
+    return Array.from(set).filter(pdocsIsValidId).sort((a, b) => a - b);
+}
+
+/** 把批量结果汇总成人话（含被跳过条目的**原文案**）。 */
+function pdocsBatchSummary(data, verb) {
+    const results = (data && Array.isArray(data.results)) ? data.results : [];
+    const skipped = results.filter(r => !r.ok);
+    const reasons = [];
+    skipped.forEach(r => {
+        if (r.reason && reasons.indexOf(r.reason) === -1) reasons.push(r.reason);
+    });
+    let msg = `${verb}：成功 ${data.succeeded} 篇`;
+    if (data.unchanged) msg += `、${data.unchanged} 篇无变更`;
+    if (skipped.length) msg += `、跳过 ${skipped.length} 篇（${reasons.slice(0, 2).join('；')}）`;
+    return msg;
+}
+
+/** 批量结果的统一处理：失败提示 / 成功 toast / **重拉第 1 页并清空选择**。 */
+async function pdocsAfterBatch(res, verb) {
+    if (!res || res.code !== 200) {
+        showToast((res && res.msg) || '批量操作失败', 'error');
+        return false;
+    }
+    showToast(pdocsBatchSummary(res.data, verb),
+        (res.data.skipped || res.data.unchanged) ? 'info' : 'success');
+    // ⭐ 动作后：重拉第 1 页并清空选择（reset* 里已 clear，列表整体重渲染）
+    resetPdocsDocsPaging();
+    resetPdocsTrashPaging();
+    await loadPersonalDocs();
+    await loadPersonalTrash();
+    return true;
+}
+
+/** 批量软删 / 恢复 / 彻底删除（`action` 由后端白名单校验）。 */
+async function pdocsBulkTrash(kind, action) {
+    const ref = pdocsBulkRefs(kind);
+    const ids = pdocsBatchIds(ref.set);
+    if (!ids.length) return;
+    if (ids.length > PDOCS_BATCH_MAX) {
+        showToast(`一次最多操作 ${PDOCS_BATCH_MAX} 篇，请缩小选择范围`, 'error');
+        return;
+    }
+    if (action === 'permanent') {
+        // ⭐ 危险动作二次确认：列出前 3 个标题 + 「等 N 篇」（设计 §4.2.4 第 6 条）
+        const titles = ref.items.filter(d => ref.set.has(d.id)).map(d => d.title || '(无标题)');
+        const shown = titles.slice(0, 3).map(t => `《${t}》`).join('、');
+        const more = titles.length > 3 ? ` 等 ${titles.length} 篇` : '';
+        const ok = await Modal.confirm(
+            `确定要彻底删除 ${shown}${more} 吗？此操作不可恢复。`,
+            { title: '彻底删除', confirmText: '彻底删除', danger: true });
+        if (!ok) return;
+    }
+    const verb = action === 'delete' ? '已移入回收站'
+        : (action === 'restore' ? '已恢复' : '已彻底删除');
+    const res = await pdocsRequest('/batch/trash', {
+        method: 'POST', body: JSON.stringify({ action, ids })
+    });
+    await pdocsAfterBatch(res, verb);
+}
+
+/** 批量改元数据（`folder_id` / `visibility` + `owning`）。 */
+async function pdocsBulkUpdate(fields, verb) {
+    const ids = pdocsBatchIds(PDocsState.selection);
+    if (!ids.length) return;
+    if (ids.length > PDOCS_BATCH_MAX) {
+        showToast(`一次最多操作 ${PDOCS_BATCH_MAX} 篇，请缩小选择范围`, 'error');
+        return;
+    }
+    const res = await pdocsRequest('/batch/update', {
+        method: 'POST', body: JSON.stringify(Object.assign({ ids }, fields))
+    });
+    await pdocsAfterBatch(res, verb);
+}
+
+/** 「移动到…」：读批量条上的文件夹下拉（0 = 无文件夹，是**合法**目标）。 */
+async function pdocsBulkMove() {
+    const sel = $('pdocsBulkMoveSelect');
+    if (!sel || sel.value === '') {
+        showToast('请先选择目标文件夹', 'error');
+        return;
+    }
+    const folderId = pdocsParseId(sel.value);
+    if (folderId === null) {
+        showToast('无法识别目标文件夹，请刷新页面后重试', 'error');
+        return;
+    }
+    await pdocsBulkUpdate({ folder_id: folderId }, '已移动');
+}
+
+/** 「改可见性」：只提供公开/私有两种（组可见性需要组名，本页不猜）。 */
+async function pdocsBulkVisibility() {
+    const sel = $('pdocsBulkVisibilitySelect');
+    const visibility = sel ? sel.value : '';
+    if (visibility !== 'public' && visibility !== 'private') {
+        showToast('请选择目标可见性', 'error');
+        return;
+    }
+    // ⚠️ 可见性与归属必须**成对**发送：公开文档的 owning 是 '0'，私有是自己的 id；
+    //    只发 visibility 会让 owning 保持旧值（超管路径下会落成"公开但挂在某人名下"）。
+    const owning = (visibility === 'public') ? '0' : String(PDocsState.currentUserId);
+    await pdocsBulkUpdate({ visibility, owning }, '已改可见性');
+}
+
+/** 把文件夹列表灌进批量条的下拉（每次渲染列表时同步）。 */
+function renderPdocsBulkMoveOptions() {
+    const sel = $('pdocsBulkMoveSelect');
+    if (!sel) return;
+    const current = sel.value;
+    const opts = ['<option value="0">无文件夹（根目录）</option>'];
+    PDocsState.folders.forEach(f => {
+        opts.push(`<option value="${pdocsSafeValue(f.id)}">${escapeHtml(f.name)}</option>`);
+    });
+    sel.innerHTML = opts.join('');
+    sel.value = current;
+}
+
 function renderExplorerGrid() {
     const container = $('pdocsListContainer');
     if (!container) return;
@@ -936,6 +1152,7 @@ function renderExplorerGrid() {
     docs.forEach(doc => {
         items.push(`
             <div class="pdocs-explorer-item pdocs-explorer-item--doc" data-doc-id="${pdocsSafeValue(doc.id)}" title="${escapeHtml(doc.title)}">
+                <input type="checkbox" class="pdocs-explorer-item__check" data-action="select" data-id="${pdocsSafeValue(doc.id)}" ${PDocsState.selection.has(doc.id) ? 'checked' : ''} aria-label="选择这篇文档">
                 <div class="pdocs-explorer-item__icon">${escapeHtml(doc.icon || '📄')}</div>
                 <div class="pdocs-explorer-item__name">${escapeHtml(doc.title)}</div>
                 <div class="pdocs-explorer-item__meta">${pdocsFmtTime(doc.updated_at)}</div>
@@ -982,7 +1199,8 @@ function renderExplorerGrid() {
 
     $$('.pdocs-explorer-item--doc', container).forEach(el => {
         on(el, 'click', (e) => {
-            if (e.target.closest('.pdocs-explorer-item__btn') || e.target.closest('.pdocs-explorer-move')) return;
+            if (e.target.closest('.pdocs-explorer-item__btn') || e.target.closest('.pdocs-explorer-move')
+                || e.target.closest('.pdocs-explorer-item__check')) return;
             const id = pdocsParseId(el.dataset.docId);
             if (id === null) {
                 showToast('无法识别该文档的 ID，请刷新页面后重试', 'error');
@@ -1034,8 +1252,20 @@ function renderExplorerGrid() {
         on(sel, 'click', (e) => e.stopPropagation());
     });
 
+    // ⭐ C2：多选复选框（点击不冒泡到条目，否则会连带打开浏览视图）
+    $$('.pdocs-explorer-item__check', container).forEach(cb => {
+        on(cb, 'click', (e) => e.stopPropagation());
+        on(cb, 'change', (e) => {
+            e.stopPropagation();
+            pdocsToggleSelection('docs', pdocsParseId(cb.dataset.id), cb.checked);
+        });
+    });
+
     // 渲染完成后更新「加载更多」按钮与计数（它们在容器**之外**，不会被上面的 innerHTML 覆盖）
     renderPdocsListPager();
+    // ⭐ C2：同步批量条的文件夹下拉与选中计数
+    renderPdocsBulkMoveOptions();
+    renderPdocsBulkBar('docs');
 }
 
 function navigateToFolder(folderId) {
@@ -1125,6 +1355,7 @@ function renderPdocsTrash(docs) {
     container.innerHTML = docs.map(doc => `
         <div class="pdocs-trash-item">
             <div class="pdocs-trash-item__info">
+                <input type="checkbox" class="pdocs-explorer-item__check" data-action="select" data-id="${pdocsSafeValue(doc.id)}" ${PDocsState.trashSelection.has(doc.id) ? 'checked' : ''} aria-label="选择这篇文档">
                 <span class="pdocs-trash-item__icon">${escapeHtml(doc.icon || '📄')}</span>
                 <div>
                     <h4 class="pdocs-trash-item__title">${escapeHtml(doc.title)}</h4>
@@ -1142,6 +1373,7 @@ function renderPdocsTrash(docs) {
         on(btn, 'click', () => {
             const action = btn.dataset.action;
             const id = pdocsParseId(btn.dataset.id);
+            if (action === 'select') return;      // ⭐ C2：多选复选框由下面的绑定负责
             if (id === null) {
                 console.error('[pdocs] 回收站按钮缺少合法的 data-id，已取消操作:', action);
                 showToast('操作失败：这一项缺少有效的 ID，请刷新页面后重试', 'error');
@@ -1152,8 +1384,19 @@ function renderPdocsTrash(docs) {
         });
     });
 
+    // ⭐ C2：回收站多选复选框
+    $$('.pdocs-explorer-item__check', container).forEach(cb => {
+        on(cb, 'click', (e) => e.stopPropagation());
+        on(cb, 'change', (e) => {
+            e.stopPropagation();
+            pdocsToggleSelection('trash', pdocsParseId(cb.dataset.id), cb.checked);
+        });
+    });
+
     // 渲染完成后更新「加载更多」按钮与计数（容器之外的兄弟节点）
     renderPdocsTrashPager();
+    // ⭐ C2：同步批量条的选中计数
+    renderPdocsBulkBar('trash');
 }
 
 async function openPdocsEditor(docId) {

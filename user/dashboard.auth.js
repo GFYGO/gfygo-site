@@ -129,8 +129,13 @@ function renderUserProfile(user, DEFAULT_AVATAR, DEFAULT_BANNER) {
 
     const bannerImg = $('bannerImg');
     if (bannerImg) {
-        bannerImg.src = banner;
+        // ⭐ P1-6（2026-10-15 审查）：`onerror` 把横幅 `display:none`，但成功路径
+        //    只重设 `src`、从不恢复 `display` → 一次加载失败后，即使保存了有效的新图，
+        //    也要刷新整页才看得见（refreshUserProfileLocal 走的就是这条路径）。
+        //    每次渲染先清掉上一次留下的内联隐藏；本次若真的取不到图，onerror 再隐藏。
+        bannerImg.style.display = '';
         bannerImg.onerror = function() { this.style.display = 'none'; };
+        bannerImg.src = banner;
     }
 
     _lastRenderedUser = user;

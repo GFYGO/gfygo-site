@@ -16,8 +16,11 @@
  *    真正的 `GET /profile` 由 `initProfilePanel()` 在**第一次打开设置面板**时才发
  *    （`dashboard.menu.js::STATIC_PANEL_HOOKS` 的 settings 钩子），不在页面加载时白跑一次。
  *
- * 2. **只提交改动过的字段**。PUT /profile 是局部更新（服务端用 `_UNSET` 哨兵区分
- *    「没提到」与「清空」），所以这里 diff 出 `_baseline` 与当前输入框的差异再提交 ——
+ * 2. **只提交改动过的字段**。PUT /profile 是局部更新（服务端**遍历请求体里出现过的键**
+ *    来区分「没提到」与「清空」—— 见 `services/user_service.py::update_profile` 的
+ *    `provided = {k: v for k, v in data.items() if k in EDITABLE_FIELDS}`；
+ *    📌 勘误 2026-10-11：此处原写「服务端用 `_UNSET` 哨兵」，但全仓没有 `_UNSET`），
+ *    所以这里 diff 出 `_baseline` 与当前输入框的差异再提交 ——
  *    否则「保存资料」会把用户没碰过的字段一起覆盖一遍。
  *
  * 3. **裁剪在浏览器里做**（服务端刻意不带 Pillow，见 `user_service.upload_avatar`）：
@@ -112,6 +115,9 @@ function baselineFrom(profile) {
         var v = profile ? profile[key] : '';
         out[key] = (v === null || v === undefined) ? '' : String(v);
     });
+    // ⭐ C3（2026-10-11）：公开主页的两个字段（不是纯文本：一个是布尔、一个要拼链接）
+    out.slug = (profile && profile.slug) ? String(profile.slug) : '';
+    out.is_public = !!(profile && profile.is_public);
     return out;
 }
 
@@ -132,6 +138,42 @@ function fillProfileForm(profile) {
     setValue('profileIntroduction', profile.introduction || '');
     setValue('profileBannerUrl', profile.banner || '');
     setAvatarPreview(profile.avatar || DEFAULT_AVATAR);
+    // ⭐ C3：公开主页开关 + 地址 + 预览链接
+    var cb = el('profileIsPublic');
+    if (cb) cb.checked = !!profile.is_public;
+    setValue('profileSlug', profile.slug || '');
+    renderProfilePublicLink(profile.slug, !!profile.is_public);
+}
+
+/**
+ * ⭐ C3（2026-10-11）：公开主页的「预览链接」与状态说明。
+ *
+ * 只有**开启 + 已设地址**时才给出可点的链接 —— 否则给一条说明（而不是给一个点开是 404 的死链）：
+ *   * 没设地址：别人拿不到寻址入口（分享不出去）；
+ *   * 设了但**关闭**：别人打开会看到「该用户没有开启公开主页」（后端对两种入口返回同一文案）。
+ */
+function renderProfilePublicLink(slug, isPublic) {
+    var a = el('profilePublicLink');
+    var hint = el('profilePublicHint');
+    var usable = !!slug && !!isPublic;
+    if (a) {
+        if (usable) {
+            a.href = './../u.html?u=' + encodeURIComponent(slug);
+            a.textContent = 'u.html?u=' + slug;
+            a.style.display = '';
+        } else {
+            // ⚠️ 只用属性赋值（不用 setAttribute/removeAttribute）：`tools/dom-stub.mjs`
+            //    的替身元素没实现那两个方法，而它被 `tools/test-dashboard-home.mjs` 真实装配。
+            a.href = '#';
+            a.textContent = '';
+            a.style.display = 'none';
+        }
+    }
+    if (hint) {
+        if (!slug) hint.textContent = '设置一个地址（如 alice）后即可分享你的主页。';
+        else if (!isPublic) hint.textContent = '主页当前是关闭状态：别人打开会看到「该用户没有开启公开主页」。';
+        else hint.textContent = '任何人（含未登录）都可以打开这个地址。';
+    }
 }
 
 /**
@@ -225,6 +267,15 @@ function collectProfilePatch() {
             patch[key] = current[key];
         }
     });
+
+    // ⭐ C3（2026-10-11）：公开主页两个字段。
+    //    `slug` 客户端先小写（后端只收小写；大写会被 400 挡下，不如在这里就归一），
+    //    ⚠️ 空串是**有意义**的（= 清空地址），所以同样用"与基准不同"判断。
+    var slug = readValue('profileSlug').trim().toLowerCase();
+    if (slug !== (_baseline.slug || '')) patch.slug = slug;
+    var isPublicNode = el('profileIsPublic');
+    var isPublic = !!(isPublicNode && isPublicNode.checked);
+    if (isPublic !== !!_baseline.is_public) patch.is_public = isPublic;
     return patch;
 }
 

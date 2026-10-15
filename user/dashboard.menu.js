@@ -53,7 +53,7 @@ var PRIMARY_MENU = [
 // 构建版本号：便于在浏览器控制台一眼确认「当前跑的是哪一版」
 //   window.__DASHBOARD_BUILD__
 //   document.querySelector('script[src*="dashboard.menu.js"]').src
-var BUILD_VERSION = '20261011a';
+var BUILD_VERSION = '20261015a';
 window.__DASHBOARD_BUILD__ = BUILD_VERSION;
 
 var _menuData = null;
@@ -333,6 +333,9 @@ async function renderTab(tabKey, force) {
         // 覆盖在静态面板下面（表现为「切到设置页却看到上一个 Tab 的残留内容」）。
         _pageLoadSeq++;
         releasePageScript();
+        // ⭐ P1-5：静态面板不需要任何动态页样式 —— 连**上一个** tab 留下的一起回收，
+        //    否则「页面设置」的全局类会跟着用户走到会话结束。
+        clearDynamicPageStyles();
         panel.style.display = '';
         runStaticPanelHook(tabKey);
         // 静态面板没有内容接口，但仍要广播事件：外部（dashboard.js 等）统一监听
@@ -413,6 +416,24 @@ function ensurePageStyles(tabKey, css) {
         document.head.appendChild(el);
     }
     if (el.textContent !== css) el.textContent = css;
+}
+
+/**
+ * ⭐ P1-5（2026-10-15 审查）：回收**所有**动态页面注入的 <style>。
+ *
+ * 根因：`ensurePageStyles(tabKey, css)` 只在「同一个 tab 再次注入」时复用/移除它自己那一份；
+ * 切到**静态面板**（工作台/通知/个人文档/设置…）或别的 tab 时没人清理，页面样式会一直留在
+ * `document.head` 到会话结束。`pages/admin-menu/site.css` 又重定义了 `.empty-state` /
+ * `.form-row` / `.switch` / `.modal-*` 等**全站共用类** → 访问过一次「页面设置」后，
+ * 全站弹窗内边距、空态、表单排版都被它接管（等特异性 + 后加载的 head 末尾规则胜出）。
+ *
+ * 两处一起修才是完整的：这里负责"离开时回收"，`pages/admin-menu/site.css` 负责"在场时隔离"。
+ */
+function clearDynamicPageStyles() {
+    var nodes = document.querySelectorAll('style[id^="dynamicPageStyle-"]');
+    for (var i = 0; i < nodes.length; i++) {
+        if (nodes[i].parentNode) nodes[i].parentNode.removeChild(nodes[i]);
+    }
 }
 
 function releasePageScript() {

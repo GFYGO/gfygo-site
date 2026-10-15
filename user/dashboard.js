@@ -44,6 +44,19 @@ async function renderUserInfo(token) {
 }
 
 // DOMContentLoaded 后初始化
+/**
+ * ⭐ C3（2026-10-11）：从 `location.hash` 里读 `#panel-<tab>` → `<tab>`（非法/缺失 → null）。
+ *
+ * 允许的字符集与动态页面的 `tab_key` 一致；`home`（个人主页）是 dashboard.html 里的**静态面板**，
+ * `renderTab('home')` 会先匹配 `#panel-home`，命中就显示、跳过内容请求
+ * （见 `dashboard.menu.js` 里 PRIMARY_MENU 上方的说明）。
+ */
+function readHashTab() {
+    const raw = String(window.location.hash || '').replace(/^#/, '');
+    const m = /^panel-([a-zA-Z0-9_-]{1,50})$/.exec(raw);
+    return m ? m[1] : null;
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
     Toast.init();
     ThemeEngine.init();
@@ -91,9 +104,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     //     晚注册会漏掉首屏那一次 → 直接打开文档链接只会停在列表页。
     bindDocsUrlRestore();
 
-    // 7. 切换到默认 Tab（若 URL 带 ?tab= 则优先恢复该页）
+    // 7. 切换到默认 Tab（优先级：`?tab=` > `#panel-<tab>` > 默认 workspace）
+    //    ⭐ 2026-10-11（C3）：支持 `#panel-<tab>` 深链接 —— 公开主页的「✏️ 编辑主页」
+    //    就是跳 `user/dashboard.html#panel-home`（设计 §4.3.4）。此前 **hash 完全没人读**，
+    //    那个链接会静默落在工作台，用户点了以为"编辑主页"没反应。
+    //    ⚠️ `?tab=` 仍是正式的状态载体（DashUrl 管着它），hash 只作**兜底**。
     const urlState = window.DashUrl ? window.DashUrl.read() : null;
-    const initialTab = (urlState && urlState.tab) || 'workspace';
+    const initialTab = (urlState && urlState.tab) || readHashTab() || 'workspace';
     DashboardMenu.switchTab(initialTab, { reset: false });
 
     // 初始化注销相关

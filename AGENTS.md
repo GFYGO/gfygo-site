@@ -77,7 +77,7 @@ node tools/test-discover-page.mjs       # ⭐ 发现页（184 项断言，含「
 |---|---|---|
 | 根 `*.html` + `js/` | 主站 5 页 + 共享脚本（config / sanitize / theme / toast / modal / utils / turnstile / discover） | `11`、`10` |
 | `user/` | 仪表盘：`dashboard.html` + 11 个 `user/*.js` + 各 CSS + `permission-picker.*` | `12` |
-| `org/` | 组织页：`index.html` / `org.css` / `org.js`（侧栏「我加入的组」标题旁有 ⭐ **「＋ 加入」** 卡片：public 自助加入 / 邀请码 / 单次链接 / 我的申请 / 我收到的邀请） | `13` ＋ `site-back/PROJECT_MEMORY.md` §5.6 |
+| `org/` | 组织页：`index.html` / `org.css` / `org.js`（侧栏「我加入的组」标题旁有 ⭐ **「＋ 加入」** 卡片：public 自助加入 / 邀请码 / 单次链接 / 我的申请 / 我收到的邀请） | `13` ＋ `site-back/memory/05-permission.md` §5.6 |
 | `discover/` | 发现页 11 个普通静态页（2026-10-02 新增） | `11` §7 |
 | `css/` | 16 个 CSS + `README.md`（加载关系权威） | `14` |
 | `model/` | Model 原型页（⚠️ `test.*` 仍发布） | `09` §2 |

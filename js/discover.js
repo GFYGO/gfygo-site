@@ -45,6 +45,38 @@
     { key: 'tool',  label: '工具', icon: '🧰', path: 'discover/tool/index.html',  detail: 'discover/tool/details.html' }
   ];
 
+  // ===== ⭐ C3（2026-10-11）展示者名 → 公开主页链接 =====
+  //   站内各处手里只有 `owner_id`（卡片不带 slug），所以先问 `by-id` 要 slug：
+  //     200 且有 slug → 换成 `<a href="<BASE_PATH>/u.html?u=<slug>">`；
+  //     404（**没开启公开主页**）→ 保持纯文本（不显示死链、不报错）。
+  //   ⚠️ 按 owner_id 缓存（含 null）避免重复请求；接口是 `optional=True`，匿名也成立。
+  var _ownerSlugCache = Object.create(null);
+
+  function linkOwnerName(el, ownerId) {
+    if (!el || ownerId === null || ownerId === undefined) return;
+    var key = String(ownerId);
+    var apply = function (slug) {
+      if (!slug || !el.isConnected) return;
+      var text = el.textContent || '';
+      var a = document.createElement('a');
+      a.href = (window.BASE_PATH || '.') + '/u.html?u=' + encodeURIComponent(slug);
+      a.title = '查看 ' + text + ' 的公开主页';
+      a.textContent = text;
+      el.textContent = '';
+      el.appendChild(a);
+    };
+    if (key in _ownerSlugCache) { apply(_ownerSlugCache[key]); return; }
+    _ownerSlugCache[key] = null;          // 占位：并发渲染只发一次
+    fetch(window.API_BASE_URL + '/api/v0/user/profile/by-id/' + encodeURIComponent(key))
+      .then(function (r) { return r.json().catch(function () { return null; }); })
+      .then(function (d) {
+        var slug = (d && d.code === 200 && d.data && d.data.user) ? d.data.user.slug : null;
+        _ownerSlugCache[key] = slug || null;
+        apply(slug);
+      })
+      .catch(function () { /* 网络失败：保持纯文本 */ });
+  }
+
   // ===== §3 提示文案（与后端 / 契约逐字一致，两处一致）=====
   // ⚠️ `use` 仍是**纯提示**（工具板块没有真实接口）。
   //    `join` 自 2026-10-02 起是**真动作**（见本文件头部的说明）：文案只用于
@@ -74,6 +106,7 @@
     untitled: '未命名内容',
     // ⭐ 加入（2026-10-02）
     joinNeedLogin: '登录后才能加入，正在跳转登录页…',
+    joinAnonymous: '登录后才能看到可加入的公开组。',
     joinLoading: '正在读取可加入的组…',
     joinLoadFailed: '可加入的组读取失败，请稍后重试',
     joinNone: '这个组织眼下没有可直接加入的公开组。',
@@ -489,6 +522,53 @@
     return /^[A-Za-z]{3}$/.test(raw) ? raw.toLowerCase() : '';
   }
 
+  /**
+   * ⭐ C3（2026-10-11）：**公开组类预览**区块 —— 修 `UNTRUSTED.md` K6 那条死路。
+   *
+   * 背景：卡片上的「查看」指向 `org/index.html?class=<id>`，而那个页面要求**属于该组类**
+   * （后端 `resolve_class` 对非成员 403）→ 非成员点进去是死路。
+   * 这里在**发现页详情**就地渲染该组类的公开信息 + 公开文档，非成员/匿名都能看。
+   *
+   * ⚠️ 三条边界：
+   *   1. 只对**公开且启用**的组类有数据；其它情况后端回 404 → 这里**静默不渲染**（不破坏详情页）；
+   *   2. 用的是**新的独立接口** `/org/classes/<cid>/public-preview`，**不碰**卡片契约
+   *      （往卡片/详情条目里加键会破 `test_discover.py` 的逐字键集断言）；
+   *   3. 成员页语义一点没松：非成员点原「查看」**仍然 403**（后端测试有正反对照）。
+   */
+  function loadClassPublicPreview(container, item) {
+    var cid = classIdOf(item);
+    if (!cid || !container) return;
+    fetch(window.API_BASE_URL + '/api/v0/org/classes/' + encodeURIComponent(cid) + '/public-preview')
+      .then(function (r) { return r.json().catch(function () { return null; }); })
+      .then(function (d) {
+        if (!d || d.code !== 200 || !d.data || !container.isConnected) return;
+        var info = d.data['class'] || {};
+        var docs = (d.data.public_docs && d.data.public_docs.items) || [];
+        var html = '<section class="discover-detail__section" id="discoverClassPreview">';
+        html += '<h2 class="discover-detail__section-title">该组织的公开内容</h2>';
+        html += '<p class="discover-detail__preview">'
+             + escapeHtml(info.name || '') + ' · ' + Number(info.member_count || 0) + ' 位成员'
+             + '</p>';
+        if (docs.length) {
+          html += '<ul class="discover-detail__list">';
+          for (var i = 0; i < docs.length; i++) {
+            var doc = docs[i] || {};
+            var name = doc.title || doc.slug || '';
+            html += '<li><a href="' + escapeHtml((window.BASE_PATH || '.') + '/document.html?slug='
+                     + encodeURIComponent(doc.slug || '')) + '">' + escapeHtml(name) + '</a></li>';
+          }
+          html += '</ul>';
+        } else {
+          // 空态要**说清楚为什么**：组内文档默认只对成员可见（这是设计，不是故障）
+          html += '<p class="discover-detail__preview">这个组类暂时没有公开文档'
+               + '（组内文档默认仅成员可见）。</p>';
+        }
+        html += '</section>';
+        container.insertAdjacentHTML('beforeend', html);
+      })
+      .catch(function () { /* 静默：预览失败不该影响详情页其余内容 */ });
+  }
+
   /** 条目是不是「组」板块（`ref_type='group'`；后端 `ref_type_for` 保证与 section 一致） */
   function isGroupItem(item) {
     return !!item && String(item.ref_type || '').toLowerCase() === 'group';
@@ -580,6 +660,24 @@
     if (isGroupItem(item)) return '';       // 组条目：顶部「加入」按钮直接调接口就够
     var cid = classIdOf(item);
     if (!cid) return '';                    // 非组类条目（文档 / 工具）：没有加入区
+    // ⭐ P0（2026-10-15 审查）：**匿名访客不生成加入区**。
+    //    加入区内容由 `loadJoinPanel()` 拉 `GET /org/joinable`，而那个端点要 JWT；
+    //    `apiRequest` 对 401 一律 `AuthGuard.handleAuthError()` → 跳登录页，
+    //    于是"公开广场上点开组织详情"会把匿名访客弹走（与本页的公开定位冲突）。
+    //    这里改成一句静态提示 + 登录链接：不发请求、不跳转，详情其余部分照常。
+    if (!hasToken()) {
+      var loginHref = basePath() + '/login.html';
+      try {
+        var back = window.location.pathname + window.location.search;
+        if (back) loginHref += '?redirect=' + encodeURIComponent(back);
+      } catch (e) { /* 忽略：取不到当前地址就用不带 redirect 的链接 */ }
+      return '<section class="discover-detail__section">'
+        + '<h2 class="discover-detail__section-title">加入组织</h2>'
+        + '<p class="discover-detail__hint">' + escapeHtml(TEXT.joinAnonymous)
+        + ' <a href="' + escapeHtml(loginHref) + '">去登录</a></p>'
+        + '<p class="discover-detail__hint">' + escapeHtml(TEXT.joinNoneHint) + '</p>'
+        + '</section>';
+    }
     var html = '<section class="discover-detail__section">';
     html += '<h2 class="discover-detail__section-title">加入组织</h2>';
     html += '<div class="discover-join" id="discoverJoin" data-join-scope="' + escapeHtml(cid) + '">';
@@ -1081,7 +1179,7 @@
     html += '<h1 class="discover-detail__title">' + escapeHtml(title) + '</h1>';
     html += '<div class="discover-detail__meta">';
     if (label) html += '<span class="discover-detail__badge">' + escapeHtml(label) + '</span>';
-    if (item.owner_username) html += '<span>由 ' + escapeHtml(item.owner_username) + ' 展示</span>';
+    if (item.owner_username) html += '<span>由 <span data-owner-name="1">' + escapeHtml(item.owner_username) + '</span> 展示</span>';
     var views = Number(item.view_count);
     if (Number.isFinite(views) && views >= 0) html += '<span>' + views + ' 次浏览</span>';
     html += '</div></div></div>';
@@ -1108,6 +1206,12 @@
     html += '</article>';
     container.innerHTML = html;
 
+    // ⭐ C3（2026-10-11）：展示者名 → 公开主页链接（`u.html?u=<slug>`）。
+    //    手里的只有 `owner_id`，所以先问 `by-id` 要 slug；**404（没开主页）保持纯文本**。
+    linkOwnerName(container.querySelector('[data-owner-name]'), item.owner_id);
+    // ⭐ C3：组织/组条目再补一块「该组织的公开内容」（修 K6 死路；非成员/匿名都能看）
+    loadClassPublicPreview(container, item);
+
     // ⭐ 加入态的基线（`join` 是"点了就发请求"的真动作，需要知道目标组类）
     joinState.classId = classIdOf(item);
 
@@ -1120,7 +1224,10 @@
     }
     // 加入区：组织条目**进页面就先拉一次**（用户可能直接奔着"有哪些组能加入"来）；
     // 失败只把错误写进那一块，不影响详情其余部分。
-    if (document.getElementById('discoverJoin')) loadJoinPanel(joinState.classId);
+    // ⚠️ 匿名访客根本没有 `#discoverJoin`（`joinSectionHtml` 不生成它，见那里的 P0 注释），
+    //    这里的 hasToken() 是**第二道闸**：万一将来有人把那个容器改成无条件输出，
+    //    也不会绕过登录门禁去打 401。`joinFromItem()` 已有同样的门禁。
+    if (hasToken() && document.getElementById('discoverJoin')) loadJoinPanel(joinState.classId);
     document.title = title + ' | 发现 | GWL';
   }
 

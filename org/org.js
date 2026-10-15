@@ -257,6 +257,12 @@
 
         // ⭐ 「加入组类」卡片（2026-10-02）
         on('joinCodeBtn', 'click', redeemByInput);
+        // ⭐ P1-8（2026-10-15 审查）：private 组的第三条自助路径 —— 申请加入
+        //    （此前只有发现页有入口，本页的说明与实现对不上）。
+        on('joinApplyBtn', 'click', applyByInput);
+        on('joinApplyInput', 'keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); applyByInput(); }
+        });
         on('joinRefreshBtn', 'click', function () { loadJoinCard(true); });
         on('joinPublicList', 'click', onJoinCardClick);
         on('joinRequestList', 'click', onJoinCardClick);
@@ -744,8 +750,12 @@
             var pub = results[0] || {};
             var req = results[1] || {};
             var inv = results[2] || {};
-            state.join.publicClasses = (pub.code === 200 && pub.data && Array.isArray(pub.data.groups))
-                ? pub.data.groups : [];
+            // ⭐ P0（2026-10-15 审查）：`GET /org/joinable` 的 `data` 是**裸数组**
+            //    （`routes/org.py::list_joinable_groups` → `_invite_call` → `success(list)`；
+            //    发现页也是按数组消费的：`js/discover.js` 的 `Array.isArray(res.data)`）。
+            //    旧代码读 `pub.data.groups` 恒 undefined → `publicClasses` 恒 [] →
+            //    「可自助加入的公开组」永远是空态，「加入」按钮从不出现。
+            state.join.publicClasses = (pub.code === 200 && Array.isArray(pub.data)) ? pub.data : [];
             state.join.requests = (req.code === 200 && Array.isArray(req.data)) ? req.data : [];
             state.join.invites = (inv.code === 200 && Array.isArray(inv.data)) ? inv.data : [];
             state.join.loaded = true;
@@ -820,6 +830,71 @@
             toast(label + '已用完（单次使用 / 次数已满）', 'info');
         }
         afterMembershipChange();
+    }
+
+    /**
+     * ⭐ P1-8（2026-10-15 审查）：按组标识提交"申请加入"。
+     *
+     * 用**两条既有接口**，不新增后端：
+     *   1. `GET  /org/classes/<cid>/join-info` —— 先问这个组在不在、你是不是已在里面、
+     *      是否在黑名单、有没有待审批的申请（本页此前 0 引用，而说明却写着"可申请加入"）；
+     *   2. `POST /org/classes/<cid>/join`     —— 真正的申请（public 会直接入组，
+     *      private 落一条待审批申请，正好走到 `joinPublicClass()` 里那个此前**不可达**的
+     *      `mode='requested'` 分支）。
+     *
+     * 黑名单 / 已经在组内 / 已有待审批申请都在**发请求之前**说清楚，避免让用户白点一次。
+     */
+    function applyByInput() {
+        var input = document.getElementById('joinApplyInput');
+        var cid = input ? String(input.value || '').trim().toLowerCase() : '';
+        if (!/^[a-z]{3}$/.test(cid)) {
+            toast('请填写 3 位字母的组标识（例如 dev）', 'info');
+            if (input) input.focus();
+            return;
+        }
+        var btn = document.getElementById('joinApplyBtn');
+        if (btn) btn.disabled = true;
+        orgFetch('/api/v0/org/classes/' + encodeURIComponent(cid) + '/join-info').then(function (info) {
+            if (btn) btn.disabled = false;
+            if (!info || info.code !== 200 || !info.data) {
+                toast((info && info.msg) || ('没有找到组类「' + cid + '」'), 'error');
+                return;
+            }
+            var d = info.data;
+            var name = d.name || cid;
+            if (d.blacklisted) {
+                toast('你在「' + name + '」的黑名单上，无法申请加入', 'error');
+                return;
+            }
+            if (d.is_member) {
+                toast('你已经是「' + name + '」的成员了', 'info');
+                return;
+            }
+            if (d.request) {
+                toast('你已经提交过「' + name + '」的加入申请，等管理员批准即可', 'info');
+                return;
+            }
+            orgFetch('/api/v0/org/classes/' + encodeURIComponent(cid) + '/join', {
+                method: 'POST', body: { class_id: cid }
+            }).then(function (res) {
+                if (!res || res.code !== 200 || !res.data) {
+                    toast((res && res.msg) || '提交申请失败', 'error');
+                    return;
+                }
+                if (input) input.value = '';
+                var r = res.data;
+                var g = (r.request && r.request.group) || r.group || {};
+                if (r.mode === 'requested') {
+                    toast('已提交「' + (g.name || name) + '」的加入申请，等管理员批准', 'success');
+                } else if (r.already_member) {
+                    toast('你已经是「' + (g.name || name) + '」的成员了', 'info');
+                } else {
+                    // 该组其实是 public → 后端直接入了组（说明用户填的是公开组）
+                    toast('「' + (g.name || name) + '」是公开组：已直接加入', 'success');
+                }
+                afterMembershipChange();
+            });
+        });
     }
 
     /** ⭐ public 组：直接加入（后端只检查黑名单）。 */

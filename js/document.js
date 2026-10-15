@@ -262,7 +262,10 @@ async function fetchDocList(opts) {
     if (r.ok && d.code === 200) {
       const data = d.data;
       if (Array.isArray(data)) {
-        // 旧形状（无分页信息）：只有一页
+        // ⚠️ 旧后端兼容分支 —— **部署窗口保护，不是契约**：
+        // 后端 2026-10-11 起 `/document/list` 恒返回分页包络（决策 Q8=B / UNTRUSTED J4），
+        // 但 Pages 前端先于后端「人工重启」生效，这段窗口里新 JS 会读到旧后端的裸数组。
+        // 收口稳定后此分支不可达，可在后续版本删除。
         __DOC.docs = data;
         __DOC.page = 1;
         __DOC.total = data.length;
@@ -1316,6 +1319,50 @@ async function showDocDetail(slug) {
 // =========================================
 // 8. 详情渲染（元信息 + Markdown 正文）
 // =========================================
+
+/**
+ * ⭐ C3（2026-10-11）：把「作者名」补成指向公开主页的链接。
+ *
+ * 站内各处手里只有 `author_id`（详情接口不带 slug），所以先问 `by-id` 要 slug：
+ *   * `200` 且 `user.slug` 有值 → 替换成 `<a href="./u.html?u=<slug>">`；
+ *   * `404`（作者**没有开启公开主页**）→ **保持纯文本**（不显示死链、不报错）。
+ *
+ * ⚠️ 按 `author_id` 缓存（`__authorProfileSlugCache`）：同一页渲染多篇时只发一次请求；
+ *    查过的 id 哪怕是 `null` 也记下来，避免反复 404。
+ * ⚠️ 匿名也可访问该接口（后端 `optional=True`），所以这里不带 token 也成立。
+ */
+var __authorProfileSlugCache = Object.create(null);
+
+function linkAuthorName(el, authorId) {
+  if (!el || authorId === null || authorId === undefined) return;
+  var key = String(authorId);
+  var apply = function (slug) {
+    if (!slug) return;
+    // 元素可能已被后续渲染替换掉 —— 必须重新确认它还在文档里
+    if (!el.isConnected) return;
+    var text = el.textContent || '';
+    var a = document.createElement('a');
+    a.href = './u.html?u=' + encodeURIComponent(slug);
+    a.title = '查看 ' + text + ' 的公开主页';
+    a.textContent = text;
+    el.textContent = '';
+    el.appendChild(a);
+  };
+  if (key in __authorProfileSlugCache) {
+    apply(__authorProfileSlugCache[key]);
+    return;
+  }
+  __authorProfileSlugCache[key] = null;      // 占位：并发渲染时只发一次
+  fetch(API_BASE_URL + '/api/v0/user/profile/by-id/' + encodeURIComponent(key))
+    .then(function (r) { return r.json().catch(function () { return null; }); })
+    .then(function (d) {
+      var slug = (d && d.code === 200 && d.data && d.data.user) ? d.data.user.slug : null;
+      __authorProfileSlugCache[key] = slug || null;
+      apply(slug);
+    })
+    .catch(function () { /* 网络失败：保持纯文本，不打扰用户 */ });
+}
+
 function renderDocDetailView(doc) {
   // 详情页专属面包屑（按文档所属文件夹渲染）
   renderDocBreadcrumb(null, doc.folder_id || doc.folderId || null);
@@ -1425,7 +1472,7 @@ function renderDocDetailView(doc) {
   if (__ov && __ov !== '0') {
     __ovText = /^\d+$/.test(__ov) ? ` · 归属用户 ID ${escapeHtml(__ov)}` : ` · 归属组 ${escapeHtml(__ov)}`;
   }
-  pills.push(`<span class="meta-pill">👤 <strong>${escapeHtml(author)}</strong>${__ovText}</span>`);
+  pills.push(`<span class="meta-pill">👤 <strong><span data-author-name="1">${escapeHtml(author)}</span></strong>${__ovText}</span>`);
   // 4. 创作时间
   pills.push(`<span class="meta-pill">📅 创建 <strong>${escapeHtml(fmtTime(doc.created_at))}</strong></span>`);
   // 5. 最新修改时间（Document.updated_at 冗余展示）
@@ -1439,6 +1486,13 @@ function renderDocDetailView(doc) {
   }
 
   if ($meta) $meta.innerHTML = pills.join('');
+
+  // ⭐ C3（2026-10-11）：作者名 → 公开主页链接（`u.html?u=<slug>`）。
+  //    为什么要「先渲染纯文本、再异步替换」：`by-id` 接口是异步的，而这一整块是同步拼 HTML 的。
+  //    ⚠️ 按 `author_id` 缓存 + 只发一次；**404（作者没开主页）就永远保持纯文本**，不显示死链。
+  if ($meta && doc.author_id !== null && doc.author_id !== undefined) {
+    linkAuthorName($meta.querySelector('[data-author-name]'), doc.author_id);
+  }
 
   // 绑定权限规则面板开关
   const rulesToggle = document.getElementById('docRulesToggle');

@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="./../css/core.css?v=20260911e">
     <link rel="stylesheet" href="./../css/styles.css?v=20260911e">
     <link rel="stylesheet" href="./../css/components.css?v=20260911e">
-    <link rel="stylesheet" href="./org.css?v=20261002a">
+    <link rel="stylesheet" href="./org.css?v=20261015a">
     <link rel="icon" href="./../favicon.png" type="image/png">
 </head>
 <body>
@@ -132,6 +132,27 @@
                                     </div>
                                 </div>
 
+                                <!-- ②b ⭐ P1-8（2026-10-15 审查）：申请加入 —— private 组的第三条自助路径。
+                                     后端一直是完整的（`GET /classes/<cid>/join-info` +
+                                     `POST /classes/<cid>/join` 回 `mode='requested'`），但此前**只有发现页
+                                     才有入口**：本页说明写着"可申请加入"，实际却只有公开组按钮，
+                                     `org.js` 的 `mode='requested'` 分支正常 UI 不可达 →
+                                     看到提示的用户在这里无路可走。 -->
+                                <div class="org-joinfield">
+                                    <label class="org-joinfield__label" for="joinApplyInput">申请加入私有组</label>
+                                    <div class="org-joinfield__row">
+                                        <input type="text" id="joinApplyInput" autocomplete="off"
+                                               placeholder="组标识（3 位字母，如 dev）"
+                                               maxlength="3" class="org-joinfield__input">
+                                        <button type="button" class="org-btn org-btn--primary" id="joinApplyBtn">提交申请</button>
+                                    </div>
+                                    <p class="org-joinfield__hint">
+                                        私有组（private）若没有邀请码 / 链接，可以在这里提交加入申请，等管理员批准。
+                                        提交前会先查一下这个组类是否存在、你是否已经在里面（`GET …/join-info`）；
+                                        公开组会直接入组。
+                                    </p>
+                                </div>
+
                                 <!-- ③ 我提交的申请 -->
                                 <div class="org-joinfield">
                                     <label class="org-joinfield__label">我提交的加入申请</label>
@@ -237,6 +258,6 @@
 <script src="./../js/toast.js?v=20260911e"></script>
 <script src="./../js/modal.js?v=20260911e"></script>
 <script src="./../js/index.js?v=20260911e"></script>
-<script src="./org.js?v=20261002a"></script>
+<script src="./org.js?v=20261015a"></script>
 </body>
 </html>

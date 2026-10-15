@@ -548,7 +548,273 @@
   border-top: 1px solid var(--color-border);
 }
 
-/* --- 空状态 / 错误态 --- */
+/* =========================================
+   ⭐ P1-2（2026-10-15 审查）：document.html / js/document.js 真实使用、
+   但 document.css（乃至全仓）**一个规则都没有**的类名。此前详情页的标题 /
+   元信息 / 状态块 / 只读横幅 / 搜索框 / 移动端「☰ 目录」按钮全是浏览器默认渲染。
+   ⚠️ 可见性一律由 JS 写内联 `style.display`（viewHome / viewDetail / docState404 /
+   docState403 / docGroupReadmeBanner / docRulesPanel / docRevisions 等），
+   所以这一族**只写外观、不写 display**，避免把 JS 的开关压掉。
+   ⚠️ 文字色 / 背景一律走 core.css 变量（带 fallback），让 4 套主题都能覆盖。
+   ========================================= */
+
+/* 视图容器（内容宽度交给各视图自己约束） */
+.doc-view { width: 100%; }
+.doc-view--detail { max-width: 900px; margin: 0 auto; }
+.doc-detail-wrap { max-width: 900px; margin: 0 auto; }
+
+/* 顶部返回 + 标题 + 导出 */
+.doc-header {
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+.doc-back-btn {
+  display: inline-block;
+  margin-bottom: 10px;
+  font-size: 0.85rem;
+  color: var(--color-text-sub, #4b5563);
+  text-decoration: none;
+}
+.doc-back-btn:hover { color: var(--color-primary); }
+.doc-title {
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--color-text-main);
+  word-break: break-word;
+  margin: 0;
+}
+
+/* 元信息条（js 往 #docMeta 里塞 .meta-pill / 权限网格） */
+.doc-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-bottom: 12px;
+}
+.meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--color-bg-section-alt);
+  border: 1px solid var(--color-border);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--color-text-sub, #4b5563);
+}
+/* ⚠️ 实际类名是 `is-public / is-group / is-private`（见 js/document.js::renderDocMeta 的 visClass） */
+.doc-visibility-badge.is-public { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+.doc-visibility-badge.is-group { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+.doc-visibility-badge.is-private { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.doc-ownership-pill { background: #fef3c7; color: #92400e; }
+.doc-group-pill { background: #ede9fe; color: #5b21b6; }
+.doc-rules-toggle { cursor: pointer; }
+
+/* 正文（Markdown：document.js 强制 marked → sanitizeHtml，失败降级纯文本） */
+.doc-content {
+  line-height: 1.8;
+  font-size: 1rem;
+  color: var(--color-text-main);
+  word-break: break-word;
+}
+.doc-content h1, .doc-content h2, .doc-content h3, .doc-content h4 {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.doc-content h1 { font-size: 1.75rem; }
+.doc-content h2 { font-size: 1.4rem; border-bottom: 1px solid var(--color-border); padding-bottom: 6px; }
+.doc-content h3 { font-size: 1.2rem; }
+.doc-content p { margin-bottom: 1em; }
+.doc-content ul, .doc-content ol { padding-left: 24px; margin-bottom: 1em; }
+.doc-content li { margin-bottom: 0.3em; }
+.doc-content pre {
+  background: #1e293b;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin-bottom: 1em;
+}
+.doc-content code {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Consolas, monospace);
+}
+.doc-content pre code { background: none; padding: 0; color: #e2e8f0; }
+.doc-content blockquote {
+  border-left: 4px solid var(--color-primary);
+  padding-left: 16px;
+  margin: 0 0 1em;
+  color: var(--color-text-muted);
+}
+.doc-content img { max-width: 100%; border-radius: 8px; margin: 1em 0; }
+.doc-content table { width: 100%; border-collapse: collapse; margin-bottom: 1em; }
+.doc-content th, .doc-content td {
+  border: 1px solid var(--color-border);
+  padding: 8px 12px;
+  text-align: left;
+}
+.doc-content th { background: var(--color-bg-section-alt); font-weight: 600; }
+
+/* 状态块（空态 / 404 / 403）与 404-403 里的操作按钮 */
+.doc-state {
+  text-align: center;
+  padding: 56px 20px;
+  color: var(--color-text-muted);
+}
+.doc-state__icon { font-size: 3rem; line-height: 1; margin-bottom: 12px; }
+.doc-state__title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text-main);
+  margin: 0 0 8px;
+}
+.doc-state__desc {
+  font-size: 0.9rem;
+  line-height: 1.7;
+  max-width: 560px;
+  margin: 0 auto 16px;
+}
+.doc-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+.doc-state__btn { display: inline-block; }
+.doc-state__btn--alt { background: var(--color-bg-section-alt); color: var(--color-text-main); border: 1px solid var(--color-border); }
+
+/* 组根目录只读警示横幅（slug=group-readme 时 JS 打开） */
+.doc-warning-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: var(--radius-md);
+  color: #92400e;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.doc-warning-banner__icon { flex-shrink: 0; line-height: 1.4; }
+.doc-warning-banner__text { flex: 1; min-width: 0; }
+
+/* 侧栏：搜索框 / 文件夹区 / 目录树 / 加载文字 */
+.doc-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-white);
+  color: var(--color-text-main);
+}
+.doc-search-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+.doc-folders {
+  padding: 8px 12px 4px;
+  border-bottom: 1px dashed var(--color-border);
+}
+.doc-folders__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 6px;
+}
+.doc-folders__title { font-size: 0.8rem; font-weight: 700; color: var(--color-text-muted); }
+.doc-folders__list { display: flex; flex-direction: column; gap: 2px; min-height: 8px; }
+.doc-sidebar__tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.doc-loading-text {
+  padding: 6px 4px;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+.doc-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  color: var(--color-text-main);
+  text-decoration: none;
+  transition: background-color 0.15s, color 0.15s;
+}
+.doc-item:hover { background: var(--color-bg-section-alt); }
+.doc-item.is-active { background: var(--color-primary); color: #fff; }
+.doc-item__icon { flex-shrink: 0; }
+.doc-empty-tip {
+  padding: 24px 8px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+/* 元信息里的权限矩阵（js/document.js 的 .doc-perm-grid*） */
+.doc-perm-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-section-alt);
+  font-size: 0.75rem;
+  width: 100%;
+  max-width: 420px;
+}
+.doc-perm-grid__row {
+  display: grid;
+  grid-template-columns: 60px 1fr 40px;
+  gap: 8px;
+  align-items: center;
+  padding: 2px 0;
+}
+.doc-perm-grid__label { color: var(--color-text-muted); }
+.doc-perm-grid__role { color: var(--color-text-sub, #4b5563); }
+/* ⚠️ 实际类名是 `is-yes / is-no`（+ 超管行 `is-force`），见 js/document.js::renderDocMeta */
+.doc-perm-grid__mark { text-align: center; font-weight: 700; }
+.doc-perm-grid__mark.is-yes { color: #059669; }
+.doc-perm-grid__mark.is-no { color: #dc2626; }
+.doc-perm-grid__row.is-force .doc-perm-grid__mark { color: #2563eb; }
+
+/* 移动端：默认隐藏的「☰ 目录」按钮在窄屏出现 */
+.doc-sidebar-toggle {
+  display: none;
+  margin-bottom: 12px;
+  padding: 7px 14px;
+  font-size: 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-white);
+  color: var(--color-text-main);
+  cursor: pointer;
+}
+
+/* 空状态 / 错误态 --- */
 .doc-error {
   text-align: center;
   padding: 60px 20px;
@@ -572,6 +838,8 @@
   .doc-sidebar.is-open { transform: translateX(0); }
   .doc-sidebar__close { display: block; }
   .doc-main { padding: 16px; }
+  /* ⭐ P1-2：窄屏才显示「☰ 目录」（移动端抽屉入口；宽屏隐藏） */
+  .doc-sidebar-toggle { display: inline-block; }
   .doc-detail__title { font-size: 1.5rem; }
   .doc-perm-matrix { grid-template-columns: repeat(3, 1fr); }
 }

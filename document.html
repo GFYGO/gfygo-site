@@ -7,7 +7,11 @@
   <title>文档 | GWL</title>
   <link rel="stylesheet" href="./css/core.css?v=20260911d">
   <link rel="stylesheet" href="./css/styles.css?v=20260911d">
-  <link rel="stylesheet" href="./css/document.css?v=20261011a">
+  <link rel="stylesheet" href="./css/document.css?v=20261015a">
+  <!-- ⭐ P1-2（2026-10-15 审查）：本页 .feature-grid / .feature-tile 的唯一来源是
+       feature-grid.css（首页也用它），此前本页没加载 → 主页「文档列表」卡片网格
+       与两个外链入口都是裸链接。见 css/README.md 的加载关系表。 -->
+  <link rel="stylesheet" href="./css/feature-grid.css?v=20260911d">
   <link rel="stylesheet" href="./css/components.css?v=20260911d">
   <link rel="icon" href="./favicon.png" type="image/png">
 </head>
@@ -283,6 +287,6 @@
   <script src="./js/toast.js?v=20260911d"></script>
   <script src="./js/modal.js?v=20260911d"></script>
   <script src="./js/index.js?v=20260911e"></script>
-  <script src="./js/document.js?v=20261011a"></script>
+  <script src="./js/document.js?v=20261013a"></script>
 </body>
 </html>

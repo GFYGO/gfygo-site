@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>用户主页 | GWL</title>
+  <link rel="stylesheet" href="./css/core.css?v=20261015a">
+  <link rel="stylesheet" href="./css/styles.css?v=20261015a">
+  <link rel="stylesheet" href="./css/components.css?v=20261015a">
+  <link rel="icon" href="./favicon.png?v=20261015a" type="image/png">
+  <style>
+    /* =========================================
+       u.html（公开用户主页 /「他人主页」）本页专属样式
+       ⚠️ 归属说明：本页不新增 / 不修改任何 css/ 下的共享文件，也不提升它们的 ?v=
+       （按 css/README.md「添加新页面的步骤」第 4 条：页面专属样式写在本页 <style> 块）。
+       只使用 core.css 的 CSS 变量与既有风格；类名统一 up- 前缀，不覆盖任何共享类。
+       结构 / 类名 / 文案与 js/user-profile.js 的渲染一一对应，改一处要同步另一处。
+       ========================================= */
+    /* ⭐ P1-4（2026-10-15 审查）：`[hidden]` 兜底。
+       js/user-profile.js 全靠 `element.hidden = true/false` 控制显隐
+       （#upEditLink / #upDocsHint / #upLoadMore / #upPageState / 组区 / 文档区），
+       而本页下方给同族元素写了作者来源的 `display`（.up-edit-link → inline-block、
+       .up-state__hint → block、.up-load-more → flex、.up-state → flex）。
+       作者规则的来源顺序恒优先于 UA 的 `[hidden]{display:none}` → hidden 全面失效：
+       「✏️ 编辑主页」常显、「正在加载公开文档…」常驻、无更多数据时「加载更多」还在、
+       资料加载完后 #upPageState 不消失。这里用 `!important` 把 UA 语义拿回来；
+       它只作用于"带 hidden 属性"的元素，正常显示的路径不受影响。 */
+    [hidden] {
+      display: none !important;
+    }
+    .up-main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+    .up-card {
+      background: var(--color-bg-section);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      padding: 28px;
+    }
+    /* ---- 头部：头像 + 名字 + 简介 + 元信息 ---- */
+    .up-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .up-avatar {
+      width: 92px;
+      height: 92px;
+      flex: none;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 3px solid var(--color-border);
+      background: var(--color-bg-section-alt);
+    }
+    .up-avatar svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .up-heading {
+      flex: 1;
+      min-width: 220px;
+    }
+    .up-display-name {
+      font-size: 1.6rem;
+      font-weight: 800;
+      line-height: 1.35;
+      color: var(--color-text-main);
+      word-break: break-word;
+      margin-bottom: 4px;
+    }
+    .up-username {
+      font-size: 0.95rem;
+      color: var(--color-text-muted);
+      word-break: break-all;
+    }
+    /* 编辑入口：仅 user.is_me 为真时由脚本显示（HTML 先 hidden） */
+    .up-edit-link {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 7px 16px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-primary);
+      background: var(--color-primary);
+      color: #fff;
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+    .up-edit-link:hover {
+      background: var(--color-primary-hover);
+      border-color: var(--color-primary-hover);
+    }
+    .up-intro {
+      margin-top: 16px;
+      font-size: 0.95rem;
+      line-height: 1.7;
+      color: var(--color-text-muted);
+      /* 后端 introduction 里的换行按原样保留（文本由 textContent 写入，不解析 HTML） */
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .up-intro:empty,
+    .up-location:empty {
+      display: none;
+    }
+    .up-location {
+      margin-top: 8px;
+      font-size: 0.875rem;
+      color: var(--color-text-muted);
+    }
+    .up-facts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 28px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--color-border);
+      font-size: 0.85rem;
+      color: var(--color-text-muted);
+    }
+    .up-fact dt {
+      font-weight: 600;
+      color: var(--color-text-main);
+    }
+    .up-fact dd {
+      margin-top: 2px;
+      word-break: break-all;
+    }
+    .up-stats {
+      margin-top: 20px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--color-text-main);
+    }
+    /* ---- 分区：公开文档 / 加入的公开组 ---- */
+    .up-section {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--color-border);
+    }
+    .up-section__title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--color-text-main);
+      margin-bottom: 12px;
+    }
+    /* ---- 文档卡片（观感对齐 js/document.js 的 .feature-tile 文档卡片，此处自带一份） ---- */
+    .up-docs {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .up-doc {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px;
+      background: var(--color-bg-white);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .up-doc:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--color-primary);
+    }
+    .up-doc__icon {
+      width: 48px;
+      height: 48px;
+      flex: none;
+      border-radius: var(--radius-md);
+      background: var(--color-bg-section-alt);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      color: var(--color-primary);
+    }
+    .up-doc__content {
+      flex: 1;
+      min-width: 0;
+    }
+    .up-doc__title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--color-text-main);
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+    .up-doc__desc {
+      font-size: 0.85rem;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .up-doc__desc--muted {
+      opacity: 0.75;
+    }
+    /* ---- 组 chips ---- */
+    .up-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .up-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-secondary);
+      color: var(--color-text-main);
+      font-size: 0.85rem;
+      text-decoration: none;
+    }
+    a.up-chip:hover {
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+    .up-chip__role {
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+    }
+    .up-chip__kind {
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+    }
+    /* ---- 状态块（加载中 / 空态 / 错误态）---- */
+    .up-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      text-align: center;
+      padding: 20px 0;
+    }
+    .up-state--filled {
+      padding: 48px 24px;
+      background: var(--color-bg-section);
+      border: 1px dashed var(--color-border);
+      border-radius: var(--radius-lg);
+    }
+    .up-state--error {
+      border-style: solid;
+      border-color: #ef4444;
+    }
+    .up-state__icon {
+      font-size: 2rem;
+      line-height: 1;
+    }
+    .up-state__text {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--color-text-main);
+    }
+    .up-state__hint {
+      display: block;
+      font-size: 0.875rem;
+      color: var(--color-text-muted);
+      max-width: 520px;
+    }
+    /* ---- 「加载更多」：与 document.css 的 .doc-load-more 同款外观（本页自带一份） ---- */
+    .up-load-more {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      margin-top: 18px;
+    }
+    .up-load-more__info {
+      font-size: 12px;
+      color: var(--color-text-muted);
+    }
+    .up-load-more__btn {
+      padding: 6px 18px;
+      font-size: 13px;
+      border: 1px solid var(--color-border);
+      border-radius: 999px;
+      background: var(--color-bg-secondary);
+      color: var(--color-text-main);
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+    .up-load-more__btn:hover:not(:disabled) {
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      color: #fff;
+    }
+    .up-load-more__btn:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+  </style>
+</head>
+<body>
+  <!--
+    公开用户主页（「他人主页」，设计 §4.3.4）：顶层页面，资源前缀 ./，与 document.html 同套范式。
+    地址形式：
+      * 对外（可分享）：u.html?u=<slug>          → GET /api/v0/user/profile/<slug>
+      * 站内（作者名链接只知道 author_id）：u.html?id=<user_id> → GET /api/v0/user/profile/by-id/<id>
+      两者同时出现时 **u 优先**（见 js/user-profile.js::readTarget）。
+    两个接口都是**公开**的（匿名可取），404（未开启公开主页 / 不存在 / 非法 slug）返回同一句
+    「该用户没有开启公开主页」——本页把它作为空态文案原样展示，不当错误处理。
+    渲染逻辑全部在 js/user-profile.js（本页不含内联脚本、不含内联 on* 事件）。
+  -->
+  <header class="header">
+    <div class="header__logo">GWL Works Lab</div>
+
+    <!-- 移动端汉堡菜单按钮 -->
+    <button class="header__toggle" id="menuToggle" aria-label="切换菜单">☰</button>
+
+    <!-- 导航链接 -->
+    <nav class="header__nav" id="headerNav">
+      <a href="./index.html">首页</a>
+      <a href="./document.html">文档</a>
+      <a href="./org/index.html">组织</a>
+      <a href="./discover/index.html">发现</a>
+      <a href="./login.html">登录</a>
+      <a href="./register.html">注册</a>
+    </nav>
+
+    <!-- 右侧操作区：通知和用户信息 -->
+    <div class="header__actions">
+      <div id="auth-container"></div>
+      <div class="permission-buttons" id="permissionButtons"></div>
+    </div>
+  </header>
+
+  <!-- 全局通知容器（在 header 下方，fixed 定位） -->
+  <div id="global-notifications-container" class="notification-toast"></div>
+
+  <main class="up-main">
+    <!-- 页面级状态：缺少用户参数 / 加载中 / 404 未开启公开主页 / 加载失败 -->
+    <div class="up-state up-state--filled" id="upPageState">
+      <p class="up-state__text" id="upPageStateText">正在加载…</p>
+    </div>
+
+    <!-- 主页主体（数据到位后才显示） -->
+    <section class="up-card" id="upProfile" hidden>
+      <div class="up-head">
+        <div class="up-avatar" id="upAvatar"></div>
+        <div class="up-heading">
+          <h1 class="up-display-name" id="upDisplayName"></h1>
+          <p class="up-username" id="upUsername"></p>
+          <!-- 仅 user.is_me 为真时显示（由脚本去掉 hidden） -->
+          <a class="up-edit-link" id="upEditLink" href="./user/dashboard.html#panel-home" hidden>✏️ 编辑主页</a>
+        </div>
+      </div>
+
+      <p class="up-intro" id="upIntro"></p>
+      <p class="up-location" id="upLocation"></p>
+
+      <dl class="up-facts">
+        <div class="up-fact">
+          <dt>用户 ID</dt>
+          <dd id="upFactId"></dd>
+        </div>
+        <div class="up-fact">
+          <dt>加入于</dt>
+          <dd id="upFactJoined"></dd>
+        </div>
+      </dl>
+
+      <!-- 统计行：N 篇公开文档 · M 个公开组 -->
+      <p class="up-stats" id="upStats"></p>
+
+      <section class="up-section" id="upDocsSection">
+        <h2 class="up-section__title">📚 公开文档</h2>
+        <p class="up-state__hint" id="upDocsHint" hidden>正在加载公开文档…</p>
+        <div class="up-docs" id="upDocsGrid"></div>
+        <!-- 「加载更多」刻意放在 #upDocsGrid **之外**：该网格是整体替换的，放里面会被下次渲染冲掉 -->
+        <div class="up-load-more" id="upLoadMore" hidden>
+          <span class="up-load-more__info" id="upLoadMoreInfo"></span>
+          <button type="button" class="up-load-more__btn" id="upLoadMoreBtn">加载更多</button>
+        </div>
+      </section>
+
+      <section class="up-section" id="upGroupsSection">
+        <h2 class="up-section__title">👥 加入的公开组</h2>
+        <div class="up-chips" id="upGroupsChips"></div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer__container">
+      <div class="footer__top">
+        <div class="footer__brand">
+          <h3 class="footer__logo">GWL Works Lab</h3>
+          <p class="footer__slogan">探索学习的无限可能</p>
+        </div>
+        <div class="footer__links">
+          <div class="footer__links-group">
+            <h4>快速链接</h4>
+            <a href="./index.html">首页</a>
+            <a href="./document.html">文档</a>
+            <a href="./org/index.html">组织</a>
+            <a href="./discover/index.html">发现</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer__bottom">
+        <p>&copy; 2026 GFYGO. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- 主题切换悬浮按钮 -->
+  <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
+
+  <!-- 脚本顺序固定：config → utils → sanitize → theme → toast → index → user-profile（契约 §7.2 / 设计 §4.3.4） -->
+  <script src="./js/config.js?v=20261015a"></script>
+  <script src="./js/utils.js?v=20261015a"></script>
+  <script src="./js/sanitize.js?v=20261015a"></script>
+  <script src="./js/theme.js?v=20261015a"></script>
+  <script src="./js/toast.js?v=20261015a"></script>
+  <script src="./js/index.js?v=20261015a"></script>
+  <script src="./js/user-profile.js?v=20261015a"></script>
+</body>
+</html>

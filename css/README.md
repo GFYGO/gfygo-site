@@ -46,7 +46,7 @@ login.html            → css/core.css + css/styles.css + css/login.css + css/fo
 register.html         → css/core.css + css/styles.css + css/login.css + css/register.css + css/components.css
 forgot.html           → css/core.css + css/styles.css + css/login.css + css/forgot.css + css/components.css
 reset.html            → css/core.css + css/styles.css + css/login.css + css/forgot.css + css/components.css
-document.html         → css/core.css + css/styles.css + css/document.css + css/components.css
+document.html         → css/core.css + css/styles.css + css/document.css + css/feature-grid.css + css/components.css
 404.html              → css/core.css + css/styles.css + css/components.css
 user/dashboard.html   → css/core.css + css/styles.css + css/components.css
                         + user/dashboard.css + user/dashboard-profile.css + user/dashboard-admin.css

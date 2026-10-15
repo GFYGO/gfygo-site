@@ -698,6 +698,29 @@
     flex-wrap: wrap;
 }
 
+/* ⭐ C2 批量操作条（2026-10-11）：固定在两个列表容器**之外**，
+   选中 ≥1 篇时由 dashboard.pdocs.js::renderPdocsBulkBar() 显示（display:flex）。 */
+.pdocs-bulkbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    padding: 8px 12px;
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 8px;
+    background: var(--color-surface-muted, rgba(0, 0, 0, 0.02));
+}
+
+/* 多选复选框：文档卡片左上角 / 回收站行首。⚠️ 必须能点，且点击不冒泡到条目本身 */
+.pdocs-explorer-item__check {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    cursor: pointer;
+}
+
 /* 导入下拉菜单 */
 .pdocs-dropdown {
     position: relative;
@@ -1401,6 +1424,168 @@
 
 /* ============================================================
  * 浏览视图（只读 Markdown 查看）
+ * ============================================================ */
+/* ⭐ P1-1（2026-10-15 审查）：下面这一族（`pdocs-browser-*`，连字符）才是
+ * `dashboard.html` 里真实使用的类名；原来这里只有 `pdocs-browser__*`（BEM 双下划线），
+ * 两族**零交集** → 浏览视图（标题栏 / 元信息 / 正文）整体按浏览器默认渲染，
+ * Markdown 裸着出来。这里把连字符族补齐（**修法二选一里的"补 CSS"**：不改 HTML、不动 JS、
+ * 不影响任何既有选择器命中）。
+ * ⚠️ `#pdocsBrowserContent` 同时还挂着 `markdown-body`，那是个无任何定义的历史类名，
+ *    本页正文样式一律走 `.pdocs-browser-content`，不要再依赖它。
+ * ⚠️ 下面那段 `pdocs-browser__*`（BEM）全仓零引用，属待清理的死 CSS，先留着不动。 */
+.pdocs-browser-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.pdocs-browser-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+}
+
+.pdocs-browser-icon {
+    font-size: 1.6rem;
+    flex-shrink: 0;
+}
+
+.pdocs-browser-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--color-text-main, #1f2937);
+    word-break: break-word;
+    min-width: 0;
+}
+
+.pdocs-browser-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.pdocs-browser-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 12px 0;
+    font-size: 0.8rem;
+    color: var(--color-text-muted, #9ca3af);
+}
+
+.pdocs-browser-body {
+    border-top: 1px solid var(--color-border, #e5e7eb);
+    padding-top: 12px;
+}
+
+.pdocs-browser-content {
+    min-height: 300px;
+    padding: 4px 2px 40px;
+    line-height: 1.75;
+    color: var(--color-text-main, #1f2937);
+    word-break: break-word;
+}
+
+.pdocs-browser-content h1,
+.pdocs-browser-content h2,
+.pdocs-browser-content h3,
+.pdocs-browser-content h4 {
+    margin: 20px 0 8px;
+    color: var(--color-text-main, #1f2937);
+    line-height: 1.3;
+}
+
+.pdocs-browser-content h1 { font-size: 1.5rem; }
+.pdocs-browser-content h2 { font-size: 1.25rem; }
+.pdocs-browser-content h3 { font-size: 1.1rem; }
+
+.pdocs-browser-content p { margin: 8px 0; }
+
+.pdocs-browser-content pre {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 12px;
+    border-radius: var(--radius-md, 8px);
+    overflow-x: auto;
+    font-size: 0.85rem;
+}
+
+.pdocs-browser-content code {
+    background: var(--color-bg-secondary, #f3f4f6);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Consolas, monospace);
+}
+
+.pdocs-browser-content pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+}
+
+.pdocs-browser-content ul,
+.pdocs-browser-content ol {
+    padding-left: 24px;
+    margin: 8px 0;
+}
+
+.pdocs-browser-content li { margin-bottom: 0.3em; }
+
+.pdocs-browser-content blockquote {
+    border-left: 4px solid var(--color-primary, #10b981);
+    padding-left: 12px;
+    margin: 12px 0;
+    color: var(--color-text-sub, #4b5563);
+}
+
+.pdocs-browser-content a {
+    color: var(--color-primary, #2563eb);
+    text-decoration: none;
+}
+.pdocs-browser-content a:hover { text-decoration: underline; }
+
+.pdocs-browser-content img {
+    max-width: 100%;
+    border-radius: var(--radius-md, 8px);
+    margin: 8px 0;
+}
+
+.pdocs-browser-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+}
+
+.pdocs-browser-content th,
+.pdocs-browser-content td {
+    border: 1px solid var(--color-border, #e5e7eb);
+    padding: 6px 10px;
+    font-size: 0.9rem;
+    text-align: left;
+}
+
+.pdocs-browser-content th {
+    background: var(--color-bg-secondary, #f9fafb);
+    font-weight: 600;
+}
+
+/* 深色主题下正文代码块配深底（与 document.css 同一处理） */
+body.theme-dark_green .pdocs-browser-content pre,
+body.theme-gray .pdocs-browser-content pre {
+    background: #0f172a;
+}
+
+/* ============================================================
+ * 浏览视图（只读 Markdown 查看）—— BEM 族（`__`）
+ * ⚠️ 2026-10-15 审查：下面这一族在**全仓零引用**（HTML/JS 都不用），
+ *    只是历史上曾计划改用的命名。属 §4.4 的死 CSS，保留原位待清理，
+ *    真正生效的是上面连字符族。
  * ============================================================ */
 .pdocs-browser {
     background: var(--color-bg-white, #fff);
