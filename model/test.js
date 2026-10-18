@@ -594,20 +594,6 @@
             } catch (e) { showError(e.message); }
         },
 
-        async adminPermAssignments() {
-            appendApiOutput('➡️ GET /admin/permission-assignments', { loading: true });
-            try {
-                const t = prompt('类型 (level/user/group)：', 'level');
-                if (!t) { showError('已取消'); return; }
-                const id = prompt('scope_id：', '1');
-                if (id === null) { showError('已取消'); return; }
-                const lv = prompt('level：', '1');
-                const url = API_BASE_URL + '/api/v0/admin/permission-assignments?type=' + encodeURIComponent(t) + '&id=' + encodeURIComponent(id) + (lv ? '&level=' + encodeURIComponent(lv) : '');
-                const d = await authedGet(url, true);
-                appendApiOutput('✅ GET /admin/permission-assignments', d);
-            } catch (e) { showError(e.message); }
-        },
-
         async adminUserDetail() {
             appendApiOutput('➡️ GET /admin/users?q=', { loading: true });
             try {
@@ -810,21 +796,28 @@
             } catch (e) { showError(e.message); }
         },
 
-        async userDynamicPage() {
-            appendApiOutput('➡️ GET /user/dynamic-page/<key>', { loading: true });
+        // ⭐ 2026-10-18：旧示例调的是已下线的 /user/dynamic-page/<key>；
+        // 现行机制是 POST /api/v0/page/<tab_key>/<action>（见 API-WIKI §4）。
+        async pageAction() {
+            appendApiOutput('➡️ POST /page/<tab_key>/<action>', { loading: true });
             try {
-                const key = prompt('输入 tab_key：');
-                if (!key) { showError('已取消'); return; }
-                const d = await authedGet(API_BASE_URL + '/api/v0/user/dynamic-page/' + encodeURIComponent(key));
-                appendApiOutput('✅ GET /user/dynamic-page/' + key, d);
+                const tabKey = prompt('tab_key（页面标识，如 ai-demo）：', 'ai-demo');
+                if (!tabKey) { showError('已取消'); return; }
+                const action = prompt('action（该页 site.py 的 ROUTES 键，如 ping）：', 'ping');
+                if (!action) { showError('已取消'); return; }
+                const d = await authedJson('POST',
+                    API_BASE_URL + '/api/v0/page/' + encodeURIComponent(tabKey) + '/' + encodeURIComponent(action), {});
+                appendApiOutput('✅ POST /page/' + tabKey + '/' + action, d);
             } catch (e) { showError(e.message); }
         },
 
-        async userPagesRefresh() {
-            appendApiOutput('➡️ POST /user/pages/refresh', { loading: true });
+        // ⭐ 2026-10-18：旧示例调的是已下线的 /user/pages/refresh；
+        // 刷新接口已迁到管理端 /admin/pages/refresh（需 admin 上下文）。
+        async adminPagesRefresh() {
+            appendApiOutput('➡️ POST /admin/pages/refresh', { loading: true });
             try {
-                const d = await authedJson('POST', API_BASE_URL + '/api/v0/user/pages/refresh');
-                appendApiOutput('✅ POST /user/pages/refresh', d);
+                const d = await authedJson('POST', API_BASE_URL + '/api/v0/admin/pages/refresh', undefined, true);
+                appendApiOutput('✅ POST /admin/pages/refresh', d);
             } catch (e) { showError(e.message); }
         },
 

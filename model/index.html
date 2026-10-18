@@ -4,20 +4,25 @@
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GWL | 模板原型</title>
+  <meta name="description" content="GWL 模型 / 原型实验区：页面模板、API 测试面板与 Debug Shell。">
+  <title>GWL | 模型与原型</title>
   <link rel="stylesheet" href="../css/core.css?v=20261016a">
-  <link rel="stylesheet" href="../css/styles.css?v=20261016a">
+  <link rel="stylesheet" href="../css/styles.css?v=20261018a">
   <link rel="stylesheet" href="../css/components.css?v=20261016a">
+  <link rel="stylesheet" href="../css/feature-grid.css?v=20261016a">
   <link rel="icon" href="../favicon.png" type="image/png">
   <style>
-    .test-btn {
-      display: inline-block; padding: 8px 20px;
-      border: 1px solid var(--color-border); border-radius: 5px;
-      background: var(--color-bg-white); color: var(--color-text-main);
-      font-size: 0.85rem; cursor: pointer; font-family: inherit;
-      transition: all 0.15s;
+    .model-hero__note {
+      max-width: 640px;
+      margin-top: 18px;
+      padding: 10px 14px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-bg-white);
+      color: var(--color-text-muted);
+      font-size: 0.85rem;
+      line-height: 1.6;
     }
-    .test-btn:hover { background: var(--color-bg-section-alt); border-color: var(--color-primary); }
   </style>
 </head>
 <body>
@@ -28,6 +33,7 @@
       <a href="../index.html">首页</a>
       <a href="../document.html">文档</a>
       <a href="../org/index.html">组织</a>
+      <a href="./index.html" aria-current="page" style="color: var(--color-primary); font-weight: 600;">模型</a>
       <a href="../discover/index.html">发现</a>
       <a href="../login.html">登录</a>
       <a href="../register.html">注册</a>
@@ -40,10 +46,41 @@
 
   <main>
     <section class="home-section">
-      <h1 class="home-section__title">模板原型</h1>
-      <p class="home-section__desc">这是一个用于设计和测试的模板原型页面。</p>
-      <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap;">
-        <a href="test.html" class="test-btn" style="display:inline-block;width:auto;padding:8px 20px;text-decoration:none;">🧪 测试面板</a>
+      <p class="home-hero__eyebrow" style="display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border:1px solid var(--color-border);border-radius:999px;background:var(--color-bg-white);color:var(--color-text-muted);font-size:0.8rem;">🧪 开发 / 原型 · 不面向普通访客</p>
+      <h1 class="home-section__title">模型与原型</h1>
+      <p class="home-section__desc">
+        这里放的是站点开发时用的原型页与调试工具：API 测试面板、Debug Shell 和通用页面模板。
+        它们会<strong>调用真实接口</strong>，部分操作会写数据，请只在自己的账号下使用。
+      </p>
+      <p class="model-hero__note">
+        ⚠️ 这些页面在 GitHub Pages 上是公开可访问的（发布 workflow 未排除 <code>model/</code>）；
+        真正的权限仍由后端 JWT 控制，但请不要把敏感信息写进页面。
+      </p>
+
+      <div class="feature-grid">
+        <a class="feature-tile" href="./test.html">
+          <div class="feature-tile__img">🧪</div>
+          <div class="feature-tile__content">
+            <div class="feature-tile__title">API 测试面板</div>
+            <div class="feature-tile__desc">逐条按钮调用 auth / document / admin 接口，查看缓存与状态</div>
+          </div>
+        </a>
+
+        <a class="feature-tile" href="./debug.html">
+          <div class="feature-tile__img">💻</div>
+          <div class="feature-tile__content">
+            <div class="feature-tile__title">Debug Shell</div>
+            <div class="feature-tile__desc">终端式调试：登录、查 token、拉文档 / 通知 / 管理数据</div>
+          </div>
+        </a>
+
+        <a class="feature-tile" href="./template.html">
+          <div class="feature-tile__img">📄</div>
+          <div class="feature-tile__content">
+            <div class="feature-tile__title">页面模板</div>
+            <div class="feature-tile__desc">复制即用的 HTML 骨架（导航 / 页脚 / 脚本顺序）</div>
+          </div>
+        </a>
       </div>
     </section>
   </main>
@@ -56,11 +93,14 @@
           <p class="footer__slogan">探索学习的无限可能</p>
         </div>
         <div class="footer__links">
-          <div class="footer__links-group">
+          <div class="footer__links-group footer__links-group--quick">
             <h4>快速链接</h4>
             <a href="../index.html">首页</a>
             <a href="../document.html">文档</a>
             <a href="../login.html">登录</a>
+            <a href="../org/index.html">组织</a>
+            <a href="../discover/index.html">发现</a>
+            <a href="../register.html">注册</a>
           </div>
           <div class="footer__links-group">
             <h4>关于</h4>
@@ -73,8 +113,8 @@
       <div class="footer__bottom">
         <p>&copy; 2026 GFYGO. All rights reserved.</p>
         <div class="footer__social">
-          <a href="#" aria-label="GitHub">GitHub</a>
-          <a href="#" aria-label="Bilibili">Bilibili</a>
+          <a href="https://github.com/GFYGO/gfygo-site" target="_blank" rel="noopener noreferrer" aria-label="GitHub">GitHub</a>
+          <a href="https://www.bilibili.com/video/BV1g34y1j7e5/" target="_blank" rel="noopener noreferrer" aria-label="Bilibili">Bilibili</a>
         </div>
       </div>
     </div>
@@ -82,7 +122,7 @@
 
   <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
-  <script src="../js/config.js?v=20261002a"></script>
+  <script src="../js/config.js?v=20261018a"></script>
   <script src="../js/theme.js?v=20260911d"></script>
   <script src="../js/toast.js?v=20261016a"></script>
   <script src="../js/index.js?v=20261016a"></script>

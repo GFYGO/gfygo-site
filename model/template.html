@@ -3,39 +3,41 @@
   GFYGO 通用页面模板 (template.html)
   ====================================
   使用说明：
-  1. 复制此文件到目标位置（根目录或 user/ 子目录）
-  2. 修改 <title> 和主体内容
+  1. 复制此文件到目标位置（根目录 / user/ / org/ / discover/ / model/）
+  2. 修改 <title>、<meta name="description"> 和主体内容
   3. 根据所在目录调整相对路径：
-     - 根目录页面：CSS href="./css/xxx.css?v=20260911d"  JS src="./js/xxx.js?v=20260911d"
-     - 子目录页面：CSS href="../css/xxx.css?v=20260911d"  JS src="../js/xxx.js?v=20260911d"
-       （今日实际存在的子目录只有 user/ 与 model/；原「user/admin*/model/」里的 admin*
-       是早期「按等级分目录」方案的历史兼容目录名，仓库中已不存在，勿据此建目录）
-  4. 根目录页面引入 JS 顺序：js/config.js → js/theme.js → js/toast.js → js/index.js → 页面专属.js
-     子目录引入 JS：../js/config.js → ../js/theme.js → ../js/toast.js → ../js/index.js → 页面专属.js
+     - 根目录页面：CSS href="./css/xxx.css?v=20261016a"  JS src="./js/xxx.js?v=20261018a"
+     - 一层子目录（user/ org/ model/ discover/）：../css/… 、../js/…
+     - 两层子目录（discover/doc/ 等）：../../css/… 、../../js/…
+  4. 脚本顺序（不能乱）：config.js → theme.js → toast.js → index.js → 页面专属.js
+     - config.js：BASE_PATH / AuthGuard / apiRequest / 导航预取加速（SPA 式）
+     - index.js：移动端菜单、通知、右上角登录态、权限切换按钮
   5. 需要登录的页面在 DOMContentLoaded 中调用 AuthGuard.requireAuth()
+  6. 页脚「快速链接」固定 6 个：首页 / 文档 / 组织 / 发现 / 登录 / 注册
+  7. 改了共享文件（js/ css/）后，**所有引用它的页面都要提升 ?v= 版本号**
 -->
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="页面描述（建议 60–120 字，写清这一页能做什么）">
   <title>GWL | 页面标题</title>
   <link rel="stylesheet" href="../css/core.css?v=20261016a">
-  <link rel="stylesheet" href="../css/styles.css?v=20261016a">
+  <link rel="stylesheet" href="../css/styles.css?v=20261018a">
   <link rel="stylesheet" href="../css/components.css?v=20261016a">
   <link rel="icon" href="../favicon.png" type="image/png">
 </head>
 <body>
   <!-- ============================================
-       顶部导航栏 (Header)
+       顶部导航栏 (Header) —— 与全站保持一致
        ============================================ -->
   <header class="header">
     <div class="header__logo">GWL Works Lab</div>
 
-    <!-- 移动端汉堡菜单按钮 -->
+    <!-- 移动端汉堡菜单按钮（由 js/index.js 绑定） -->
     <button class="header__toggle" id="menuToggle" aria-label="切换菜单">☰</button>
 
-    <!-- 导航链接 -->
     <nav class="header__nav" id="headerNav">
       <a href="../index.html">首页</a>
       <a href="../document.html">文档</a>
@@ -45,7 +47,7 @@
       <a href="../register.html">注册</a>
     </nav>
 
-    <!-- 右侧操作区：用户信息（由 JS 动态填充） -->
+    <!-- 右上角用户区（由 js/index.js 动态填充） -->
     <div class="header__actions">
       <div id="auth-container"></div>
       <div class="permission-buttons" id="permissionButtons"></div>
@@ -63,7 +65,7 @@
   </main>
 
   <!-- ============================================
-       底部导航 (Footer)
+       底部导航 (Footer) —— 快速链接固定 6 个
        ============================================ -->
   <footer class="footer">
     <div class="footer__container">
@@ -73,11 +75,14 @@
           <p class="footer__slogan">探索学习的无限可能</p>
         </div>
         <div class="footer__links">
-          <div class="footer__links-group">
+          <div class="footer__links-group footer__links-group--quick">
             <h4>快速链接</h4>
             <a href="../index.html">首页</a>
             <a href="../document.html">文档</a>
             <a href="../login.html">登录</a>
+            <a href="../org/index.html">组织</a>
+            <a href="../discover/index.html">发现</a>
+            <a href="../register.html">注册</a>
           </div>
           <div class="footer__links-group">
             <h4>关于</h4>
@@ -90,25 +95,23 @@
       <div class="footer__bottom">
         <p>&copy; 2026 GFYGO. All rights reserved.</p>
         <div class="footer__social">
-          <a href="#" aria-label="GitHub">GitHub</a>
-          <a href="#" aria-label="Bilibili">Bilibili</a>
+          <a href="https://github.com/GFYGO/gfygo-site" target="_blank" rel="noopener noreferrer" aria-label="GitHub">GitHub</a>
+          <a href="https://www.bilibili.com/video/BV1g34y1j7e5/" target="_blank" rel="noopener noreferrer" aria-label="Bilibili">Bilibili</a>
         </div>
       </div>
     </div>
   </footer>
 
-  <!-- ============================================
-       右下角主题切换悬浮按钮
-       ============================================ -->
+  <!-- 右下角主题切换悬浮按钮（由 js/theme.js 绑定） -->
   <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
   <!-- ============================================
        JS 引入（顺序很重要：config → theme → toast → index → 页面专属）
        ============================================ -->
-  <script src="../js/config.js?v=20261002a"></script>
+  <script src="../js/config.js?v=20261018a"></script>
   <script src="../js/theme.js?v=20260911d"></script>
   <script src="../js/toast.js?v=20261016a"></script>
   <script src="../js/index.js?v=20261016a"></script>
-  <!-- <script src="../page-specific.js?v=20260911d"></script> -->
+  <!-- <script src="../page-specific.js?v=20261018a"></script> -->
 </body>
 </html>

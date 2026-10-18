@@ -4,8 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta name="robots" content="noindex, nofollow">
   <title>GWL | Debug Shell</title>
   <link rel="icon" href="../favicon.png" type="image/png">
+  <!-- ⭐ 复用全站 config.js：BASE_PATH / AuthGuard / API_BASE_URL / 导航预取加速 -->
+  <script src="../js/config.js?v=20261018a"></script>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileReady&render=explicit" async defer></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -103,7 +106,46 @@
     @media (max-width: 600px) {
       .warning-box, .gate-box { margin: 16px; padding: 24px; }
       #shellOutput { font-size: 0.75rem; padding: 8px 10px; }
+      #shellHeader { flex-wrap: wrap; gap: 6px; }
     }
+
+    /* ===== 顶栏操作（2026-10-18） ===== */
+    #shellHeader .actions {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    #shellHeader .actions a,
+    #shellHeader .actions button {
+      padding: 3px 9px; border: 1px solid #334155; border-radius: 4px;
+      background: transparent; color: #94a3b8; font-family: inherit;
+      font-size: 0.7rem; line-height: 1.4; cursor: pointer; text-decoration: none;
+    }
+    #shellHeader .actions a:hover,
+    #shellHeader .actions button:hover { color: #22c55e; border-color: #22c55e; }
+
+    /* ===== 浅色终端主题（theme light） ===== */
+    body.light { background: #f8fafc; color: #0f172a; }
+    body.light #shellContainer { background: #f8fafc; }
+    body.light #shellHeader { background: #e2e8f0; border-bottom-color: #cbd5e1; }
+    body.light #shellHeader .title { color: #15803d; }
+    body.light #shellHeader .status { color: #64748b; }
+    body.light #shellHeader .actions a,
+    body.light #shellHeader .actions button { color: #475569; border-color: #cbd5e1; }
+    body.light #shellHeader .actions a:hover,
+    body.light #shellHeader .actions button:hover { color: #15803d; border-color: #15803d; }
+    body.light #shellOutput { background: #f8fafc; }
+    body.light .shell-line .prompt { color: #15803d; }
+    body.light .shell-line .cmd { color: #0f172a; }
+    body.light .shell-line .info { color: #0369a1; }
+    body.light .shell-line .ok { color: #15803d; }
+    body.light .shell-line .warn { color: #b45309; }
+    body.light .shell-line .err { color: #b91c1c; }
+    body.light .shell-line .dim { color: #64748b; }
+    body.light .shell-line .highlight { color: #6d28d9; }
+    body.light .shell-line .json { color: #475569; }
+    body.light .shell-banner { color: #15803d; }
+    body.light #shellInputLine { background: #f8fafc; border-top-color: #e2e8f0; }
+    body.light #shellInputLine .prompt { color: #15803d; }
+    body.light #shellInput { color: #0f172a; }
   </style>
 </head>
 <body>
@@ -131,10 +173,17 @@
   <!-- ===== Shell 终端 ===== -->
   <div id="shellContainer">
     <div id="shellHeader">
-      <span class="title">GWL Debug Shell v1.0</span>
+      <span class="title">GWL Debug Shell v1.1</span>
       <span class="status">
         <span class="dot" id="statusDot"></span>
         <span id="statusText">disconnected</span>
+      </span>
+      <span class="actions">
+        <a href="./index.html">模型首页</a>
+        <a href="./test.html">测试面板</a>
+        <a href="../index.html">站点首页</a>
+        <button type="button" id="copyOutputBtn" title="复制终端全部输出">复制输出</button>
+        <button type="button" id="clearBtn" title="清屏（等价 clear）">清屏</button>
       </span>
     </div>
     <div id="shellOutput"></div>
@@ -149,8 +198,13 @@
     // 配置
     // =========================================
     const SITEKEY = '0x4AAAAAAECyOCbL7qIJUOgg';
-    const API_BASE = 'https://back.gwl.net.cn/api/v0';
-    var TOKEN_KEY = 'auth_token';
+    // API 基址 / AuthGuard / BASE_PATH 来自 ../js/config.js（全站共享）
+    var API_BASE = (window.API_BASE_URL || 'https://back.gwl.net.cn') + '/api/v0';
+    var SITE_BASE = (typeof BASE_PATH === 'string') ? BASE_PATH : '..';
+    var SHELL_VERSION = '1.1';
+    var builtinCommands = ['help', 'health', 'status', 'login', 'logout', 'whoami', 'token', 'perm',
+      'switch', 'theme', 'doc', 'notify', 'user', 'admin', 'open', 'history', 'copy',
+      'selftest', 'about', 'clear', 'echo', 'date', 'exit'];
     var currentUser = null;
 
     // =========================================
@@ -209,7 +263,14 @@
     // =========================================
     // Token 管理
     // =========================================
+    // ⭐ 优先复用全站 AuthGuard（与主站共享同一个 auth_token，含 TTL / JWT exp 兜底）；
+    //    只有 config.js 没加载成功时才退回本页的旧实现。
     function getToken() {
+      try {
+        if (window.AuthGuard && typeof window.AuthGuard.getToken === 'function') {
+          return window.AuthGuard.getToken();
+        }
+      } catch(e) { /* 落到下面的兜底 */ }
       try {
         var data = JSON.parse(localStorage.getItem(TOKEN_KEY));
         if (!data) return null;
@@ -222,6 +283,12 @@
     }
 
     function setToken(token, expiresInSec) {
+      try {
+        if (window.AuthGuard && typeof window.AuthGuard.setToken === 'function') {
+          window.AuthGuard.setToken(token, expiresInSec);
+          return;
+        }
+      } catch(e) { /* 落到下面的兜底 */ }
       localStorage.setItem(TOKEN_KEY, JSON.stringify({
         token: token,
         timestamp: Date.now(),
@@ -230,7 +297,15 @@
     }
 
     function clearToken() {
-      localStorage.removeItem(TOKEN_KEY);
+      try {
+        if (window.AuthGuard && typeof window.AuthGuard.clearToken === 'function') {
+          window.AuthGuard.clearToken();
+        } else {
+          localStorage.removeItem(TOKEN_KEY);
+        }
+      } catch(e) {
+        try { localStorage.removeItem(TOKEN_KEY); } catch(e2) {}
+      }
       currentUser = null;
     }
 
@@ -261,13 +336,24 @@
     var pendingUsername = null;
     var cmdQueue = [];
 
+    var shellBound = false;
+    var HISTORY_KEY = 'debug_shell_history';
+    var SHELL_THEME_KEY = 'debug_shell_theme';
+
     function initShell() {
       shellOutput = document.getElementById('shellOutput');
       shellInput = document.getElementById('shellInput');
       inputPrompt = document.getElementById('inputPrompt');
 
+      initShellTheme();
+      loadHistory();
       updateStatus();
       printBanner();
+
+      // ⚠️ 只绑定一次：exit → 重新过 Turnstile → initShell 会再次调用，
+      //    重复绑定会让一条命令被执行两次。
+      if (shellBound) return;
+      shellBound = true;
 
       shellInput.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
@@ -276,6 +362,7 @@
           if (cmd) {
             cmdHistory.push(cmd);
             if (cmdHistory.length > 200) cmdHistory.shift();
+            saveHistory();
             historyIdx = cmdHistory.length;
             processCommand(cmd);
           }
@@ -294,15 +381,105 @@
             historyIdx = cmdHistory.length;
             shellInput.value = '';
           }
+        } else if (e.key === 'Tab') {
+          if (completeCommand()) e.preventDefault();
+        } else if ((e.ctrlKey || e.metaKey) && (e.key === 'l' || e.key === 'L')) {
+          e.preventDefault();
+          cmdClear();
         }
       });
+
+      var copyBtn = document.getElementById('copyOutputBtn');
+      if (copyBtn) copyBtn.addEventListener('click', copyOutput);
+      var clearBtn = document.getElementById('clearBtn');
+      if (clearBtn) clearBtn.addEventListener('click', function() { cmdClear(); });
+
+      // 每 30 秒刷新一次连接状态（token 可能在其他标签页里过期 / 被清除）
+      setInterval(updateStatus, 30000);
 
       // 检查是否已有 token
       var token = getToken();
       if (token) {
         loggedIn = true;
         updatePrompt();
-        printLine('[i] 检测到已有登录会话，可使用 whoami 查看当前用户信息。', 'info');
+        printLine('[i] 检测到已有登录会话（与主站共用 AuthGuard），可使用 whoami 查看当前用户信息。', 'info');
+      }
+    }
+
+    /** 命令名补全（只补第一个词；多个候选时列出并补到公共前缀） */
+    function completeCommand() {
+      var value = shellInput.value;
+      if (!value || value.indexOf(' ') >= 0) return false;
+      var matches = builtinCommands.filter(function(c) { return c.indexOf(value) === 0; });
+      if (!matches.length) return false;
+      if (matches.length === 1) {
+        shellInput.value = matches[0] + ' ';
+      } else {
+        printLine(matches.join('   '), 'dim');
+        var common = matches[0];
+        matches.forEach(function(m) {
+          while (common && m.indexOf(common) !== 0) common = common.slice(0, -1);
+        });
+        shellInput.value = common;
+      }
+      return true;
+    }
+
+    function loadHistory() {
+      try {
+        var saved = JSON.parse(localStorage.getItem(HISTORY_KEY));
+        if (Array.isArray(saved)) {
+          cmdHistory = saved.filter(function(x) { return typeof x === 'string'; }).slice(-200);
+          historyIdx = cmdHistory.length;
+        }
+      } catch (e) { /* 历史记录失败不影响终端 */ }
+    }
+
+    function saveHistory() {
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(cmdHistory.slice(-200))); } catch (e) {}
+    }
+
+    function initShellTheme() {
+      var saved = 'dark';
+      try { saved = localStorage.getItem(SHELL_THEME_KEY) || 'dark'; } catch (e) {}
+      document.body.classList.toggle('light', saved === 'light');
+    }
+
+    function applyShellTheme(name) {
+      var light = name === 'light';
+      document.body.classList.toggle('light', light);
+      try { localStorage.setItem(SHELL_THEME_KEY, light ? 'light' : 'dark'); } catch (e) {}
+      printLine('终端主题已切换为: ' + (light ? 'light（浅色）' : 'dark（深色）'), 'ok');
+    }
+
+    /** 复制终端全部文本输出（优先 Clipboard API，失败退回 textarea + execCommand） */
+    function copyOutput() {
+      if (!shellOutput) return;
+      var text = shellOutput.innerText || shellOutput.textContent || '';
+      if (!text.trim()) { printLine('终端还没有输出。', 'warn'); return; }
+      function done() { printLine('已复制终端输出（' + text.length + ' 字符）', 'ok'); }
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(text).then(done).catch(function() { fallbackCopy(text, done); });
+      } else {
+        fallbackCopy(text, done);
+      }
+    }
+
+    function fallbackCopy(text, done) {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', 'readonly');
+        ta.style.position = 'fixed';
+        ta.style.top = '-1000px';
+        document.body.appendChild(ta);
+        ta.select();
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (ok) done();
+        else printLine('复制失败：浏览器不允许访问剪贴板，请手动选择文本。', 'warn');
+      } catch (e) {
+        printLine('复制失败: ' + e.message, 'err');
       }
     }
 
@@ -332,9 +509,10 @@
     function printBanner() {
       printLine('');
       printLine('╔══════════════════════════════════════════╗', 'ok');
-      printLine('║     GWL Debug Shell v1.0                ║', 'ok');
-      printLine('║     Type "help" for available commands   ║', 'ok');
+      printLine('║     GWL Debug Shell v' + SHELL_VERSION + '                ║', 'ok');
+      printLine('║  help · Tab 补全 · ↑↓ 历史 · selftest     ║', 'ok');
       printLine('╚══════════════════════════════════════════╝', 'ok');
+      printLine('提示：终端与主站共用登录态（AuthGuard），无需重复登录。', 'dim');
       printLine('');
     }
 
@@ -393,6 +571,13 @@
 
       switch (cmd) {
         case 'help':     cmdHelp(args); break;
+        case 'health':   cmdHealth(args); break;
+        case 'status':   cmdHealth(args); break;
+        case 'selftest': cmdSelfTest(); break;
+        case 'about':    cmdAbout(); break;
+        case 'open':     cmdOpen(args); break;
+        case 'history':  cmdHistoryList(args); break;
+        case 'copy':     cmdCopy(); break;
         case 'login':    cmdLogin(args); break;
         case 'logout':   cmdLogout(); break;
         case 'whoami':   cmdWhoami(); break;
@@ -464,11 +649,21 @@
       printLine('  admin groups            组列表');
       printLine('  admin docs              文档管理列表');
       printLine('  admin notify            通知管理列表');
-      printLine('  admin perm              查看权限分配');
+      printLine('  admin perm              查看权限规则（permission-rules）');
       printLine('  admin search <q>        搜索用户');
       printLine('');
+      printLine('━━━ 诊断 / 导航 ━━━', 'highlight');
+      printLine('  health                  探测后端是否可达（公开接口，含耗时）');
+      printLine('  selftest                本页自检：登录态 / JWT / localStorage / 主题 / Turnstile');
+      printLine('  open <path>             打开站内页面（如 open /、open document.html）');
+      printLine('  history [n]             查看命令历史（默认最近 20 条）');
+      printLine('  copy                    复制终端全部输出');
+      printLine('  about                   版本 / API 地址 / 相关页面');
+      printLine('');
       printLine('━━━ 主题命令 ━━━', 'highlight');
-      printLine('  theme <name>            切换主题 (green/light/gray/dark_green)');
+      printLine('  theme light|dark        切换终端浅色 / 深色主题（会记住）');
+      printLine('');
+      printLine('小技巧：Tab 补全命令名，↑ / ↓ 翻命令历史，Ctrl+L 清屏。', 'dim');
       printLine('');
     }
 
@@ -522,6 +717,8 @@
           setToken(d.data.access_token, d.data.expires_in || 86400);
           loggedIn = true;
           currentUser = { username: username };
+          // 与主站共享同一个运行时权限对象（index.js / document.js 读 window.__nowPermission）
+          if (d.data.now_permission) window.__nowPermission = d.data.now_permission;
           printLine('登录成功！欢迎, ' + username, 'ok');
           updatePrompt();
           updateStatus();
@@ -556,6 +753,7 @@
         clearToken();
         loggedIn = false;
         currentUser = null;
+        window.__nowPermission = null;
         updatePrompt();
         updateStatus();
         printLine('已退出登录。', 'ok');
@@ -674,10 +872,12 @@
           });
           var d = await r.json();
           if (d.code === 200) {
-            if (d.data && d.data.token) {
+            // ⚠️ 后端返回的键是 access_token（不是 token）；旧写法读 d.data.token
+            //    会恒为 undefined → 打印“切换成功”但 token 没换（权限看着没变）。
+            if (d.data && d.data.access_token) {
               var oldToken = getToken();
-              setToken(d.data.token, d.data.expires_in || 86400);
-              // 清除旧 token 的黑名单记录
+              setToken(d.data.access_token, d.data.expires_in || 86400);
+              // 清除旧 token 的黑名单记录（尽力而为）
               try {
                 await fetch(API_BASE + '/auth/logout', {
                   method: 'POST',
@@ -686,8 +886,9 @@
               } catch(e) {}
               printLine('权限已切换至 Lv' + level + '，Token 已刷新', 'ok');
             } else {
-              printLine('权限切换成功', 'ok');
+              printLine('权限切换成功（后端未返回新 token）', 'warn');
             }
+            if (d.data && d.data.now_permission) window.__nowPermission = d.data.now_permission;
             updatePrompt();
             updateStatus();
           } else {
@@ -700,30 +901,127 @@
     }
 
     // ===== theme =====
+    // ⚠️ 旧实现调 ThemeEngine.setTheme / data-theme：本页不加载 core.css，
+    //    而且全站主题是 body.theme-*（不是 data-theme）→ 命令看着成功、实际没变化。
+    //    现在改为 Debug Shell 自己的浅色 / 深色主题（body.light），并持久化。
     function cmdTheme(args) {
-      if (args.length === 0) {
-        printLine('用法: theme <name>', 'err');
-        printLine('可用主题: green, light, gray, dark_green', 'dim');
+      var name = (args[0] || '').toLowerCase();
+      if (name === 'toggle') name = document.body.classList.contains('light') ? 'dark' : 'light';
+      if (name !== 'light' && name !== 'dark') {
+        printLine('用法: theme light|dark（或 theme toggle）', 'err');
         return;
       }
-      var name = args[0].toLowerCase();
-      var valid = ['green', 'light', 'gray', 'dark_green'];
-      if (valid.indexOf(name) === -1) {
-        printLine('无效主题: ' + name + '。可用: ' + valid.join(', '), 'err');
-        return;
-      }
-      // 尝试设置主题（需要 ThemeEngine）
-      try {
-        if (typeof ThemeEngine !== 'undefined' && ThemeEngine.setTheme) {
-          ThemeEngine.setTheme(name);
-        } else {
-          document.documentElement.setAttribute('data-theme', name);
+      applyShellTheme(name);
+    }
+
+    // ===== health / status =====
+    function cmdHealth() {
+      printLine('探测后端: GET ' + API_BASE + '/discover/sections', 'dim');
+      var started = Date.now();
+      var ctl = null;
+      try { ctl = new AbortController(); } catch (e) { ctl = null; }
+      var timer = setTimeout(function() { if (ctl) { try { ctl.abort(); } catch (e) {} } }, 5000);
+      (async function() {
+        try {
+          var r = await fetch(API_BASE + '/discover/sections', {
+            headers: { 'Accept': 'application/json' },
+            signal: ctl ? ctl.signal : undefined
+          });
+          clearTimeout(timer);
+          var ms = Date.now() - started;
+          var d = null;
+          try { d = await r.json(); } catch (e) {}
+          if (r.ok && d && d.code === 200) {
+            var n = d.data && Array.isArray(d.data.sections) ? d.data.sections.length : 0;
+            printLine('✅ 后端可达 · HTTP ' + r.status + ' · ' + ms + 'ms · 板块 ' + n + ' 个', 'ok');
+          } else {
+            printLine('⚠️ 后端有响应但状态异常 · HTTP ' + r.status + ' · ' + ms + 'ms', 'warn');
+            if (d) printJSON(d);
+          }
+        } catch (e) {
+          clearTimeout(timer);
+          printLine('❌ 后端不可达（' + (Date.now() - started) + 'ms）: ' + (e.name === 'AbortError' ? '超时（5s）' : e.message), 'err');
+          printLine('提示：跨域 / 网络 / 后端进程都可能；主站其余页面能打开不代表 API 正常。', 'dim');
         }
-        printLine('主题已切换为: ' + name, 'ok');
-      } catch(e) {
-        document.documentElement.setAttribute('data-theme', name);
-        printLine('主题已切换为: ' + name + '（兜底模式）', 'ok');
+      })();
+    }
+
+    // ===== selftest =====
+    function cmdSelfTest() {
+      printLine('');
+      printLine('━━━ Debug Shell 自检 ━━━', 'highlight');
+      var lines = [];
+      function mark(ok, label, detail) {
+        printLine((ok ? '✅ ' : '❌ ') + label + (detail ? ' — ' + detail : ''), ok ? 'ok' : 'err');
       }
+      // 1. 共享配置
+      mark(typeof BASE_PATH === 'string', '共享配置 BASE_PATH', typeof BASE_PATH === 'string' ? BASE_PATH : '未定义（config.js 未加载）');
+      mark(typeof API_BASE === 'string' && API_BASE.indexOf('/api/v0') > 0, 'API_BASE', API_BASE);
+      // 2. 登录态
+      var token = getToken();
+      mark(!!token, '登录态（AuthGuard）', token ? '已登录' : '未登录');
+      var perm = getPermFromToken();
+      printLine('  权限等级: Lv' + (perm.level != null ? perm.level : '?') + ' · 上下文: ' + (perm.context || '无') + ' · 节点: ' + ((perm.nodes || []).length), 'dim');
+      // 3. localStorage
+      var lsOk = false;
+      try { localStorage.setItem('__debug_probe', '1'); lsOk = localStorage.getItem('__debug_probe') === '1'; localStorage.removeItem('__debug_probe'); } catch (e) {}
+      mark(lsOk, 'localStorage 可读写');
+      // 4. 主题
+      printLine('  终端主题: ' + (document.body.classList.contains('light') ? 'light' : 'dark'), 'dim');
+      // 5. Turnstile
+      mark(!!(window.turnstile && window.turnstile.getResponse), 'Turnstile SDK', window.turnstile ? '已加载' : '未加载');
+      // 6. Clipboard
+      mark(!!(navigator.clipboard && navigator.clipboard.writeText), '剪贴板 API', navigator.clipboard ? '可用' : '不可用（copy 会退回 execCommand）');
+      printLine('');
+      printLine('自检完成。后端连通性请用 health 命令。', 'dim');
+    }
+
+    // ===== about =====
+    function cmdAbout() {
+      printLine('');
+      printLine('GWL Debug Shell v' + SHELL_VERSION, 'highlight');
+      printLine('  API       ' + API_BASE, 'dim');
+      printLine('  站点根     ' + SITE_BASE, 'dim');
+      printLine('  登录态     ' + (getToken() ? '已登录（与主站共享 auth_token）' : '未登录'), 'dim');
+      printLine('  相关页面   模型首页 ./index.html · 测试面板 ./test.html · 站点首页 ' + SITE_BASE + '/index.html', 'dim');
+      printLine('');
+    }
+
+    // ===== open =====
+    function cmdOpen(args) {
+      if (!args.length) {
+        printLine('用法: open <path>（如 open /、open document.html、open org/index.html）', 'err');
+        return;
+      }
+      var path = args.join(' ');
+      var url = /^https?:\/\//i.test(path) ? path : SITE_BASE + '/' + path.replace(/^\/+/, '');
+      try {
+        var w = window.open(url, '_blank', 'noopener');
+        if (!w) printLine('可能被浏览器拦截了新标签，请允许弹窗后重试: ' + url, 'warn');
+        else printLine('已在新标签打开: ' + url, 'ok');
+      } catch (e) {
+        printLine('打开失败: ' + e.message, 'err');
+      }
+    }
+
+    // ===== history =====
+    // ⚠️ 不能叫 cmdHistory：上面已经有同名数组 var cmdHistory = []，
+    //    函数声明会被 `var cmdHistory = []` 覆盖成数组，调用时直接 TypeError。
+    function cmdHistoryList(args) {
+      var n = parseInt(args[0], 10);
+      if (!isFinite(n) || n <= 0) n = 20;
+      n = Math.min(n, 200);
+      if (!cmdHistory.length) { printLine('还没有命令历史。', 'warn'); return; }
+      var start = Math.max(0, cmdHistory.length - n);
+      printLine('最近 ' + (cmdHistory.length - start) + ' 条命令（共 ' + cmdHistory.length + ' 条）：', 'info');
+      for (var i = start; i < cmdHistory.length; i++) {
+        printLine('  ' + (i + 1) + '  ' + cmdHistory[i], 'dim');
+      }
+    }
+
+    // ===== copy =====
+    function cmdCopy() {
+      copyOutput();
     }
 
     // ===== exit =====
@@ -852,14 +1150,24 @@
           apiGet('/admin/notifications', '通知管理列表', true);
           break;
         case 'perm':
+          // ⭐ 2026-10-18：旧命令打的是 /admin/permission-assignments —— 这个接口**从来不存在**
+          //    （API-WIKI §11）。现行接口是 GET /admin/permission-rules?scope=…
           (function() {
-            var t = prompt('类型 (level/user/group):', 'level');
-            if (!t) return;
-            var id = prompt('scope_id:', '1');
-            if (id === null) return;
-            var lv = prompt('level:', '1');
-            var url = '/admin/permission-assignments?type=' + encodeURIComponent(t) + '&id=' + encodeURIComponent(id) + (lv ? '&level=' + encodeURIComponent(lv) : '');
-            apiGet(url, '权限分配', true);
+            var scope = prompt('scope (level/user/group/content):', 'level');
+            if (!scope) return;
+            var url = '/admin/permission-rules?scope=' + encodeURIComponent(scope);
+            if (scope === 'content') {
+              var ot = prompt('object_type (document/folder/menu):', 'document');
+              if (!ot) return;
+              var oid = prompt('object_id:', '1');
+              if (oid === null) return;
+              url += '&object_type=' + encodeURIComponent(ot) + '&id=' + encodeURIComponent(oid);
+            } else {
+              var sid = prompt('scope_id（留空查全部）:', '');
+              if (sid === null) return;
+              if (sid) url += '&id=' + encodeURIComponent(sid);
+            }
+            apiGet(url, '权限规则 (permission-rules)', true);
           })();
           break;
         default:

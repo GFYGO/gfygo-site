@@ -346,6 +346,20 @@ body.theme-gray .header {
   color: var(--color-primary);
 }
 
+/* ⭐ 2026-10-18：快速链接固定 6 个 —— **沿用原来的竖列间距**，只是排成两列
+   （左列首页/文档/登录，右列组织/发现/注册）；不再加行距 / 字号等额外样式。 */
+.footer__links-group--quick {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  grid-template-rows: auto repeat(3, auto);
+  grid-auto-flow: column;   /* 先填满左列 3 个，再填右列 */
+  column-gap: 40px;
+}
+.footer__links-group--quick h4 {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
 .footer__bottom {
   display: flex;
   justify-content: space-between;

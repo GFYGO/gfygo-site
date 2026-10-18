@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GWL | 前端测试面板</title>
   <link rel="stylesheet" href="../css/core.css?v=20261016a">
-  <link rel="stylesheet" href="../css/styles.css?v=20261016a">
+  <link rel="stylesheet" href="../css/styles.css?v=20261018a">
   <link rel="stylesheet" href="../css/components.css?v=20261016a">
   <link rel="icon" href="../favicon.png" type="image/png">
   <style>
@@ -194,6 +194,14 @@
     <section class="home-section" style="padding:16px 20px;">
       <h1 class="home-section__title" style="font-size:1.4rem;margin-bottom:2px;">🧪 前端测试面板</h1>
       <p class="home-section__desc" style="font-size:0.85rem;color:var(--color-text-muted);">API 测试 · UI 组件测试 · 缓存查看</p>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:10px;font-size:0.82rem;">
+        <a href="./index.html">模型首页</a>
+        <a href="./debug.html">💻 Debug Shell</a>
+        <a href="./template.html">📄 页面模板</a>
+      </div>
+      <p style="margin-top:10px;font-size:0.75rem;color:var(--color-text-muted);">
+        ⚠️ 本页按钮会调用真实接口；写操作（创建 / 删除 / 改权限）只在你自己的账号与权限范围内生效。
+      </p>
     </section>
 
     <div class="test-layout">
@@ -259,8 +267,8 @@
         <button class="test-btn" onclick="testApi.userDeletionStatus()">GET /user/deletion-status</button>
         <button class="test-btn" onclick="testApi.userCancelDeletion()">POST /user/cancel-deletion</button>
         <button class="test-btn" onclick="testApi.userMenuContent()">GET /user/menu/&lt;id&gt;/content</button>
-        <button class="test-btn" onclick="testApi.userDynamicPage()">GET /user/dynamic-page/&lt;key&gt;</button>
-        <button class="test-btn" onclick="testApi.userPagesRefresh()">POST /user/pages/refresh</button>
+        <button class="test-btn" onclick="testApi.pageAction()">POST /page/&lt;tab_key&gt;/&lt;action&gt;</button>
+        <button class="test-btn" onclick="testApi.adminPagesRefresh()">POST /admin/pages/refresh</button>
         <button class="test-btn" onclick="testApi.userSendDeletionCode()">POST /user/send-deletion-code</button>
         <button class="test-btn" onclick="testApi.userRequestDeletion()">POST /user/request-deletion</button>
 
@@ -270,7 +278,6 @@
         <button class="test-btn" onclick="testApi.adminStats()">GET /admin/stats</button>
         <button class="test-btn" onclick="testApi.adminMenuItems()">GET /admin/menu-items</button>
         <button class="test-btn" onclick="testApi.adminPermNodes()">GET /admin/permission-nodes</button>
-        <button class="test-btn" onclick="testApi.adminPermAssignments()">GET /admin/permission-assignments</button>
         <button class="test-btn" onclick="testApi.adminInviteCodes()">GET /admin/invite-codes</button>
         <button class="test-btn" onclick="testApi.adminGroups()">GET /admin/groups</button>
         <button class="test-btn" onclick="testApi.adminDocuments()">GET /admin/documents</button>
@@ -373,17 +380,34 @@
           <h3 class="footer__logo">GWL Works Lab</h3>
           <p class="footer__slogan">探索学习的无限可能</p>
         </div>
+        <div class="footer__links">
+          <div class="footer__links-group footer__links-group--quick">
+            <h4>快速链接</h4>
+            <a href="../index.html">首页</a>
+            <a href="../document.html">文档</a>
+            <a href="../login.html">登录</a>
+            <a href="../org/index.html">组织</a>
+            <a href="../discover/index.html">发现</a>
+            <a href="../register.html">注册</a>
+          </div>
+          <div class="footer__links-group">
+            <h4>开发</h4>
+            <a href="./index.html">模型首页</a>
+            <a href="./debug.html">Debug Shell</a>
+            <a href="./template.html">页面模板</a>
+          </div>
+        </div>
       </div>
     </div>
   </footer>
 
   <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
-  <script src="../js/config.js?v=20261002a"></script>
+  <script src="../js/config.js?v=20261018a"></script>
   <script src="../js/theme.js?v=20260911d"></script>
   <script src="../js/toast.js?v=20261016a"></script>
   <script src="../js/modal.js?v=20261016a"></script>
   <script src="../js/index.js?v=20261016a"></script>
-  <script src="test.js?v=20260911d"></script>
+  <script src="test.js?v=20261018a"></script>
 </body>
 </html>

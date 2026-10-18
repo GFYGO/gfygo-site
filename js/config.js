@@ -307,3 +307,128 @@ async function apiRequest(path, options) {
   // 7. 成功返回
   return data;
 }
+
+
+/* ============================================================
+   SPA 式导航加速（2026-10-18）
+   ------------------------------------------------------------
+   本站是**多页静态站**（无构建、无路由框架），所以不做真正的 SPA
+   重写；这里用浏览器原生能力把「点击 → 新页面」做得接近 SPA：
+
+     ① 预取（prefetch）：鼠标悬停 / 键盘聚焦 / 触屏按下时，提前把目标
+        HTML 拉进 HTTP 缓存（只下文档，不执行脚本、不发接口请求）；
+     ② 预连接（preconnect）：提前和 API 域（back.gwl.net.cn）建好
+        TCP/TLS，页面脚本里的首个 fetch 少一次握手；
+     ③ 省流保护：Save-Data / 2G 网络下整体跳过；同一 URL 只预取一次，
+        单页最多 12 个，避免把带宽打满。
+
+   ⚠️ 只预取**同源、看起来是页面**的链接（.html / 目录 / 无扩展名）；
+   外链、下载、target=_blank、纯锚点一律跳过。
+   ⚠️ 不注入 <script type="speculationrules"> 做 prerender：各页 CSP 的
+   script-src 不含 'unsafe-inline'，内联推测规则会被拦（实测口径见
+   file-wiki/09 §6.1）；prefetch 不受影响。
+   ============================================================ */
+(function initSpaNavigationAcceleration() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  if (window.__spaNavAccelReady) return;
+  window.__spaNavAccelReady = true;
+
+  var MAX_PREFETCH = 12;
+  var prefetched = Object.create(null);
+  var prefetchCount = 0;
+  var started = false;
+
+  function shouldSkipForNetwork() {
+    try {
+      var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (!conn) return false;
+      if (conn.saveData) return true;
+      return /(^|-)2g$/i.test(conn.effectiveType || '');
+    } catch (e) { return false; }
+  }
+
+  function prefetch(url) {
+    if (!url || prefetched[url] || prefetchCount >= MAX_PREFETCH) return;
+    if (!document.head) return;
+    prefetched[url] = true;
+    prefetchCount++;
+    try {
+      var link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.as = 'document';
+      link.href = url;
+      // 预取失败不影响页面，浏览器自己会忽略；不监听 onerror 以免控制台噪音
+      document.head.appendChild(link);
+    } catch (e) { /* 预取是纯增强，失败静默 */ }
+  }
+
+  /** 把 <a href> 解析成「值得预取的同源页面 URL」；否则返回 null */
+  function resolvePageUrl(anchor) {
+    if (!anchor || !anchor.getAttribute) return null;
+    var href = anchor.getAttribute('href');
+    if (!href || href.charAt(0) === '#') return null;
+    if (anchor.hasAttribute('download')) return null;
+    var target = (anchor.getAttribute('target') || '').toLowerCase();
+    if (target && target !== '_self') return null;
+    var rel = (anchor.getAttribute('rel') || '').toLowerCase();
+    if (rel.indexOf('external') >= 0 || rel.indexOf('nofollow') >= 0) return null;
+    if (/^(mailto:|tel:|javascript:|data:|blob:)/i.test(href)) return null;
+
+    var url;
+    try { url = new URL(href, window.location.href); } catch (e) { return null; }
+    if (url.origin !== window.location.origin) return null;
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    // 同一页面的纯锚点（#xxx）没有意义
+    if (url.pathname === window.location.pathname && url.search === window.location.search && url.hash) return null;
+    if (url.href === window.location.href) return null;
+
+    // 只预取「页面」：.html/.htm、以 / 结尾的目录、或无扩展名的路径
+    var last = url.pathname.split('/').pop() || '';
+    if (last && last.indexOf('.') >= 0 && !/\.html?$/i.test(last)) return null;
+    return url.href;
+  }
+
+  function onIntent(event) {
+    if (document.visibilityState && document.visibilityState === 'hidden') return;
+    var target = event.target;
+    if (!target || !target.closest) return;
+    var anchor = target.closest('a[href]');
+    if (!anchor) return;
+    prefetch(resolvePageUrl(anchor));
+  }
+
+  function preconnectApi() {
+    try {
+      var api = (typeof API_BASE_URL === 'string' && API_BASE_URL) ? API_BASE_URL : '';
+      if (!api || !document.head) return;
+      var link = document.createElement('link');
+      link.rel = 'preconnect';
+      link.href = api;
+      link.crossOrigin = 'anonymous';
+      document.head.appendChild(link);
+      var dns = document.createElement('link');
+      dns.rel = 'dns-prefetch';
+      dns.href = api;
+      document.head.appendChild(dns);
+    } catch (e) { /* 纯增强 */ }
+  }
+
+  function start() {
+    if (started) return;
+    started = true;
+    if (shouldSkipForNetwork()) return;
+    preconnectApi();
+    // 捕获阶段监听：动态插入的链接（发现页 / 仪表盘）也能覆盖
+    document.addEventListener('pointerover', onIntent, true);
+    document.addEventListener('focusin', onIntent, true);
+    document.addEventListener('touchstart', onIntent, { passive: true, capture: true });
+    document.addEventListener('mousedown', onIntent, { passive: true, capture: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
+})();
+
