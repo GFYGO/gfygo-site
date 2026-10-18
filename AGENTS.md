@@ -10,7 +10,7 @@
 | 形态 | 手写 HTML / CSS / 原生 JS；**无框架、无构建、无 npm**；浏览器直接加载 |
 | 托管 | **GitHub Pages**（公开仓库 `GFYGO/gfygo-site`，CNAME = `gwl.net.cn`） |
 | 与后端 | **两个互不嵌套的独立仓库**；接口基址硬编码在 `js/config.js` → `https://back.gwl.net.cn` |
-| 发布面 | 主站 5 页（`index` / `login` / `register` / `document` / `404`）＋ `user/dashboard.html` ＋ `org/index.html` ＋ `discover/` 11 页 ＋ `model/*` 4 页（⚠️ `model/test.*` **仍会发布**，见 `file-wiki/09` §2） |
+| 发布面 | 主站 **8 页**（`index` / `login` / `register` / `document` / `u` / `forgot` / `reset` / `404`）＋ `user/dashboard.html` ＋ `org/index.html` ＋ `discover/` 11 页 ＋ `model/*` 4 页 = **25 个 HTML**（⚠️ `model/test.*` **仍会发布**，见 `file-wiki/09` §2） |
 | 加载约定 | 共享层普通 `<script>`（非 ES module）；dashboard 用 ES module 装配；动态页面脚本由**后端下发**（Blob 注入，不在本仓库） |
 | 交付 | push `origin main` → GitHub Actions 自动发 Pages；⚠️ 改前端资源**必须提升对应 `?v=` 版本号**（三套，见下） |
 
@@ -18,7 +18,7 @@
 
 | 文档 | 是什么 | 何时读（建议节） |
 |---|---|---|
-| `css/README.md`（本仓库） | 16 个 CSS 的加载关系（已按实际 `<link>` 重写） | 改样式 / 查「哪个 CSS 被谁加载」 |
+| `css/README.md`（本仓库） | 17 个 CSS 的加载关系（已按实际 `<link>` 重写） | 改样式 / 查「哪个 CSS 被谁加载」 |
 | `../file-wiki/09-frontend-overview.md` | ⭐ 前端全局：发布面 / 加载顺序 / CSP / 版本号（四套+） | **碰前端任何东西前先读**；§2 发布面、§5 安全、§6 版本号 |
 | `../file-wiki/12-frontend-dashboard.md` | ⭐ 仪表盘（全前端最复杂） | 改 `user/dashboard.*` 时 |
 | `../file-wiki/13-frontend-org.md` | 组织页 + `permission-picker` | 改 `org/` 时 |
@@ -30,7 +30,7 @@
 
 | 任务 | 读 |
 |---|---|
-| 改主站页面（`index` / `login` / `register` / `document` / `404`） | `file-wiki/11-frontend-site-pages.md` §1–§6 ＋ `09` §6 |
+| 改主站页面（`index` / `login` / `register` / `document` / `u` / `forgot` / `reset` / `404`） | `file-wiki/11-frontend-site-pages.md` §1–§6b ＋ `09` §6 |
 | 改仪表盘（侧边栏 / 面板 / 个人文档） | `file-wiki/12-frontend-dashboard.md` ＋ `15` §2 |
 | 改组织页 / 权限编辑器 | `file-wiki/13-frontend-org.md`（含 `X-Org-Class` 约定） |
 | 改样式 / 查 CSS 加载 | `css/README.md` ＋ `file-wiki/14-frontend-css.md` §2（§6 旧 README 纠错已清理，现状以 `css/README.md` 为准） |
@@ -55,30 +55,33 @@
 7. ⚠️ **`model/test.html` / `model/test.js` 仍会发布**（workflow 没有排除；`model/index.html` 有纯点击可达的入口）
    —— 不要把它们当作「已下线」或安全边界（后端鉴权仍完整）；结论出处：`file-wiki/09` §2/§5。
 
-## 4. 常用验证命令（**在工作区根目录跑**；`tools/` 不在任何 git 仓库内）
+## 4. 常用验证命令（**在工作区根目录跑**；`tools/` 由根仓库（本地 git）版本化）
 
 ```powershell
 cd ..   # 回到工作区根 D:\HP(system)\Documents\GitHub\GFYGO
-node tools/test-dashboard-pages.mjs     # 仪表盘加载契约 + 动态页脚本编译
-node tools/test-dashboard-home.mjs      # 从 dashboard.html 解析真实 DOM 全流程装配
-node tools/test-org-page.mjs            # 组织页（含「＋ 加入」卡片：public 自助加入 / 邀请码 / 单次链接 / 我的申请 / 收到的邀请）
-node tools/test-superadmin-page.mjs     # 超管页（动作名与页面后端 ROUTES 对齐 + 「加入方式」区渲染）
-node tools/test-permission-switch.mjs   # 权限视角切换
-node tools/test-turnstile-auth.mjs      # Turnstile 认证链
-node tools/test-discover-page.mjs       # ⭐ 发现页（184 项断言，含「加入」真动作）
+node tools/test-dashboard-pages.mjs     # 137 项：仪表盘加载契约 + 动态页脚本编译
+node tools/test-dashboard-home.mjs      # 54 项：从 dashboard.html 解析真实 DOM 全流程装配
+node tools/test-org-page.mjs            # 125 项：组织页（含「＋ 加入」卡片 / join-info 自助加入）
+node tools/test-superadmin-page.mjs     # 23 项：超管页（动作名与页面后端 ROUTES 对齐）
+node tools/test-permission-switch.mjs   # 55 项：权限视角切换
+node tools/test-turnstile-auth.mjs      # 49 项：Turnstile 认证链
+node tools/test-discover-page.mjs       # ⭐ 224 项：发现页（含「加入」真动作、登录门）
+node tools/test-user-profile-page.mjs   # 21 项：u.html 公开主页
+node tools/test-pdocs-bulk.mjs          # 41 项：个人文档批量操作 UI 契约
+node tools/test-document-folders.mjs    # 21 项：文件夹树展开持久化 + 组根文件夹展示名
 ```
 
 ⚠️ 本机**没有浏览器自动化**（沙箱起不了无头浏览器）——视觉类问题只能人工在浏览器验证；
-`tools/` 的回归都是 DOM-stub / 静态断言。
+`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，10 套合计 **750 项**）。
 
 ## 5. 目录速览（细节按需查 `file-wiki` 对应篇）
 
 | 目录 | 一句话 | 导航篇 |
 |---|---|---|
-| 根 `*.html` + `js/` | 主站 5 页 + 共享脚本（config / sanitize / theme / toast / modal / utils / turnstile / discover） | `11`、`10` |
-| `user/` | 仪表盘：`dashboard.html` + 11 个 `user/*.js` + 各 CSS + `permission-picker.*` | `12` |
+| 根 `*.html` + `js/` | 主站 8 页 + 16 个共享/页面脚本（config / sanitize / theme / toast / modal / utils / turnstile-widget / index / login / register / forgot / reset / document / user-profile / discover / discover-own-site） | `11`、`10` |
+| `user/` | 仪表盘：`dashboard.html` + **10 个** `user/*.js`（9 个 `dashboard.*` + `permission-picker.js`）+ 6 个 CSS | `12` |
 | `org/` | 组织页：`index.html` / `org.css` / `org.js`（侧栏「我加入的组」标题旁有 ⭐ **「＋ 加入」** 卡片：public 自助加入 / 邀请码 / 单次链接 / 我的申请 / 我收到的邀请） | `13` ＋ `site-back/memory/05-permission.md` §5.6 |
 | `discover/` | 发现页 11 个普通静态页（2026-10-02 新增） | `11` §7 |
-| `css/` | 16 个 CSS + `README.md`（加载关系权威） | `14` |
+| `css/` | 9 个 `css/*.css` + `README.md`（加载关系权威；全站 CSS 共 17 个） | `14` |
 | `model/` | Model 原型页（⚠️ `test.*` 仍发布） | `09` §2 |
 | `.github/workflows/static.yml` | Pages 发布 workflow（改排除规则前先读 `09` §2） | `09` |

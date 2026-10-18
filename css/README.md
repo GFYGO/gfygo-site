@@ -1,7 +1,7 @@
 # GWL CSS 文件架构
 
 > 本文是**说明文档**，权威以各 HTML 里实际的 `<link rel="stylesheet">` 与各页面脚本的实际注入为准。
-> 下面这份清单与「页面加载关系」已按 2026-09 的真实文件、真实引用逐条复核（复核命令见文末）。
+> 下面这份清单与「页面加载关系」已按 **2026-10-18** 的真实文件、真实引用逐条复核（复核命令见文末）。
 
 ## 核心文件（所有页面必加载）
 
@@ -12,7 +12,7 @@
 - **`css/styles.css`** — Header、Footer、首页 sections、登录表单、Theme Switcher、Header User Info、响应式布局
 - **`css/components.css`** — Toast 通知、Modal 弹窗、全局通知弹窗（notification-toast）、权限等级切换按钮组
 - **`css/feature-grid.css`** — 首页功能卡片网格（feature-grid / feature-tile）
-- **`css/document.css`** — 文档中心页面（目录树、详情、编辑器、修订历史、面包屑、文件夹树）
+- **`css/document.css`** — 文档中心页面（目录树、详情、编辑器、修订历史、面包屑、文件夹树、`.doc-*` 全套状态/空态/徽标；2026-10-16 补齐约 270 行）
 
 ## 页面专用文件
 
@@ -60,8 +60,8 @@ model/debug.html      → 无外部 CSS 依赖，样式全部内联在 <style> �
 
 要点：
 
-- `gfygo-site` 下共 **13 个 HTML**，其中 **12 个**都加载 `css/components.css`（唯一例外是 `model/debug.html`），不要漏列。
-- `404.html` 与 `org/index.html` 此前未出现在本表里，已补上。
+- `gfygo-site` 下共 **25 个 HTML**（主站 8 + `user/` 1 + `org/` 1 + `model/` 4 + `discover/` 11），其中 **24 个**都加载 `css/components.css`（唯一例外是 `model/debug.html`），不要漏列。
+- `404.html` / `org/index.html` / `u.html` / `forgot.html` / `reset.html` / 11 个 `discover/` 页均已补进本表（`u.html` 只加载 `core + styles + components`，不额外引入页面 CSS）。
 - `user/dashboard.html` 的静态 `<link>` 里**没有** `dashboard-perms.css` / `permission-picker.css`（见下节）。
 - `user/dashboard-workspace.css` 不出现在任何一行——它没有任何加载者。
 
