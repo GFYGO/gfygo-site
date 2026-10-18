@@ -57,7 +57,12 @@ const PDocsState = {
     //    ⚠️ 翻页 / 切视图 / 换文件夹 / 重载一律清空：否则会出现
     //    「在第 1 页选了 5 篇，翻到第 3 页点删除」→ 删掉看不见的东西。
     selection: new Set(),
-    trashSelection: new Set()
+    trashSelection: new Set(),
+    // ⭐ 2026-10-18：「批量编辑」按钮的开关。
+    //    默认 **false**：复选框隐藏、条目点击照常打开文档；
+    //    点按钮后切到 true：**只能**用复选框选择文件，条目点击 / 快捷操作全部禁用。
+    batchMode: false,
+    trashBatchMode: false
 };
 window.PDocsState = PDocsState;
 
@@ -610,6 +615,9 @@ function initPersonalDocs() {
         await loadPersonalTrash({ append: true });
         if (btn) { btn.disabled = false; btn.textContent = '加载更多'; }
     });
+    // ⭐ 2026-10-18：批量编辑开关（进入后才显示复选框；退出清空选择）
+    bind('pdocsBatchBtn', () => pdocsSetBatchMode('docs', !PDocsState.batchMode));
+    bind('pdocsTrashBatchBtn', () => pdocsSetBatchMode('trash', !PDocsState.trashBatchMode));
     // ⭐ C2 批量条（按钮都在列表容器**之外**，绑定一次即可，不会随列表重绘丢失）
     bind('pdocsBulkSelectPageBtn', () => pdocsToggleSelectPage('docs'));
     bind('pdocsBulkClearBtn', () => pdocsClearSelection('docs'));
@@ -739,6 +747,25 @@ function showPdocsView(viewName) {
         if (el) el.style.display = (v === viewName) ? '' : 'none';
     });
     // ⭐ C2：切视图一律清空两侧多选（否则会把列表视图里选的 id 带进回收站的批量条）
+    PDocsState.batchMode = false;
+    PDocsState.trashBatchMode = false;
+    const docsBox = $('pdocsListContainer');
+    const trashBox = $('pdocsTrashContainer');
+    if (docsBox) docsBox.classList.remove('pdocs-batch-mode');
+    if (trashBox) trashBox.classList.remove('pdocs-batch-mode');
+    // 批量按钮文案随状态复位（否则切视图后仍显示「✓ 完成」）
+    const docsBatchBtn = $('pdocsBatchBtn');
+    if (docsBatchBtn) {
+        docsBatchBtn.textContent = '☑️ 批量编辑';
+        docsBatchBtn.setAttribute('aria-pressed', 'false');
+        docsBatchBtn.classList.remove('pdocs-btn--primary');
+    }
+    const trashBatchBtn = $('pdocsTrashBatchBtn');
+    if (trashBatchBtn) {
+        trashBatchBtn.textContent = '☑️ 批量编辑';
+        trashBatchBtn.setAttribute('aria-pressed', 'false');
+        trashBatchBtn.classList.remove('pdocs-btn--primary');
+    }
     pdocsClearSelection('docs');
     pdocsClearSelection('trash');
     if (viewName === 'list') {
@@ -960,13 +987,17 @@ function pdocsBulkRefs(kind) {
         return {
             bar: $('pdocsTrashBulkBar'), count: $('pdocsTrashBulkCount'),
             selectBtn: $('pdocsTrashBulkSelectPageBtn'), set: PDocsState.trashSelection,
-            items: PDocsState.currentTrash || [], total: PDocsState.trashTotal
+            items: PDocsState.currentTrash || [], total: PDocsState.trashTotal,
+            batchMode: !!PDocsState.trashBatchMode,
+            container: $('pdocsTrashContainer'), toggleBtn: $('pdocsTrashBatchBtn')
         };
     }
     return {
         bar: $('pdocsListBulkBar'), count: $('pdocsListBulkCount'),
         selectBtn: $('pdocsBulkSelectPageBtn'), set: PDocsState.selection,
-        items: PDocsState.currentDocs || [], total: PDocsState.docsTotal
+        items: PDocsState.currentDocs || [], total: PDocsState.docsTotal,
+        batchMode: !!PDocsState.batchMode,
+        container: $('pdocsListContainer'), toggleBtn: $('pdocsBatchBtn')
     };
 }
 
@@ -977,12 +1008,37 @@ function renderPdocsBulkBar(kind) {
     const pageIds = ref.items.map(d => d.id).filter(pdocsIsValidId);
     const allPageSelected = pageIds.length > 0 && pageIds.every(id => ref.set.has(id));
     if (ref.selectBtn) ref.selectBtn.textContent = allPageSelected ? '取消全选本页' : '全选本页';
-    ref.bar.style.display = ref.set.size ? 'flex' : 'none';
+    // ⭐ 2026-10-18：批量模式下即使 0 选中也显示批量条（用户需要看到「全选本页 / 完成」入口）
+    ref.bar.style.display = (ref.batchMode || ref.set.size) ? 'flex' : 'none';
     if (ref.count) {
         const loaded = ref.items.length;
         const total = (typeof ref.total === 'number' && ref.total >= loaded) ? ref.total : loaded;
         ref.count.textContent = `已选 ${ref.set.size} / 本页 ${loaded} / 共 ${total}`;
     }
+}
+
+/**
+ * ⭐ 2026-10-18：进入 / 退出「批量编辑」模式。
+ *
+ * 进入后：列表容器加 `pdocs-batch-mode`（CSS 只显示复选框、隐藏快捷操作），
+ * 条目点击不再打开文档；退出时清空选择并把批量条收起。
+ */
+function pdocsSetBatchMode(kind, on) {
+    const ref = pdocsBulkRefs(kind);
+    const next = !!on;
+    if (kind === 'trash') PDocsState.trashBatchMode = next;
+    else PDocsState.batchMode = next;
+    ref.set.clear();
+    if (ref.container) ref.container.classList.toggle('pdocs-batch-mode', next);
+    if (ref.toggleBtn) {
+        ref.toggleBtn.textContent = next ? '✓ 完成' : '☑️ 批量编辑';
+        ref.toggleBtn.setAttribute('aria-pressed', next ? 'true' : 'false');
+        ref.toggleBtn.classList.toggle('pdocs-btn--primary', next);
+    }
+    // 批量条里的「完成」按钮与工具栏按钮同义（同一状态，不另建一套）
+    if (kind === 'trash') renderPdocsTrash(PDocsState.currentTrash || []);
+    else renderExplorerGrid();
+    renderPdocsBulkBar(kind);
 }
 
 /** 勾选/取消勾选一篇（内存 Set 与批量条保持同步）。 */
@@ -1131,6 +1187,8 @@ function renderPdocsBulkMoveOptions() {
 function renderExplorerGrid() {
     const container = $('pdocsListContainer');
     if (!container) return;
+    // 批量模式：只显示复选框（CSS），并禁用条目点击 / 快捷操作
+    container.classList.toggle('pdocs-batch-mode', !!PDocsState.batchMode);
 
     const inFolder = (typeof PDocsState.currentFolderId === 'number' && PDocsState.currentFolderId > 0);
     const upBtn = $('pdocsUpBtn');
@@ -1205,6 +1263,7 @@ function renderExplorerGrid() {
 
     $$('.pdocs-explorer-item--folder', container).forEach(el => {
         on(el, 'click', (e) => {
+            if (PDocsState.batchMode) return;   // 批量模式：只允许复选框选择
             if (e.target.closest('.pdocs-explorer-item__btn')) return;
             const fid = pdocsParseId(el.dataset.folderId);
             if (fid === null) {
@@ -1221,6 +1280,7 @@ function renderExplorerGrid() {
 
     $$('.pdocs-explorer-item--doc', container).forEach(el => {
         on(el, 'click', (e) => {
+            if (PDocsState.batchMode) return;   // 批量模式：只允许复选框选择
             if (e.target.closest('.pdocs-explorer-item__btn') || e.target.closest('.pdocs-explorer-move')
                 || e.target.closest('.pdocs-explorer-item__check')) return;
             const id = pdocsParseId(el.dataset.docId);
@@ -1235,6 +1295,7 @@ function renderExplorerGrid() {
     $$('.pdocs-explorer-item__btn', container).forEach(btn => {
         on(btn, 'click', (e) => {
             e.stopPropagation();
+            if (PDocsState.batchMode) return;   // 批量模式：快捷操作禁用
             const action = btn.dataset.action;
             // ⚠️ 旧写法 `parseInt(btn.dataset.id, 10)`：id=0 被渲染成 data-id=""（见 pdocsSafeValue）
             //    时得到 NaN，于是「编辑」走进了**空白新建**而不是编辑。这里严格校验，
@@ -1262,6 +1323,7 @@ function renderExplorerGrid() {
     $$('.pdocs-explorer-move', container).forEach(sel => {
         on(sel, 'change', (e) => {
             e.stopPropagation();
+            if (PDocsState.batchMode) return;   // 批量模式：快捷操作禁用
             const docId = pdocsParseId(sel.dataset.id);
             // 下拉的 value="0" =「无文件夹」，是**合法**目标，0 必须保留（真值判断会把它当缺失）
             const folderId = pdocsParseId(sel.value);
@@ -1363,6 +1425,7 @@ async function openPdocsBrowser(docId) {
 function renderPdocsTrash(docs) {
     const container = $('pdocsTrashContainer');
     if (!container) return;
+    container.classList.toggle('pdocs-batch-mode', !!PDocsState.trashBatchMode);
 
     if (!docs.length) {
         container.innerHTML = `
@@ -1396,6 +1459,7 @@ function renderPdocsTrash(docs) {
             const action = btn.dataset.action;
             const id = pdocsParseId(btn.dataset.id);
             if (action === 'select') return;      // ⭐ C2：多选复选框由下面的绑定负责
+            if (PDocsState.trashBatchMode) return;   // 批量模式：只允许复选框选择
             if (id === null) {
                 console.error('[pdocs] 回收站按钮缺少合法的 data-id，已取消操作:', action);
                 showToast('操作失败：这一项缺少有效的 ID，请刷新页面后重试', 'error');

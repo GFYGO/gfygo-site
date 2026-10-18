@@ -89,6 +89,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     // 2. 加载并渲染菜单
     await DashboardMenu.loadMenu();
 
+    // 2b. ⭐ 2026-10-18：红点计数在首屏就刷新一次（不必先点开通知面板）
+    if (typeof window.refreshNotifyBadge === 'function') {
+        window.refreshNotifyBadge();
+    }
+
     // 3. 统一初始化侧边栏（含 toggle、overlay、userTrigger）
     initSidebarToggle();
 

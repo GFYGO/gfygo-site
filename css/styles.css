@@ -150,7 +150,7 @@ body.theme-gray .header {
   color: var(--color-on-primary, #fff);
 }
 .theme-switcher::before {
-  content: '\1F3A8';   /* 🎨 */
+  /*content: '\1F3A8';    🎨 */
   pointer-events: none;
 }
 .theme-switcher:hover {

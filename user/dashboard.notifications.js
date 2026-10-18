@@ -1,23 +1,44 @@
 /**
  * dashboard.notifications.js
- * 「通知」静态面板（`dashboard.html` 的 `#panel-notifications`）的数据加载。
+ * 「通知」静态面板（`dashboard.html` 的 `#panel-notifications`）。
  *
- * 为什么在这里：通知是侧边栏里**前端写死**的 4 个基础页之一
- * （`dashboard.menu.js::PRIMARY_MENU`），页面内容不由后端下发 ——
- * 只有**数据**走 `GET /api/v0/notify/global`。
+ * ⭐ 2026-10-18：从「只拉 /notify/global 的只读列表」升级为**通知中心**：
+ *   * 全局通知每项带 `is_read`（后端按用户持久化）；
+ *   * 个人定向通知 / 站内信（审批结果、被拉黑、加入成功、管理员私信）；
+ *   * 「标为已读」/「全部已读」；
+ *   * 侧边栏「通知」红点计数（`GET /notify/unread-count`，持久化，换设备一致）。
  *
- * 由 `dashboard.menu.js::renderTab()` 在显示该面板时调用 `window.initNotificationsPanel()`
- * （见那边的 `STATIC_PANEL_HOOKS`）：每次进入都重新拉一次，与「后端下发时代
- * 每次注入新 HTML 都会重跑脚本」的行为一致。
+ * 数据接口：
+ *   GET  /api/v0/notify/global       → [ {..., is_read} ]
+ *   GET  /api/v0/notify/personal     → { items:[...], unread:{...} }
+ *   POST /api/v0/notify/read         → { global_ids?, personal_ids? }
+ *   POST /api/v0/notify/read-all     → { global_ids? }
+ *   GET  /api/v0/notify/unread-count → { unread:{total,global,personal} }
  *
- * Phase 2: ES Module — 共享资源通过 window 访问（escapeHtml / apiRequest）。
- * ⚠️ 这两个助手在模块加载后可能才就绪（加载顺序），所以**在调用时**再取，不在模块顶层缓存。
+ * 由 `dashboard.menu.js::renderTab()` 在显示该面板时调用
+ * `window.initNotificationsPanel()`（每次进入都重新拉一次）。
  */
 
-/**
- * 统一的 加载 / 空 / 错误 态。
- * 类名见 dashboard.css 的 .empty-state 系列（全站共用，勿另起类名）。
- */
+var _notifyState = {
+    global: [],
+    personal: [],
+    unread: { total: 0, global: 0, personal: 0 },
+    timer: null
+};
+
+function notifyEsc(value) {
+    var esc = window.escapeHtml;
+    return typeof esc === 'function' ? esc(value) : String(value == null ? '' : value);
+}
+
+function notifyApi(url, opts) {
+    if (typeof window.apiRequest !== 'function') {
+        return Promise.resolve({ code: 500, msg: '共享请求组件未加载' });
+    }
+    var options = Object.assign({ silent: true }, opts || {});
+    return window.apiRequest(url, options);
+}
+
 function stateHtml(kind, text, hint) {
     var esc = window.escapeHtml;
     if (kind === 'loading') {
@@ -30,18 +51,99 @@ function stateHtml(kind, text, hint) {
         + '</div>';
 }
 
-function cardHtml(n) {
-    var esc = window.escapeHtml;
-    var status = n.is_active
-        ? '<span class="tag tag-green">启用</span>'
-        : '<span class="tag tag-gray">已过期</span>';
-    return '<div class="notify-card">'
-        + '<h4 class="notify-card__title">' + esc(n.title || '系统通知') + '</h4>'
-        + '<p class="notify-card__content">' + esc(n.content || '') + '</p>'
-        + '<div class="notify-card__meta">'
-        + '<span>' + esc(String(n.created_at || '').substring(0, 10)) + '</span>'
-        + status
-        + '</div></div>';
+function notifyDate(value) {
+    var text = String(value || '');
+    return text ? text.substring(0, 16).replace('T', ' ') : '';
+}
+
+/** 更新所有红点（侧边栏菜单项里的 [data-notify-badge]）。 */
+function renderUnreadBadge(counts) {
+    var total = counts && Number(counts.total) > 0 ? Number(counts.total) : 0;
+    var nodes = document.querySelectorAll('[data-notify-badge]');
+    for (var i = 0; i < nodes.length; i++) {
+        var el = nodes[i];
+        if (total > 0) {
+            el.hidden = false;
+            el.textContent = total > 99 ? '99+' : String(total);
+            el.title = '有 ' + total + ' 条未读通知';
+        } else {
+            el.hidden = true;
+            el.textContent = '';
+            el.title = '';
+        }
+    }
+    var summary = document.getElementById('notifyUnreadSummary');
+    if (summary) {
+        if (!counts || (!counts.total && !counts.global && !counts.personal)) {
+            summary.textContent = '全部已读';
+        } else {
+            summary.textContent = '未读 ' + (counts.total || 0)
+                + '（全局 ' + (counts.global || 0) + ' / 个人 ' + (counts.personal || 0) + '）';
+        }
+    }
+    var readAll = document.getElementById('notifyReadAllBtn');
+    if (readAll) readAll.disabled = !total;
+}
+
+/** 只刷新红点（切页 / 定时轮询 / 其它面板操作后都可调用）。 */
+async function refreshNotifyBadge() {
+    var d = await notifyApi('/api/v0/notify/unread-count');
+    if (d && d.code === 200 && d.data && d.data.unread) {
+        _notifyState.unread = d.data.unread;
+        renderUnreadBadge(d.data.unread);
+    }
+}
+
+function notifyCardHtml(n, kind) {
+    var unread = !n.is_read;
+    var isPersonal = kind === 'personal';
+    var title = notifyEsc(n.title || (isPersonal ? '个人通知' : '系统通知'));
+    var content = notifyEsc(n.content || '');
+    var badges = '';
+    if (unread) badges += '<span class="notify-card__badge">未读</span>';
+    if (isPersonal) badges += '<span class="notify-card__badge notify-card__badge--personal">站内信</span>';
+    var link = '';
+    var linkUrl = String(n.link_url || '');
+    // 只渲染站内相对路径 / http(s)，杜绝 javascript: 链接
+    if (/^(https?:\/\/|\/|\.\.?\/|\?|#)/i.test(linkUrl)) {
+        link = '<a class="notify-card__link" href="' + notifyEsc(linkUrl) + '">查看详情 →</a>';
+    }
+    var readBtn = unread
+        ? '<button type="button" class="notify-card__read-btn" data-notify-read="1"'
+            + ' data-notify-kind="' + kind + '" data-notify-id="' + notifyEsc(n.id) + '">标为已读</button>'
+        : '';
+    var meta = isPersonal
+        ? ('个人通知 · ' + notifyEsc(notifyDate(n.created_at)))
+        : ('全局通知 · ' + notifyEsc(notifyDate(n.created_at)));
+    return '<div class="notify-card' + (unread ? ' notify-card--unread' : '') + '"'
+        + ' data-notify-kind="' + kind + '" data-notify-id="' + notifyEsc(n.id) + '"'
+        + ' data-notify-unread="' + (unread ? '1' : '0') + '">'
+        + '<h4 class="notify-card__title">' + title + badges + '</h4>'
+        + '<p class="notify-card__content">' + content + '</p>'
+        + '<div class="notify-card__meta"><span>' + meta + '</span></div>'
+        + (link || readBtn ? '<div class="notify-card__actions">' + link + readBtn + '</div>' : '')
+        + '</div>';
+}
+
+function renderNotifyList() {
+    var el = document.getElementById('notifyList');
+    if (!el) return;
+    var personal = _notifyState.personal;
+    var global = _notifyState.global;
+    if (!personal.length && !global.length) {
+        el.innerHTML = stateHtml('empty', '暂无通知', '有新通知时会显示在这里');
+        return;
+    }
+    var html = '';
+    if (personal.length) {
+        html += '<h3 class="notify-section-title">📬 个人通知</h3>';
+        html += personal.map(function (n) { return notifyCardHtml(n, 'personal'); }).join('');
+    }
+    if (global.length) {
+        html += '<h3 class="notify-section-title">📢 全局通知</h3>';
+        html += global.map(function (n) { return notifyCardHtml(n, 'global'); }).join('');
+    }
+    el.innerHTML = html;
 }
 
 async function loadNotifications() {
@@ -51,33 +153,107 @@ async function loadNotifications() {
     el.setAttribute('aria-busy', 'true');
     el.innerHTML = stateHtml('loading', '加载中...');
 
-    // silent：失败态由本面板自己渲染，不再叠一层 Toast
-    var d = await window.apiRequest('/api/v0/notify/global', { silent: true });
+    var results = await Promise.all([
+        notifyApi('/api/v0/notify/global'),
+        notifyApi('/api/v0/notify/personal')
+    ]);
+    var g = results[0];
+    var p = results[1];
 
     el.setAttribute('aria-busy', 'false');
 
+    if (!g || g.code !== 200 || !p || p.code !== 200) {
+        var msg = (g && g.msg) || (p && p.msg) || '请检查网络后重试';
+        el.innerHTML = stateHtml('error', '通知加载失败', msg);
+        await refreshNotifyBadge();
+        return;
+    }
+
+    _notifyState.global = Array.isArray(g.data) ? g.data : [];
+    _notifyState.personal = (p.data && Array.isArray(p.data.items)) ? p.data.items : [];
+    if (p.data && p.data.unread) {
+        _notifyState.unread = p.data.unread;
+    }
+    renderNotifyList();
+    renderUnreadBadge(_notifyState.unread);
+    // 与列表分开再拉一次计数：以服务端为准（列表可能只取了最近 N 条）
+    await refreshNotifyBadge();
+}
+
+async function markNotifyRead(kind, id) {
+    var body = kind === 'personal' ? { personal_ids: [id] } : { global_ids: [id] };
+    var d = await notifyApi('/api/v0/notify/read', {
+        method: 'POST', body: JSON.stringify(body)
+    });
     if (!d || d.code !== 200) {
-        el.innerHTML = stateHtml('error', '通知加载失败', (d && d.msg) || '请检查网络后重试');
+        if (window.showToast) window.showToast((d && d.msg) || '标记已读失败', 'error');
         return;
     }
+    if (d.data && d.data.unread) {
+        _notifyState.unread = d.data.unread;
+        renderUnreadBadge(d.data.unread);
+    }
+    await loadNotifications();
+}
 
-    var list = Array.isArray(d.data) ? d.data : [];
-    if (list.length === 0) {
-        el.innerHTML = stateHtml('empty', '暂无通知', '有新通知时会显示在这里');
+async function markAllNotifyRead() {
+    var ids = _notifyState.global.map(function (n) { return n.id; });
+    var d = await notifyApi('/api/v0/notify/read-all', {
+        method: 'POST', body: JSON.stringify({ global_ids: ids })
+    });
+    if (!d || d.code !== 200) {
+        if (window.showToast) window.showToast((d && d.msg) || '全部已读失败', 'error');
         return;
     }
+    if (d.data && d.data.unread) {
+        _notifyState.unread = d.data.unread;
+        renderUnreadBadge(d.data.unread);
+    }
+    if (window.showToast) window.showToast('已全部标为已读', 'success');
+    await loadNotifications();
+}
 
-    el.innerHTML = list.map(cardHtml).join('');
+/** 事件委托：卡片本身 / 「标为已读」按钮都能触发；链接正常跳转。 */
+function bindNotifyEvents() {
+    var list = document.getElementById('notifyList');
+    if (!list || list.dataset.notifyBound === '1') return;
+    list.dataset.notifyBound = '1';
+    list.addEventListener('click', function (e) {
+        if (e.target.closest('a')) return;
+        var btn = e.target.closest('[data-notify-read]');
+        if (btn) {
+            e.preventDefault();
+            markNotifyRead(btn.dataset.notifyKind, btn.dataset.notifyId);
+            return;
+        }
+        var card = e.target.closest('.notify-card');
+        if (!card || card.dataset.notifyUnread !== '1') return;
+        markNotifyRead(card.dataset.notifyKind, card.dataset.notifyId);
+    });
+
+    var readAll = document.getElementById('notifyReadAllBtn');
+    if (readAll && readAll.dataset.notifyBound !== '1') {
+        readAll.dataset.notifyBound = '1';
+        readAll.addEventListener('click', function () { markAllNotifyRead(); });
+    }
 }
 
 /** 面板初始化钩子（由 dashboard.menu.js 在切到「通知」时调用） */
 function initNotificationsPanel() {
+    bindNotifyEvents();
+    if (_notifyState.timer === null) {
+        _notifyState.timer = window.setInterval(function () {
+            if (!document.hidden) refreshNotifyBadge();
+        }, 60000);
+    }
+    refreshNotifyBadge();
     return loadNotifications();
 }
 
 // ===== ES Module exports =====
-export { initNotificationsPanel, loadNotifications };
+export { initNotificationsPanel, loadNotifications, refreshNotifyBadge };
 
 // ===== 兼容层（dashboard.menu.js 通过 window 调钩子）=====
 window.initNotificationsPanel = initNotificationsPanel;
 window.loadNotifications = loadNotifications;
+window.refreshNotifyBadge = refreshNotifyBadge;

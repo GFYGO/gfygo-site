@@ -48,7 +48,7 @@ forgot.html           → css/core.css + css/styles.css + css/login.css + css/fo
 reset.html            → css/core.css + css/styles.css + css/login.css + css/forgot.css + css/components.css
 document.html         → css/core.css + css/styles.css + css/document.css + css/feature-grid.css + css/components.css
 404.html              → css/core.css + css/styles.css + css/components.css
-user/dashboard.html   → css/core.css + css/styles.css + css/components.css
+user/dashboard.html   → css/core.css + css/styles.css + css/components.css + css/feature-grid.css
                         + user/dashboard.css + user/dashboard-profile.css + user/dashboard-admin.css
                         + EasyMDE 样式（CDN：https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.css）
 org/index.html        → css/core.css + css/styles.css + css/components.css + org/org.css
@@ -67,7 +67,7 @@ model/debug.html      → 无外部 CSS 依赖，样式全部内联在 <style> �
 
 ## 运行时注入的 CSS
 
-`user/dashboard.html` 只静态加载上表列出的那 **6 个本地 CSS**（另有 EasyMDE 的 CDN 样式）。另外两个文件由**后端下发的动态页面脚本**在浏览器里运行时注入：
+`user/dashboard.html` 只静态加载上表列出的那 **7 个本地 CSS**（另有 EasyMDE 的 CDN 样式）。另外两个文件由**后端下发的动态页面脚本**在浏览器里运行时注入：
 
 | 注入的文件 | 注入者 | 写法 |
 |---|---|---|

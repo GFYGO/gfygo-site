@@ -224,6 +224,11 @@ async function loadProfile() {
             //    这里再同步一次是**幂等的防御**：本函数同时承担「老账号没有 profile 行」等
             //    边界情况下的兜底，且保证「编辑资料后立刻看到新名字」不依赖上面那条链路。
             if (refreshUserProfileLocal) refreshUserProfileLocal(resp.data);
+            // ⭐ 2026-10-18：把资料广播给其它面板（工作台布局要读 workspace_layout），
+            //    避免它们各自再 GET 一次 /user/profile（同一面板打开会变成两次请求）。
+            try {
+                document.dispatchEvent(new CustomEvent('dashboard:profile-loaded', { detail: resp.data }));
+            } catch (e) { /* 老浏览器 / 测试桩：忽略 */ }
         } else {
             setText('profileFormStatus', '资料加载失败：' + ((resp && resp.msg) || '请检查网络后重试'));
         }

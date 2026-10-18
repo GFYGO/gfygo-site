@@ -89,6 +89,21 @@
   // 支持的动作 → 按钮文案（view/use/join 之外的动作一律静默忽略）
   var ACTION_LABELS = { view: '查看', use: '使用', join: '加入' };
 
+  // ⭐ 2026-10-18：广场工具的三种发布者（与后端 CARD.publisher_type 同值）
+  var PUBLISHER_LABELS = { official: '官方', third_party: '第三方', user: '用户' };
+  var PUBLISHER_CLASS = { official: 'official', third_party: 'third-party', user: 'user' };
+
+  /** publisherBadge(item) -> 工具卡片的发布者徽标 HTML（非 tool / 未知值 → ''） */
+  function publisherBadge(item) {
+    var type = (item && typeof item.type === 'string') ? item.type : (item && item.section);
+    if (type !== 'tool') return '';
+    var key = item && item.publisher_type ? String(item.publisher_type) : '';
+    var label = PUBLISHER_LABELS[key];
+    if (!label) return '';
+    return '<span class="discover-publisher discover-publisher--'
+      + PUBLISHER_CLASS[key] + '">' + escapeHtml(label) + '</span>';
+  }
+
   // 前端固定文案（非后端下发，无需转义；仍统一走 escapeHtml 以免将来被替换成动态值）
   var TEXT = {
     loading: '加载中…',
@@ -391,6 +406,7 @@
       var badge = section ? (section.icon + ' ' + label) : label;
       html += '<span class="discover-card__badge">' + escapeHtml(badge) + '</span>';
     }
+    html += publisherBadge(item);
     html += '</div>';
 
     html += '<h3 class="discover-card__title">' + escapeHtml(item.title || TEXT.untitled) + '</h3>';
@@ -472,6 +488,13 @@
       return;
     }
     if (action === 'use') {
+      // ⭐ 2026-10-18：接了真实工具后，「使用」打开工具的 https 链接（新标签）；
+      //    没有 link_url 的旧条目仍按占位提示处理（保持既有行为）。
+      var toolUrl = (item && typeof item.link_url === 'string') ? item.link_url : '';
+      if (/^https?:\/\//i.test(toolUrl)) {
+        window.open(toolUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
       toast(ACTION_PLACEHOLDER.use);
       return;
     }
@@ -1209,6 +1232,7 @@ function fmtDateTime(s) {
     html += '<h1 class="discover-detail__title">' + escapeHtml(title) + '</h1>';
     html += '<div class="discover-detail__meta">';
     if (label) html += '<span class="discover-detail__badge">' + escapeHtml(label) + '</span>';
+    html += publisherBadge(item);
     if (item.owner_username) html += '<span>由 <span data-owner-name="1">' + escapeHtml(item.owner_username) + '</span> 展示</span>';
     var views = Number(item.view_count);
     if (Number.isFinite(views) && views >= 0) html += '<span>' + views + ' 次浏览</span>';
@@ -1275,7 +1299,10 @@ function fmtDateTime(s) {
       return '「查看」跳转到源内容；「加入」会滚到下方的「加入组织」，那里列出可以加入的公开组。';
     }
     if (actions.indexOf('use') >= 0) {
-      return '「查看」跳转到源内容；「使用」为预留功能，点击只给出提示。';
+      if (item && /^https?:\/\//i.test(String(item.link_url || ''))) {
+        return '「使用」会在新标签页打开该工具的外部地址。';
+      }
+      return '「使用」为预留功能，点击只给出提示。';
     }
     return '「查看」跳转到源内容。';
   }

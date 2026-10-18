@@ -53,7 +53,7 @@ var PRIMARY_MENU = [
 // 构建版本号：便于在浏览器控制台一眼确认「当前跑的是哪一版」
 //   window.__DASHBOARD_BUILD__
 //   document.querySelector('script[src*="dashboard.menu.js"]').src
-var BUILD_VERSION = '20261016a';
+var BUILD_VERSION = '20261018a';
 window.__DASHBOARD_BUILD__ = BUILD_VERSION;
 
 var _menuData = null;
@@ -218,9 +218,14 @@ function menuItemsHtml(items, extraClass) {
     if (!items || items.length === 0) return '';
     var cls = extraClass ? 'sidebar__nav-item ' + extraClass : 'sidebar__nav-item';
     return items.map(function (item) {
+        // 通知项挂一个红点计数容器（dashboard.notifications.js 负责更新 / 隐藏）
+        var badge = item.tab_key === 'notifications'
+            ? '<span class="sidebar__nav-badge" data-notify-badge hidden></span>'
+            : '';
         return '<a href="#" class="' + cls + '" data-tab="' + escapeMenuText(item.tab_key) + '">'
             + '<span class="sidebar__nav-icon">' + escapeMenuText(item.icon || '📄') + '</span>'
             + '<span class="sidebar__nav-text">' + escapeMenuText(item.label) + '</span>'
+            + badge
             + '</a>';
     }).join('');
 }
@@ -284,8 +289,10 @@ PRIMARY_MENU.forEach(function (item) { STATIC_TABS[item.tab_key] = true; });
  */
 var STATIC_PANEL_HOOKS = {
     home: 'initCheckinModule',
+    workspace: 'initWorkspacePanel',
     notifications: 'initNotificationsPanel',
     docs: 'initPersonalDocsPanel',
+    tools: 'initToolsPanel',
     settings: 'initProfilePanel',
 };
 

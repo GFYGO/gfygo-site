@@ -67,19 +67,20 @@ node tools/test-permission-switch.mjs   # 55 项：权限视角切换
 node tools/test-turnstile-auth.mjs      # 49 项：Turnstile 认证链
 node tools/test-discover-page.mjs       # ⭐ 224 项：发现页（含「加入」真动作、登录门）
 node tools/test-user-profile-page.mjs   # 21 项：u.html 公开主页
-node tools/test-pdocs-bulk.mjs          # 41 项：个人文档批量操作 UI 契约
+node tools/test-pdocs-bulk.mjs          # 48 项：个人文档批量操作 UI 契约（含 2026-10-18 批量编辑模式）
+node tools/test-dashboard-workspace.mjs # 51 项：工作台瀑布流 / 第三方工具嵌入 / 通知已读 / 超管提醒
 node tools/test-document-folders.mjs    # 21 项：文件夹树展开持久化 + 组根文件夹展示名
 ```
 
 ⚠️ 本机**没有浏览器自动化**（沙箱起不了无头浏览器）——视觉类问题只能人工在浏览器验证；
-`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，10 套合计 **750 项**）。
+`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，11 套合计 **808 项**）。
 
 ## 5. 目录速览（细节按需查 `file-wiki` 对应篇）
 
 | 目录 | 一句话 | 导航篇 |
 |---|---|---|
 | 根 `*.html` + `js/` | 主站 8 页 + 16 个共享/页面脚本（config / sanitize / theme / toast / modal / utils / turnstile-widget / index / login / register / forgot / reset / document / user-profile / discover / discover-own-site） | `11`、`10` |
-| `user/` | 仪表盘：`dashboard.html` + **10 个** `user/*.js`（9 个 `dashboard.*` + `permission-picker.js`）+ 6 个 CSS | `12` |
+| `user/` | 仪表盘：`dashboard.html` + **12 个** `user/*.js`（11 个 `dashboard.*` + `permission-picker.js`）+ 6 个 CSS | `12` |
 | `org/` | 组织页：`index.html` / `org.css` / `org.js`（侧栏「我加入的组」标题旁有 ⭐ **「＋ 加入」** 卡片：public 自助加入 / 邀请码 / 单次链接 / 我的申请 / 我收到的邀请） | `13` ＋ `site-back/memory/05-permission.md` §5.6 |
 | `discover/` | 发现页 11 个普通静态页（2026-10-02 新增） | `11` §7 |
 | `css/` | 9 个 `css/*.css` + `README.md`（加载关系权威；全站 CSS 共 17 个） | `14` |
