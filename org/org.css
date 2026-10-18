@@ -255,19 +255,6 @@
   color: var(--color-on-primary, #fff);
 }
 
-/* ⭐ 「加入组类」弹出卡片：比通用卡片更宽、更高（里面有 4 个列表），
-   并且**向左展开** —— 锚点在左导航，右对齐会伸出屏幕左边。 */
-.org-popcard--join {
-    left: 0;
-    right: auto;
-    width: 380px;
-    max-height: var(--org-popcard-max-h, calc(100vh - 160px));
-}
-
-.org-popcard--join .org-popcard__body {
-    max-height: min(460px, var(--org-popcard-max-h, 70vh));
-}
-
 .org-joinfield {
     margin: 0 0 14px;
 }
@@ -452,7 +439,8 @@
 }
 
 /* =========================================
-   3. 弹出卡片（两个入口共用一套外观）
+   3. 弹出卡片（顶栏 / 左导航 / 内容区共用一套外观）
+      ⚠️ 只有「加入」卡片是 fixed（侧栏滚动容器会裁剪 absolute 卡片），见下面 .org-popcard--join
    ========================================= */
 .org-popwrap {
     position: relative;
@@ -465,7 +453,11 @@
 .org-popcard {
     position: absolute;
     top: calc(100% + 8px);
-    right: 0;
+    /* ⭐ 左端对齐锚点按钮（原来 right: 0 是**右端**对齐：顶栏左侧 320px 的卡片会
+       从「已打开页面」按钮向左伸出屏幕，左半边被裁掉）。右端对齐的卡片
+       （右上角「视图」）在下面单独覆盖。 */
+    left: 0;
+    right: auto;
     z-index: 60;
     width: 320px;
     max-width: calc(100vw - 32px);
@@ -497,6 +489,39 @@
     right: 0;
     width: auto;
     max-height: min(280px, var(--org-popcard-max-h, 60vh));
+}
+
+/* 右上角「视图」卡片：锚点在内容区右缘，右端对齐按钮（左对齐会伸出屏幕右边） */
+.org-vieweditor .org-popcard {
+    left: auto;
+    right: 0;
+}
+
+/* ⭐ 「加入组类」弹出卡片：比通用卡片更宽、更高（里面有 4 个列表）。
+   ⚠️ 它挂在 `.org-sidebar` 里，而侧栏是 `overflow-y: auto` 的滚动容器 ——
+   absolute 定位的卡片会被侧栏的滚动裁剪**切掉右半边**（380px 卡片 vs 260px 侧栏），
+   所以这里必须是 `fixed`：以视口定位，不受祖先 overflow 裁剪。
+   `left` / `top` / `bottom` 由 `org.js::fitPopcard()` 每次展开时按锚点按钮写入内联值。
+   （规则放在基础 `.org-popcard` 之后，否则 width / max-height 会被基础规则覆盖。） */
+.org-popcard--join {
+    position: fixed;
+    top: auto;
+    left: 0;
+    right: auto;
+    width: 380px;
+    max-width: calc(100vw - 24px);
+    max-height: var(--org-popcard-max-h, calc(100vh - 160px));
+    z-index: 80;
+}
+
+.org-popcard--join .org-popcard__body {
+    max-height: min(460px, var(--org-popcard-max-h, 70vh));
+}
+
+/* fixed 卡片的「向上翻」由 JS 直接写 top/bottom，
+   不能再吃 `.org-popcard--up` 里按锚点算的 `bottom: calc(100% + 8px)`（fixed 的 100% 是视口） */
+.org-popcard--join.org-popcard--up {
+    bottom: auto;
 }
 
 .org-popcard__head {

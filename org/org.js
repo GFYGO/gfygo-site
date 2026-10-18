@@ -321,6 +321,8 @@
         // 视口变化 → 重新收敛已展开卡片的高度/方向（否则转屏后又会伸出屏幕）
         window.addEventListener('resize', refitOpenPopcards);
         window.addEventListener('orientationchange', refitOpenPopcards);
+        // 容器内滚动（左导航 / 内容区）→ fixed 的「加入」卡片要跟着锚点按钮走
+        document.addEventListener('scroll', refitOpenPopcards, true);
     }
 
     function on(id, event, handler) {
@@ -345,10 +347,13 @@
 
     /** 让弹出卡片**留在视口内**（否则锚点靠下时卡片会伸到屏幕外面，底部点不到）。
      *
-     *  两件事：
+     *  三件事：
      *    ① 按「锚点上方/下方还剩多少」动态写 `--org-popcard-max-h` ——
      *       CSS 里的 `calc(100vh - 140px)` 是按**视口**算的兜底，不知道锚点在哪；
-     *    ② 下方连 160px 都放不下、而上方更宽裕时翻到锚点上方（`.org-popcard--up`）。
+     *    ② 下方连 160px 都放不下、而上方更宽裕时翻到锚点上方（`.org-popcard--up`）；
+     *    ③ 「加入」卡片是 `position: fixed`（挂在 `.org-sidebar` 里，absolute 会被
+     *       侧栏的 `overflow-y: auto` 裁掉右半边），CSS 给不出坐标，这里按锚点按钮写
+     *       `left`（左端对齐按钮，横向夹在视口内）和 `top` / `bottom`。
      *
      *  宽度不在这里管（CSS 的 `max-width: calc(100vw - 32px)` 已经够了）。
      */
@@ -368,6 +373,22 @@
         var px = Math.floor(Math.min(Math.max(room, 120), window.innerHeight - 2 * MARGIN));
         card.classList.toggle('org-popcard--up', up);
         card.style.setProperty('--org-popcard-max-h', px + 'px');
+
+        // ③ 只有「加入」卡片需要 JS 定位（fixed，脱离侧栏裁剪）；其余卡片走 CSS 的 absolute。
+        if (!card.classList.contains('org-popcard--join')) return;
+        var w = card.offsetWidth || 380;
+        // 左端对齐锚点按钮，但不许伸出视口右边（窄屏上会被夹住，宁可不对齐也不能出屏）
+        var maxLeft = Math.max(MARGIN, window.innerWidth - w - MARGIN);
+        var left = Math.min(Math.max(rect.left, MARGIN), maxLeft);
+        card.style.left = Math.round(left) + 'px';
+        card.style.right = 'auto';
+        if (up) {
+            card.style.top = 'auto';
+            card.style.bottom = Math.round(window.innerHeight - rect.top + GAP) + 'px';
+        } else {
+            card.style.bottom = 'auto';
+            card.style.top = Math.round(rect.bottom + GAP) + 'px';
+        }
     }
 
     /** 视口变化时重算所有**已展开**的卡片（转屏 / 缩放 / 窗口拉伸）。 */
