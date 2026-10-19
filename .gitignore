@@ -10,3 +10,4 @@ desktop.ini
 # 本地依赖 / 虚拟环境
 node_modules/
 .venv/
+AGENTS.md

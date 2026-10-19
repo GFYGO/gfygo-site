@@ -53,7 +53,7 @@ var PRIMARY_MENU = [
 // 构建版本号：便于在浏览器控制台一眼确认「当前跑的是哪一版」
 //   window.__DASHBOARD_BUILD__
 //   document.querySelector('script[src*="dashboard.menu.js"]').src
-var BUILD_VERSION = '20261018a';
+var BUILD_VERSION = '20261019a';
 window.__DASHBOARD_BUILD__ = BUILD_VERSION;
 
 var _menuData = null;

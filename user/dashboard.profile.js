@@ -35,6 +35,7 @@
  */
 
 import { refreshUserProfileLocal } from './dashboard.auth.js';
+import { initApiKeyPanel } from './dashboard.apikey.js';
 
 // ===== 从 window 获取共享资源（config.js / utils.js / toast.js 以普通 <script> 加载）=====
 var AuthGuard = window.AuthGuard;
@@ -243,6 +244,8 @@ async function loadProfile() {
  */
 function initProfilePanel() {
     initProfile();
+    // ⭐ 2026-10-19：API Key 区块与资料表单同一面板；它自己管理懒加载与一次性明文。
+    initApiKeyPanel();
     if (_loaded || _loading) return Promise.resolve();
     return loadProfile();
 }

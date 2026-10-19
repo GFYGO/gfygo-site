@@ -59,7 +59,7 @@
 
 ```powershell
 cd ..   # 回到工作区根 D:\HP(system)\Documents\GitHub\GFYGO
-node tools/test-dashboard-pages.mjs     # 137 项：仪表盘加载契约 + 动态页脚本编译
+node tools/test-dashboard-pages.mjs     # 144 项：仪表盘加载契约 + 动态页脚本编译 + 设置页 API Key
 node tools/test-dashboard-home.mjs      # 54 项：从 dashboard.html 解析真实 DOM 全流程装配
 node tools/test-org-page.mjs            # 126 项：组织页（含「＋ 加入」卡片 / join-info 自助加入 / 页脚 6 链接契约）
 node tools/test-superadmin-page.mjs     # 23 项：超管页（动作名与页面后端 ROUTES 对齐）
@@ -73,14 +73,14 @@ node tools/test-document-folders.mjs    # 21 项：文件夹树展开持久化 +
 ```
 
 ⚠️ 本机**没有浏览器自动化**（沙箱起不了无头浏览器）——视觉类问题只能人工在浏览器验证；
-`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，11 套合计 **809 项**）。
+`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，11 套合计 **815 项**）。
 
 ## 5. 目录速览（细节按需查 `file-wiki` 对应篇）
 
 | 目录 | 一句话 | 导航篇 |
 |---|---|---|
 | 根 `*.html` + `js/` | 主站 8 页 + 16 个共享/页面脚本（config / sanitize / theme / toast / modal / utils / turnstile-widget / index / login / register / forgot / reset / document / user-profile / discover / discover-own-site） | `11`、`10` |
-| `user/` | 仪表盘：`dashboard.html` + **12 个** `user/*.js`（11 个 `dashboard.*` + `permission-picker.js`）+ 6 个 CSS | `12` |
+| `user/` | 仪表盘：`dashboard.html` + **13 个** `user/*.js`（12 个 `dashboard.*` + `permission-picker.js`）+ 6 个 CSS | `12` |
 | `org/` | 组织页：`index.html` / `org.css` / `org.js`（侧栏「我加入的组」标题旁有 ⭐ **「＋ 加入」** 卡片：public 自助加入 / 邀请码 / 单次链接 / 我的申请 / 我收到的邀请） | `13` ＋ `site-back/memory/05-permission.md` §5.6 |
 | `discover/` | 发现页 11 个普通静态页（2026-10-02 新增） | `11` §7 |
 | `css/` | 9 个 `css/*.css` + `README.md`（加载关系权威；全站 CSS 共 17 个） | `14` |

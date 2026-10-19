@@ -14,20 +14,20 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://maxcdn.bootstrapcdn.com; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net https://maxcdn.bootstrapcdn.com; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src 'self' https://challenges.cloudflare.com https://www.geogebra.org https://www.desmos.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>个人主页 | GWL</title>
-    <link rel="stylesheet" href="./../css/core.css?v=20261018a">
-    <link rel="stylesheet" href="./../css/styles.css?v=20261018a">
-    <link rel="stylesheet" href="./../css/components.css?v=20261018a">
+    <link rel="stylesheet" href="./../css/core.css?v=20261019a">
+    <link rel="stylesheet" href="./../css/styles.css?v=20261019a">
+    <link rel="stylesheet" href="./../css/components.css?v=20261019a">
     <!-- 第三方工具页复用首页的 feature-grid / feature-tile 观感 -->
-    <link rel="stylesheet" href="./../css/feature-grid.css?v=20261018a">
-    <link rel="stylesheet" href="./dashboard.css?v=20261018a">
+    <link rel="stylesheet" href="./../css/feature-grid.css?v=20261019a">
+    <link rel="stylesheet" href="./dashboard.css?v=20261019a">
     <!--
       ⚠️ dashboard-profile.css 是「个人主页（#panel-home）」的唯一样式来源
       （profile-banner / profile-avatar-large / profile-cards / card / calendar-* / checkin-btn）。
       该文件此前**从未被任何 HTML 引用**（孤儿文件）→ 个人主页长期是无样式的裸 DOM。
       删除或重命名它之前，先确认 #panel-home 的结构是否仍在使用。
     -->
-    <link rel="stylesheet" href="./dashboard-profile.css?v=20261018a">
-    <link rel="stylesheet" href="./dashboard-admin.css?v=20261018a">
+    <link rel="stylesheet" href="./dashboard-profile.css?v=20261019a">
+    <link rel="stylesheet" href="./dashboard-admin.css?v=20261019a">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.css">
     <link rel="icon" href="./../favicon.png" type="image/png">
 </head>
@@ -248,6 +248,38 @@
                                 <button type="submit" class="btn btn-primary" id="passwordSaveBtn">修改密码</button>
                             </div>
                         </form>
+                    </div>
+
+                    <hr class="settings-divider">
+
+                    <!-- ⭐ 2026-10-19：API 访问密钥（/api/v1 用户 API）
+                         轮换后明文**只显示这一次**；后端只存 sha256 哈希。
+                         逻辑在 dashboard.apikey.js，由 dashboard.profile.js::initProfilePanel 调起。 -->
+                    <div class="settings-section" id="apiKeySection">
+                        <h3>API 访问密钥</h3>
+                        <p class="settings-desc" style="color: var(--color-text-muted); font-size: 0.85rem; margin-bottom: 12px;">
+                            用于脚本 / 第三方工具调用 <code>/api/v1/*</code> 用户接口（userid + apikey）。
+                            密钥只在轮换时显示一次，之后无法再次查看；轮换或撤销会让旧密钥立即失效。
+                        </p>
+                        <div class="apikey-status">
+                            <span class="apikey-status__label">当前状态：</span>
+                            <span class="apikey-status__value" id="apiKeyStatus">加载中...</span>
+                        </div>
+                        <p class="settings-form__hint" id="apiKeyHint"></p>
+                        <div class="settings-form__actions">
+                            <button type="button" class="btn btn-primary" id="apiKeyRotateBtn">轮换 API Key</button>
+                            <button type="button" class="deletion-btn deletion-btn--secondary" id="apiKeyRevokeBtn">撤销</button>
+                            <span class="settings-form__status" id="apiKeyStatusText"></span>
+                        </div>
+                        <div class="apikey-once" id="apiKeyOnce" style="display:none;">
+                            <p class="apikey-once__title">新密钥（只显示这一次）</p>
+                            <div class="apikey-once__row">
+                                <code class="apikey-once__value" id="apiKeyValue"></code>
+                                <button type="button" class="deletion-btn deletion-btn--secondary" id="apiKeyCopyBtn">复制</button>
+                                <button type="button" class="deletion-btn deletion-btn--secondary" id="apiKeyHideBtn">我已保存</button>
+                            </div>
+                            <p class="settings-form__hint">关闭 / 刷新页面后将无法再次查看。请像密码一样保管，不要提交到代码仓库。</p>
+                        </div>
                     </div>
 
                     <hr class="settings-divider">
@@ -618,23 +650,23 @@
 
     <script src="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.js"></script>
     <!-- 共享脚本：普通 <script> 加载，暴露到 window -->
-    <script src="./../js/config.js?v=20261018a"></script>
-    <script src="./../js/sanitize.js?v=20261018a"></script>
-    <script src="./../js/utils.js?v=20261018a"></script>
-    <script src="./../js/toast.js?v=20261018a"></script>
-    <script src="./../js/theme.js?v=20261018a"></script>
-    <script src="./../js/modal.js?v=20261018a"></script>
+    <script src="./../js/config.js?v=20261019a"></script>
+    <script src="./../js/sanitize.js?v=20261019a"></script>
+    <script src="./../js/utils.js?v=20261019a"></script>
+    <script src="./../js/toast.js?v=20261019a"></script>
+    <script src="./../js/theme.js?v=20261019a"></script>
+    <script src="./../js/modal.js?v=20261019a"></script>
     <!-- Dashboard 模块：ES Module 加载 -->
-    <script type="module" src="./dashboard.permission.js?v=20261018a"></script>
-    <script type="module" src="./dashboard.auth.js?v=20261018a"></script>
-    <script type="module" src="./dashboard.checkin.js?v=20261018a"></script>
-    <script type="module" src="./dashboard.deletion.js?v=20261018a"></script>
-    <script type="module" src="./dashboard.menu.js?v=20261018a"></script>
-    <script type="module" src="./dashboard.notifications.js?v=20261018a"></script>
-    <script type="module" src="./dashboard.workspace.js?v=20261018a"></script>
-    <script type="module" src="./dashboard.tools.js?v=20261018a"></script>
-    <script type="module" src="./dashboard.pdocs.js?v=20261018a"></script>
-    <script type="module" src="./dashboard.profile.js?v=20261018a"></script>
-    <script type="module" src="./dashboard.js?v=20261018a"></script>
+    <script type="module" src="./dashboard.permission.js?v=20261019a"></script>
+    <script type="module" src="./dashboard.auth.js?v=20261019a"></script>
+    <script type="module" src="./dashboard.checkin.js?v=20261019a"></script>
+    <script type="module" src="./dashboard.deletion.js?v=20261019a"></script>
+    <script type="module" src="./dashboard.menu.js?v=20261019a"></script>
+    <script type="module" src="./dashboard.notifications.js?v=20261019a"></script>
+    <script type="module" src="./dashboard.workspace.js?v=20261019a"></script>
+    <script type="module" src="./dashboard.tools.js?v=20261019a"></script>
+    <script type="module" src="./dashboard.pdocs.js?v=20261019a"></script>
+    <script type="module" src="./dashboard.profile.js?v=20261019a"></script>
+    <script type="module" src="./dashboard.js?v=20261019a"></script>
 </body>
 </html>
