@@ -106,7 +106,7 @@ function checkinCardInner() {
     return '<p>' + (checked ? '今天已经打过卡了，继续保持 💪' : '今天还没有打卡。') + '</p>'
         + '<p><span class="workspace-status ' + (checked ? 'workspace-status--ok' : 'workspace-status--warn') + '">'
         + (checked ? '今日已打卡' : '今日未打卡') + '</span></p>'
-        + '<p><a href="#panel-home">去个人主页打卡 →</a></p>';
+        + '<p><a href="?tab=home">去个人主页打卡 →</a></p>';
 }
 
 function quickCardInner() {
