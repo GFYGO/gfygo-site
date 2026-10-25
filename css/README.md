@@ -12,6 +12,7 @@
 - **`css/styles.css`** — Header、Footer、首页 sections、登录表单、Theme Switcher、Header User Info、响应式布局
 - **`css/components.css`** — Toast 通知、Modal 弹窗、全局通知弹窗（notification-toast）、权限等级切换按钮组
 - **`css/feature-grid.css`** — 首页功能卡片网格（feature-grid / feature-tile）
+- **`css/legal.css`** — 静态正文页（`privacy.html` / `terms.html` / `about.html`）的排版：`.legal-page` / `.legal-card` / `.legal-meta`
 - **`css/document.css`** — 文档中心页面（目录树、详情、编辑器、修订历史、面包屑、文件夹树、`.doc-*` 全套状态/空态/徽标；2026-10-16 补齐约 270 行）
 
 ## 页面专用文件
@@ -51,6 +52,7 @@ document.html         → css/core.css + css/styles.css + css/document.css + css
 user/dashboard.html   → css/core.css + css/styles.css + css/components.css + css/feature-grid.css
                         + user/dashboard.css + user/dashboard-profile.css + user/dashboard-admin.css
                         + EasyMDE 样式（CDN：https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.css）
+  ⭐ 2026-10-25 起**不再静态加载**：改为首次进入个人文档编辑器时由 `dashboard.pdocs.js::ensureEasyMDELoaded()` 注入（P2-8）
 org/index.html        → css/core.css + css/styles.css + css/components.css + org/org.css
 model/index.html      → css/core.css + css/styles.css + css/components.css
 model/test.html       → css/core.css + css/styles.css + css/components.css

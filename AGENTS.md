@@ -10,16 +10,16 @@
 | 形态 | 手写 HTML / CSS / 原生 JS；**无框架、无构建、无 npm**；浏览器直接加载 |
 | 托管 | **GitHub Pages**（公开仓库 `GFYGO/gfygo-site`，CNAME = `gwl.net.cn`） |
 | 与后端 | **两个互不嵌套的独立仓库**；接口基址硬编码在 `js/config.js` → `https://back.gwl.net.cn` |
-| 发布面 | 主站 **8 页**（`index` / `login` / `register` / `document` / `u` / `forgot` / `reset` / `404`）＋ `user/dashboard.html` ＋ `org/index.html` ＋ `discover/` 11 页 ＋ `model/*` 4 页 = **25 个 HTML**（⚠️ `model/test.*` **仍会发布**，见 `file-wiki/09` §2） |
+| 发布面 | 主站 **11 页**（`index` / `login` / `register` / `document` / `u` / `forgot` / `reset` / `404` ＋ ⭐ `privacy` / `terms` / `about`）＋ `user/dashboard.html` ＋ `org/index.html` ＋ `discover/` 11 页 ＋ `model/*` 4 页 = **28 个 HTML**（⚠️ `model/test.*` **仍会发布**，见 `file-wiki/09` §2） |
 | 加载约定 | 共享层普通 `<script>`（非 ES module）；dashboard 用 ES module 装配；动态页面脚本由**后端下发**（Blob 注入，不在本仓库） |
-| 交付 | push `origin main` → GitHub Actions 自动发 Pages；⚠️ 改前端资源**必须提升对应 `?v=` 版本号**（三套，见下） |
+| 交付 | push `origin main` → GitHub Actions 自动发 Pages；⚠️ 改前端资源**必须提升 `?v=` 版本号**（2026-10-25 起全站统一批次号，用 `tools/bump-versions.mjs`） |
 
 ## 1. 文档地图（何时读哪份）
 
 | 文档 | 是什么 | 何时读（建议节） |
 |---|---|---|
-| `css/README.md`（本仓库） | 17 个 CSS 的加载关系（已按实际 `<link>` 重写） | 改样式 / 查「哪个 CSS 被谁加载」 |
-| `../file-wiki/09-frontend-overview.md` | ⭐ 前端全局：发布面 / 加载顺序 / CSP / 版本号（四套+） | **碰前端任何东西前先读**；§2 发布面、§5 安全、§6 版本号 |
+| `css/README.md`（本仓库） | 18 个 CSS 的加载关系（已按实际 `<link>` 重写） | 改样式 / 查「哪个 CSS 被谁加载」 |
+| `../file-wiki/09-frontend-overview.md` | ⭐ 前端全局：发布面 / 加载顺序 / CSP / 版本号（统一批次号） | **碰前端任何东西前先读**；§2 发布面、§5 安全、§6 版本号 |
 | `../file-wiki/12-frontend-dashboard.md` | ⭐ 仪表盘（全前端最复杂） | 改 `user/dashboard.*` 时 |
 | `../file-wiki/13-frontend-org.md` | 组织页 + `permission-picker` | 改 `org/` 时 |
 | `../file-wiki/15-frontend-callgraph.md` | ⭐ 调用关系总图 + 文件 × 接口全表 | 排查「谁加载了谁 / 谁调了哪个接口」；§1.5 版本号 |
@@ -37,15 +37,15 @@
 | 改「发现页」（11 个静态页） | `file-wiki/11` §7 ＋ `10` §8 ＋ `09` §6 |
 | 找「这个全局函数是谁挂的」 | `file-wiki/10-frontend-shared-js.md`（按全局名搜） |
 | 查「谁调了哪个接口」 | `file-wiki/15` §5（文件 × `/api/v0/*` 全表） |
-| 改完提升版本号 | `09` §6.2 ＋ `15` §1.5（⚠️ **同一个文件可能横跨多套版本号**） |
+| 改完提升版本号 | 本文件 §4（`tools/bump-versions.mjs`）＋ `09` §6.2 |
 | 接口字段级核对 | `../site-back/API-WIKI.md` |
 
 ## 3. 硬性约束（会咬人的几条）
 
 1. **不引入构建链**（无打包器 / 无 npm / 无框架）——这是刻意的仓库形态。
-2. **缓存版本号必须提升**，且分三套（主站一套 / dashboard 一套 / 发现页一套）：
-   改资源后不提升 → 部分访客拿旧缓存；**跨套共享的文件（如 `js/config.js`）要每套都改**。
-   完整规则见 `file-wiki/09` §6.2、`15` §1.5。
+2. **缓存版本号必须提升**：⭐ 2026-10-25 起**全站统一批次号**（不再分套），改完前端资源跑
+   `node tools/bump-versions.mjs <新批次号> --all`，再用 `--verify` 确认 0 漂移。
+   细则见本文件 §4、`file-wiki/09` §6.2。
 3. **dashboard 的 CSP 无 `unsafe-inline` / `unsafe-eval`**：不要内联脚本 / 内联 `on*=` / `eval`；
    动态页面的脚本由**后端 `pages/**`（Blob 注入）**承担，不在本仓库。
 4. **共享能力用全局，不要再造**：`window.escapeHtml` / `window.apiRequest` / `window.Modal` /
@@ -61,28 +61,32 @@
 cd ..   # 回到工作区根 D:\HP(system)\Documents\GitHub\GFYGO
 node tools/test-dashboard-pages.mjs     # 144 项：仪表盘加载契约 + 动态页脚本编译 + 设置页 API Key
 node tools/test-dashboard-home.mjs      # 54 项：从 dashboard.html 解析真实 DOM 全流程装配
-node tools/test-org-page.mjs            # 126 项：组织页（含「＋ 加入」卡片 / join-info 自助加入 / 页脚 6 链接契约）
+node tools/test-org-page.mjs            # 135 项：组织页（含「＋ 加入」卡片 / join-info 自助加入 / 页脚 6 链接契约）
 node tools/test-superadmin-page.mjs     # 23 项：超管页（动作名与页面后端 ROUTES 对齐）
 node tools/test-permission-switch.mjs   # 55 项：权限视角切换
 node tools/test-turnstile-auth.mjs      # 49 项：Turnstile 认证链
-node tools/test-discover-page.mjs       # ⭐ 224 项：发现页（含「加入」真动作、登录门）
-node tools/test-user-profile-page.mjs   # 21 项：u.html 公开主页
-node tools/test-pdocs-bulk.mjs          # 48 项：个人文档批量操作 UI 契约（含 2026-10-18 批量编辑模式）
-node tools/test-dashboard-workspace.mjs # 51 项：工作台瀑布流 / 第三方工具嵌入 / 通知已读 / 超管提醒
+node tools/test-discover-page.mjs       # ⭐ 228 项：发现页（含「加入」真动作、登录门）
+node tools/test-user-profile-page.mjs   # 22 项：u.html 公开主页
+node tools/test-pdocs-bulk.mjs          # 50 项：个人文档批量操作 UI 契约（含 2026-10-18 批量编辑模式）
+node tools/test-dashboard-workspace.mjs # 65 项：工作台瀑布流 / 第三方工具嵌入 / 通知已读 / 超管提醒
 node tools/test-document-folders.mjs    # 21 项：文件夹树展开持久化 + 组根文件夹展示名
 ```
 
 ⚠️ 本机**没有浏览器自动化**（沙箱起不了无头浏览器）——视觉类问题只能人工在浏览器验证；
-`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，11 套合计 **815 项**）。
+`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，11 套合计 **846 项**）。
+
+⭐ **缓存版本号统一用脚本维护**（2026-10-25 起）：`node tools/bump-versions.mjs --list` 看现状、
+`--verify` 查漂移、`20261025a --all` 一次全站统一、`<ver> js/modal.js` 只升某个文件。
+当前约定：**全站同一批次版本号**（2026-10-25 统一为 `20261025a`），不再逐文件各自为政。
 
 ## 5. 目录速览（细节按需查 `file-wiki` 对应篇）
 
 | 目录 | 一句话 | 导航篇 |
 |---|---|---|
-| 根 `*.html` + `js/` | 主站 8 页 + 16 个共享/页面脚本（config / sanitize / theme / toast / modal / utils / turnstile-widget / index / login / register / forgot / reset / document / user-profile / discover / discover-own-site） | `11`、`10` |
+| 根 `*.html` + `js/` | 主站 11 页（含隐私政策 / 服务条款 / 关于我们）+ 16 个共享/页面脚本（config / sanitize / theme / toast / modal / utils / turnstile-widget / index / login / register / forgot / reset / document / user-profile / discover / discover-own-site） | `11`、`10` |
 | `user/` | 仪表盘：`dashboard.html` + **13 个** `user/*.js`（12 个 `dashboard.*` + `permission-picker.js`）+ 6 个 CSS | `12` |
 | `org/` | 组织页：`index.html` / `org.css` / `org.js`（侧栏「我加入的组」标题旁有 ⭐ **「＋ 加入」** 卡片：public 自助加入 / 邀请码 / 单次链接 / 我的申请 / 我收到的邀请） | `13` ＋ `site-back/memory/05-permission.md` §5.6 |
 | `discover/` | 发现页 11 个普通静态页（2026-10-02 新增） | `11` §7 |
-| `css/` | 9 个 `css/*.css` + `README.md`（加载关系权威；全站 CSS 共 17 个） | `14` |
+| `css/` | 10 个 `css/*.css`（含 `legal.css`）+ `README.md`（加载关系权威；全站 CSS 共 18 个） | `14` |
 | `model/` | Model 原型页（⚠️ `test.*` 仍发布） | `09` §2 |
 | `.github/workflows/static.yml` | Pages 发布 workflow（改排除规则前先读 `09` §2） | `09` |

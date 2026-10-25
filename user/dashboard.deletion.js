@@ -60,7 +60,15 @@ function openDeletionModal() {
 
     if (!overlay) return;
 
+    // ⭐ P2-12（2026-10-21 审查）：打开时记住来源焦点 → 把焦点移进弹窗（默认落在「取消」，
+    //   危险操作里最安全的默认值），Esc 关闭并把焦点还回去。
+    overlay._prevFocus = document.activeElement;
     overlay.classList.add('deletion-overlay--visible');
+    bindDeletionModalKeys(overlay);
+    var cancelBtn = $('deletionCancelBtn');
+    if (cancelBtn) {
+        try { cancelBtn.focus(); } catch (e) { /* 忽略 */ }
+    }
     countdown.style.display = '';
     emailGroup.style.display = 'none';
     codeGroup.style.display = 'none';
@@ -87,6 +95,18 @@ function openDeletionModal() {
     overlay._deletionTimer = timer;
 }
 
+/** ⭐ P2-12：Esc 关闭（绑定一次即可；只在弹窗可见时生效） */
+function bindDeletionModalKeys(overlay) {
+    if (!overlay || overlay.dataset.keysBound === '1') return;
+    overlay.dataset.keysBound = '1';
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        if (!overlay.classList.contains('deletion-overlay--visible')) return;
+        e.preventDefault();
+        closeDeletionModal();
+    });
+}
+
 /** 关闭注销弹窗 */
 function closeDeletionModal() {
     const overlay = $('deletionOverlay');
@@ -96,6 +116,12 @@ function closeDeletionModal() {
         clearInterval(overlay._deletionTimer);
         delete overlay._deletionTimer;
     }
+    // ⭐ P2-12：把焦点还给打开弹窗的那个按钮
+    try {
+        const prev = overlay._prevFocus;
+        if (prev && typeof prev.focus === 'function' && document.contains(prev)) prev.focus();
+    } catch (e) { /* 忽略 */ }
+    overlay._prevFocus = null;
 }
 
 /** 发送注销验证码到邮箱 */

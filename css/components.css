@@ -335,9 +335,18 @@ body.theme-gray .notification-close:hover {
   background: var(--color-border, #a7f3d0);
 }
 
+/* ⭐ P1-6（2026-10-21 审查）：原来是 #fff 压主色 —— green(2.54:1) / gray(2.54:1) /
+   dark_green(1.86:1) 全部不达 AA。主色之上该用主题定义的前景色。 */
 .modal-btn-confirm {
   background: var(--color-primary, #10b981);
-  color: #fff;
+  color: var(--color-on-primary, #fff);
+}
+
+/* core.css 对深色主题有「body.theme-* button{color:var(--color-text-main)}」，
+   特异性 (0,1,2) 高于单个类 —— 这里按主题补两条，避免前景色被顶掉。 */
+body.theme-dark_green .modal-btn-confirm,
+body.theme-gray .modal-btn-confirm {
+  color: var(--color-on-primary, #fff);
 }
 
 .modal-btn-confirm:hover {
@@ -419,7 +428,7 @@ body.theme-gray .notification-close:hover {
 .perm-btn--current:hover {
   background: var(--color-primary-hover, #1d4ed8);
   border-color: var(--color-primary-hover, #1d4ed8);
-  color: #fff;
+  color: var(--color-on-primary, #fff);
 }
 
 @media (max-width: 640px) {

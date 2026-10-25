@@ -5,10 +5,10 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>展示内容管理 | GWL</title>
-  <link rel="stylesheet" href="../css/core.css?v=20261018a">
-  <link rel="stylesheet" href="../css/styles.css?v=20261018a">
-  <link rel="stylesheet" href="../css/components.css?v=20261018a">
-  <link rel="stylesheet" href="../css/discover.css?v=20261018a">
+  <link rel="stylesheet" href="../css/core.css?v=20261025a">
+  <link rel="stylesheet" href="../css/styles.css?v=20261025a">
+  <link rel="stylesheet" href="../css/components.css?v=20261025a">
+  <link rel="stylesheet" href="../css/discover.css?v=20261025a">
   <link rel="icon" href="../favicon.png" type="image/png">
 </head>
 <body>
@@ -71,10 +71,10 @@
     <!-- ============ ② 新建工具展示（仅 tool 板块） ============ -->
     <section class="own-site__block discover-detail__section" id="ownSiteToolBlock" hidden>
       <h2 class="discover-section-title own-site__block-title">新建工具展示</h2>
-      <p class="discover-detail__hint own-site__block-desc">工具没有可回读的源对象，需要手工填写。工具标识（ref_id）全局唯一，一旦被占用就不能再使用。</p>
+      <p class="discover-detail__hint own-site__block-desc">工具没有可回读的源对象，需要手工填写。工具 ID 全局唯一，一旦被占用就不能再使用。</p>
       <form class="own-site__form" id="ownSiteToolForm" novalidate>
         <div class="form-group">
-          <label for="toolRefId">工具标识（ref_id）*</label>
+          <label for="toolRefId">工具 ID *</label>
           <input type="text" id="toolRefId" name="ref_id" maxlength="50" placeholder="例如 my-tool（小写字母、数字、- 和 _，2~50 位）" autocomplete="off">
         </div>
         <div class="form-group">
@@ -90,7 +90,7 @@
           <input type="text" id="toolIcon" name="icon" maxlength="50" placeholder="🧰" autocomplete="off">
         </div>
         <div class="form-group">
-          <label for="toolLinkUrl">外链（link_url，预留字段）</label>
+          <label for="toolLinkUrl">链接地址</label>
           <input type="text" id="toolLinkUrl" name="link_url" maxlength="512" placeholder="仅保存与回显，本页不会跳转、也不会请求该地址" autocomplete="off">
         </div>
         <div class="form-group">
@@ -130,7 +130,7 @@
           <input type="text" id="editIcon" name="icon" maxlength="50" placeholder="留空则回退源对象图标 → 板块图标" autocomplete="off">
         </div>
         <div class="form-group" id="ownSiteEditLinkRow" hidden>
-          <label for="editLinkUrl">外链（link_url，预留字段）</label>
+          <label for="editLinkUrl">链接地址</label>
           <input type="text" id="editLinkUrl" name="link_url" maxlength="512" placeholder="仅保存与回显，本页不会跳转、也不会请求该地址" autocomplete="off">
         </div>
         <div class="form-group">
@@ -171,9 +171,9 @@
           </div>
           <div class="footer__links-group">
             <h4>关于</h4>
-            <a href="#">关于我们</a>
-            <a href="#">隐私政策</a>
-            <a href="#">服务条款</a>
+            <a href="/about.html">关于我们</a>
+            <a href="/privacy.html">隐私政策</a>
+            <a href="/terms.html">服务条款</a>
           </div>
         </div>
       </div>
@@ -186,13 +186,13 @@
   <!-- 主题切换悬浮按钮 -->
   <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
-  <script src="../js/config.js?v=20261018a"></script>
-  <script src="../js/utils.js?v=20261002a"></script>
-  <script src="../js/sanitize.js?v=20261002a"></script>
-  <script src="../js/theme.js?v=20261002a"></script>
-  <script src="../js/toast.js?v=20261018a"></script>
-  <script src="../js/index.js?v=20261018a"></script>
-  <script src="../js/discover.js?v=20261018a"></script>
-  <script src="../js/discover-own-site.js?v=20261002a"></script>
+  <script src="../js/config.js?v=20261025a"></script>
+  <script src="../js/utils.js?v=20261025a"></script>
+  <script src="../js/sanitize.js?v=20261025a"></script>
+  <script src="../js/theme.js?v=20261025a"></script>
+  <script src="../js/toast.js?v=20261025a"></script>
+  <script src="../js/index.js?v=20261025a"></script>
+  <script src="../js/discover.js?v=20261025a"></script>
+  <script src="../js/discover-own-site.js?v=20261025a"></script>
 </body>
 </html>

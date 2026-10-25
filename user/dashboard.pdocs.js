@@ -410,11 +410,64 @@ async function pdocsSaveDocTags(docId, text) {
     }
 }
 
-function initPdocsEasyMDE() {
+// ============================================================
+// ⭐ P2-8（2026-10-21 审查）：EasyMDE 懒加载
+//
+// 之前 dashboard.html 无条件 <link>/<script> 引入 EasyMDE（CSS 13 KB + 数百 KB JS），
+// 只看通知 / 工作台也要下载。现在改成**第一次真正需要编辑器时**才注入
+// （进入「个人文档」面板 → initPdocsEasyMDE 时），与 marked.js 的加载方式一致。
+//
+// 失败（离线 / 扩展拦截 / CSP 变动）不阻断流程：返回 false，调用方走既有的
+// 「降级为纯文本 + 一次可见提示」路径。
+// ============================================================
+const EASYMDE_VERSION = '2.18.0';
+const EASYMDE_CSS_URL = 'https://cdn.jsdelivr.net/npm/easymde@' + EASYMDE_VERSION + '/dist/easymde.min.css';
+const EASYMDE_JS_URL = 'https://cdn.jsdelivr.net/npm/easymde@' + EASYMDE_VERSION + '/dist/easymde.min.js';
+let easyMDELoading = null;
+
+/** 首次调用时注入 CSS + JS；成功后 resolve(true)，失败 resolve(false) 并允许重试。 */
+function ensureEasyMDELoaded() {
+    if (window.EasyMDE && typeof window.EasyMDE === 'function') return Promise.resolve(true);
+    if (easyMDELoading) return easyMDELoading;
+    easyMDELoading = new Promise(function (resolve) {
+        if (!document.getElementById('easymde-css')) {
+            var link = document.createElement('link');
+            link.id = 'easymde-css';
+            link.rel = 'stylesheet';
+            link.href = EASYMDE_CSS_URL;
+            document.head.appendChild(link);
+        }
+        var s = document.createElement('script');
+        s.src = EASYMDE_JS_URL;
+        s.async = true;
+        s.onload = function () {
+            resolve(typeof window.EasyMDE === 'function');
+        };
+        s.onerror = function () {
+            console.warn('[pdocs] EasyMDE 脚本加载失败');
+            easyMDELoading = null;   // 允许下次进入时再试一次
+            resolve(false);
+        };
+        document.head.appendChild(s);
+    });
+    return easyMDELoading;
+}
+
+async function initPdocsEasyMDE() {
     const textarea = $('pdocsContentInput');
     if (!textarea || PDocsState.editorInstance) return;
+    // 并发保护：加载期间可能又被调用一次（进面板 + 直接点「编辑」），不能建两个实例
+    if (PDocsState.editorInitPending) return;
+    PDocsState.editorInitPending = true;
+    const ready = await ensureEasyMDELoaded();
+    PDocsState.editorInitPending = false;
+    if (!ready || typeof window.EasyMDE !== 'function') {
+        pdocsWarnEditorFallbackOnce();
+        return;
+    }
+    if (PDocsState.editorInstance) return;   // 加载期间另一个调用已经建好了实例
     try {
-        PDocsState.editorInstance = new EasyMDE({
+        PDocsState.editorInstance = new window.EasyMDE({
             element: textarea,
             spellChecker: false,
             autosave: { enabled: false },
@@ -1212,16 +1265,16 @@ function renderExplorerGrid() {
     if (inFolder) {
         items.push(`
             <div class="pdocs-explorer-item pdocs-explorer-item--up" data-action="up" title="返回上一级">
-                <div class="pdocs-explorer-item__icon">⬆️</div>
-                <div class="pdocs-explorer-item__name">返回上一级</div>
+                <div class="pdocs-explorer-item__icon" aria-hidden="true">⬆️</div>
+                <button type="button" class="pdocs-explorer-item__name pdocs-explorer-item__open">返回上一级</button>
             </div>`);
     }
 
     subFolders.forEach(f => {
         items.push(`
             <div class="pdocs-explorer-item pdocs-explorer-item--folder" data-folder-id="${pdocsSafeValue(f.id)}" title="${escapeHtml(f.name)}">
-                <div class="pdocs-explorer-item__icon">📁</div>
-                <div class="pdocs-explorer-item__name">${escapeHtml(f.name)}</div>
+                <div class="pdocs-explorer-item__icon" aria-hidden="true">📁</div>
+                <button type="button" class="pdocs-explorer-item__name pdocs-explorer-item__open">${escapeHtml(f.name)}</button>
                 <div class="pdocs-explorer-item__actions">
                     <button class="pdocs-explorer-item__btn" data-action="rename-folder" data-id="${pdocsSafeValue(f.id)}" title="重命名">✏️</button>
                     <button class="pdocs-explorer-item__btn" data-action="delete-folder" data-id="${pdocsSafeValue(f.id)}" title="删除">🗑</button>
@@ -1233,8 +1286,8 @@ function renderExplorerGrid() {
         items.push(`
             <div class="pdocs-explorer-item pdocs-explorer-item--doc" data-doc-id="${pdocsSafeValue(doc.id)}" title="${escapeHtml(doc.title)}">
                 <input type="checkbox" class="pdocs-explorer-item__check" data-action="select" data-id="${pdocsSafeValue(doc.id)}" ${PDocsState.selection.has(doc.id) ? 'checked' : ''} aria-label="选择这篇文档">
-                <div class="pdocs-explorer-item__icon">${escapeHtml(doc.icon || '📄')}</div>
-                <div class="pdocs-explorer-item__name">${escapeHtml(doc.title)}</div>
+                <div class="pdocs-explorer-item__icon" aria-hidden="true">${escapeHtml(doc.icon || '📄')}</div>
+                <button type="button" class="pdocs-explorer-item__name pdocs-explorer-item__open" title="浏览这篇文档">${escapeHtml(doc.title)}</button>
                 <div class="pdocs-explorer-item__meta">${pdocsFmtTime(doc.updated_at)}</div>
                 <div class="pdocs-explorer-item__actions">
                     <select class="pdocs-explorer-move" data-action="move" data-id="${pdocsSafeValue(doc.id)}" title="移动到文件夹">
@@ -1502,7 +1555,9 @@ async function openPdocsEditor(docId) {
     const titleInput = $('pdocsTitleInput');
     const preview = $('pdocsPreview');
 
-    if (!PDocsState.editorInstance) initPdocsEasyMDE();
+    // ⭐ P2-8（2026-10-21 审查）：EasyMDE 此时才按需加载 —— 必须等它就绪再写值，
+    //   否则 editorInstance 还是 null，正文会被静默丢掉。
+    if (!PDocsState.editorInstance) await initPdocsEasyMDE();
 
     // ⭐ B3：标签输入复位 + 联想绑定（幂等；`dataset` 标记防重复绑定）
     const tagsInput = $('pdocsTagsInput');

@@ -35,15 +35,30 @@ function initMobileMenu() {
   const headerNav = document.getElementById('headerNav');
 
   if (menuToggle && headerNav) {
+    // ⭐ P2-10（2026-10-21 审查）：折叠按钮要播报展开状态，Esc 能收起
+    const setOpen = (open) => {
+      headerNav.classList.toggle('header__nav--open', open);
+      if (menuToggle.hasAttribute('aria-expanded')) {
+        menuToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
+    };
+
     menuToggle.addEventListener('click', () => {
-      headerNav.classList.toggle('header__nav--open');
+      setOpen(!headerNav.classList.contains('header__nav--open'));
     });
 
     // 点击导航链接后自动收起菜单
     headerNav.querySelectorAll('a').forEach(link => {
       link.addEventListener('click', () => {
-        headerNav.classList.remove('header__nav--open');
+        setOpen(false);
       });
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && headerNav.classList.contains('header__nav--open')) {
+        setOpen(false);
+        menuToggle.focus();
+      }
     });
   }
 }

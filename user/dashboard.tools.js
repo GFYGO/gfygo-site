@@ -46,7 +46,7 @@ function toolsGridHtml(tools) {
         return '<div class="empty-state">'
             + '<div class="empty-state__icon">🔧</div>'
             + '<p class="empty-state__text">后端工具清单为空</p>'
-            + '<p class="empty-state__hint">在 <code>site-back/data/third_party_tools.json</code> 添加工具后重启后端。</p>'
+            + '<p class="empty-state__hint">工具清单暂不可用，请稍后重试。</p>'
             + '</div>';
     }
     var last = getLastToolId();
@@ -178,8 +178,8 @@ async function loadTools(force) {
     _toolsState.tools = d.data.tools;
     var source = document.getElementById('toolsSource');
     if (source) {
-        source.textContent = '清单：' + (d.data.source || 'data/third_party_tools.json')
-            + ' · ' + d.data.tools.length + ' 个';
+        // ⭐ P2-14（2026-10-21 审查）：用户界面不再出现后端文件名（data/third_party_tools.json）
+        source.textContent = '共 ' + d.data.tools.length + ' 个工具';
     }
     renderToolsGrid();
 }

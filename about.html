@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- CSP 与主站其余静态页逐字一致（无内联脚本、无 eval） -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="关于 GWL Works Lab：个人运营的学习平台，提供学习文档、组织与组协作、发现页公开内容广场。">
+    <title>关于我们 | GWL</title>
+    <link rel="stylesheet" href="/css/core.css?v=20261025a">
+    <link rel="stylesheet" href="/css/styles.css?v=20261025a">
+    <link rel="stylesheet" href="/css/components.css?v=20261025a">
+    <link rel="stylesheet" href="/css/legal.css?v=20261025a">
+    <link rel="icon" href="/favicon.png" type="image/png">
+</head>
+<body>
+    <header class="header">
+        <div class="header__logo">GWL Works Lab</div>
+        <button class="header__toggle" id="menuToggle" aria-label="切换菜单" aria-expanded="false" aria-controls="headerNav">☰</button>
+        <nav class="header__nav" id="headerNav">
+            <a href="/index.html">首页</a>
+            <a href="/document.html">文档</a>
+            <a href="/org/index.html">组织</a>
+            <a href="/discover/index.html">发现</a>
+            <a href="/login.html">登录</a>
+            <a href="/register.html">注册</a>
+        </nav>
+        <div class="header__actions">
+            <div id="auth-container"></div>
+            <div class="permission-buttons" id="permissionButtons"></div>
+        </div>
+    </header>
+
+    <main class="legal-page">
+        <article class="legal-card">
+            <h1>关于我们</h1>
+            <p class="legal-meta">最后更新日期：2026-10-21</p>
+
+            <h2>这是什么</h2>
+            <p>GWL Works Lab（域名 <a href="https://gwl.net.cn">gwl.net.cn</a>）是一个个人运营的学习平台，主要提供三件事：</p>
+            <ol>
+                <li><strong>学习文档</strong>：按「公共 / 组 / 私有」三档权限组织，支持文件夹、标签、搜索、Markdown 编辑、修订历史与导出；</li>
+                <li><strong>组织与组</strong>：围绕小组的协作空间，按 1～5 级权限与组类（组织）授权，支持邀请码、单次加入链接与申请审批；</li>
+                <li><strong>发现页</strong>：公开内容的广场，用于展示公开文档、公开组与第三方学习工具。</li>
+            </ol>
+            <p>此外还提供面向用户的 <code>/api/v1</code> 接口，可用自己的 userid + apikey 读取自己的文档、搜索与标签等数据。</p>
+
+            <h2>谁在运营</h2>
+            <p>本平台由个人独立运营，不是公司或机构产品。前端托管在 GitHub Pages，后端部署在中国大陆境内的阿里云服务器。</p>
+
+            <h2>怎么联系我们</h2>
+            <p>问题和投诉可以通过邮箱联系：<a href="mailto:gfygo_@outlook.com">gfygo_@outlook.com</a>。账号注销、数据删除等请求也走这个邮箱。</p>
+            <p>代码与前端资源在 <a href="https://github.com/GFYGO/gfygo-site" target="_blank" rel="noopener noreferrer">GitHub</a> 公开。</p>
+
+            <h2>相关条款</h2>
+            <p>使用本平台即表示你已阅读并同意 <a href="/terms.html">服务条款</a> 与 <a href="/privacy.html">隐私政策</a>。</p>
+        </article>
+        <nav class="legal-page__nav" aria-label="相关页面">
+            <a class="btn-secondary" href="/privacy.html">隐私政策</a>
+            <a class="btn-secondary" href="/terms.html">服务条款</a>
+            <a class="btn-secondary" href="/about.html">关于我们</a>
+        </nav>
+    </main>
+
+    <footer class="footer">
+        <div class="footer__container">
+            <div class="footer__top">
+                <div class="footer__brand">
+                    <h3 class="footer__logo">GWL Works Lab</h3>
+                    <p class="footer__slogan">探索学习的无限可能</p>
+                </div>
+                <div class="footer__links">
+                    <div class="footer__links-group footer__links-group--quick">
+                        <h4>快速链接</h4>
+                        <a href="/index.html">首页</a>
+                        <a href="/document.html">文档</a>
+                        <a href="/login.html">登录</a>
+                        <a href="/org/index.html">组织</a>
+                        <a href="/discover/index.html">发现</a>
+                        <a href="/register.html">注册</a>
+                    </div>
+                    <div class="footer__links-group">
+                        <h4>关于</h4>
+                        <a href="/about.html">关于我们</a>
+                        <a href="/privacy.html">隐私政策</a>
+                        <a href="/terms.html">服务条款</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer__bottom">
+                <p>&copy; 2026 GFYGO. All rights reserved.</p>
+                <div class="footer__social">
+                    <a href="https://github.com/GFYGO/gfygo-site" target="_blank" rel="noopener noreferrer" aria-label="GitHub">GitHub</a>
+                    <a href="https://www.bilibili.com/video/BV1g34y1j7e5/" target="_blank" rel="noopener noreferrer" aria-label="Bilibili">Bilibili</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/js/config.js?v=20261025a"></script>
+    <script src="/js/theme.js?v=20261025a"></script>
+    <script src="/js/toast.js?v=20261025a"></script>
+    <script src="/js/index.js?v=20261025a"></script>
+</body>
+</html>

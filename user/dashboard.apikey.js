@@ -49,7 +49,15 @@ function confirmAction(message, options) {
     if (window.Modal && typeof window.Modal.confirm === 'function') {
         return window.Modal.confirm(message, options || {});
     }
-    return Promise.resolve(true);
+    // ⭐ P2-3（2026-10-21 审查）：Modal 加载失败时**不能**默认确认 ——
+    //   轮换 / 撤销密钥是不可逆动作，必须 fail-closed。
+    //   先退化为浏览器原生 confirm（同步但语义一致），拿不到就当作"取消"。
+    try {
+        if (typeof window.confirm === 'function') {
+            return Promise.resolve(window.confirm(message));
+        }
+    } catch (e) { /* 忽略：下面按取消处理 */ }
+    return Promise.resolve(false);
 }
 
 function clearOneTimeKey() {

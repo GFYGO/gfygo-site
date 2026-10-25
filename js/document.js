@@ -1715,6 +1715,28 @@ function closeRevisionModal() {
   __DOC.revisionView = null;
   if (modal) modal.style.display = 'none';
   document.body.style.overflow = '';
+  // ⭐ P2-12（2026-10-21 审查）：把焦点还给打开弹层的那一行「查看」
+  try {
+    const prev = modal && modal._prevFocus;
+    if (prev && typeof prev.focus === 'function' && document.contains(prev)) prev.focus();
+  } catch (e) { /* 忽略 */ }
+  if (modal) modal._prevFocus = null;
+}
+
+/**
+ * ⭐ P2-12（2026-10-21 审查）：修订弹层此前没有焦点管理（打开后焦点仍留在背后的
+ * 「查看」按钮上，Tab 会跑到弹层下面），也没有 Esc。这里补最小可用行为：
+ * 打开时把焦点移进弹层、Esc 关闭、关闭后归还。
+ */
+function bindRevisionModalKeys(modal) {
+  if (!modal || modal.dataset.revKeysBound === '1') return;
+  modal.dataset.revKeysBound = '1';
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!modal.style || modal.style.display === 'none') return;
+    e.preventDefault();
+    closeRevisionModal();
+  });
 }
 
 async function openRevisionModal(revNum) {
@@ -1725,6 +1747,10 @@ async function openRevisionModal(revNum) {
 
   els.modal.style.display = '';
   document.body.style.overflow = 'hidden';
+  els.modal._prevFocus = document.activeElement;
+  bindRevisionModalKeys(els.modal);
+  if (!els.modal.hasAttribute('tabindex')) els.modal.setAttribute('tabindex', '-1');
+  try { els.modal.focus(); } catch (e) { /* 忽略 */ }
   els.title.textContent = `修订 #${revNum}`;
   els.meta.textContent = '加载中...';
   els.body.innerHTML = '<p class="doc-revmodal__loading">加载中...</p>';

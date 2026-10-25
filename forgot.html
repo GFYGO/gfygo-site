@@ -7,15 +7,15 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>GWL | 个人学习平台 - 忘记密码</title>
+    <title>忘记密码 | GWL</title>
     <!-- Cloudflare Turnstile：SDK 与组件挂载都在 js/turnstile-widget.js 里，
          forgot.js 只负责「取 token + 提交」，两者互不依赖（SDK 挂掉也能正常提示）。
          本页是**公共接口** POST /api/v1/auth/forgot-password，不需要登录态。 -->
-    <link rel="stylesheet" href="./css/core.css?v=20261016a">
-    <link rel="stylesheet" href="./css/styles.css?v=20261018a">
-    <link rel="stylesheet" href="./css/login.css?v=20261003a">
-    <link rel="stylesheet" href="./css/forgot.css?v=20261003a">
-    <link rel="stylesheet" href="./css/components.css?v=20261016a">
+    <link rel="stylesheet" href="./css/core.css?v=20261025a">
+    <link rel="stylesheet" href="./css/styles.css?v=20261025a">
+    <link rel="stylesheet" href="./css/login.css?v=20261025a">
+    <link rel="stylesheet" href="./css/forgot.css?v=20261025a">
+    <link rel="stylesheet" href="./css/components.css?v=20261025a">
     <link rel="icon" href="./favicon.png" type="image/png">
 </head>
 <body>
@@ -42,13 +42,13 @@
         <div class="login-card auth-card">
             <!-- 第一步：填邮箱 + 人机验证 -->
             <section class="auth-step auth-step--active" id="forgotStepForm">
-                <h2 class="login-card__title">忘记密码</h2>
+                <h1 class="login-card__title">忘记密码</h1>
                 <p class="auth-lead">输入注册邮箱，我们会发送一封包含 6 位验证码与重置链接的邮件。</p>
 
                 <form id="forgotForm" novalidate>
                     <div class="form-group">
                         <input type="email" id="forgotEmail" name="email" placeholder="注册邮箱地址"
-                               autocomplete="email" required>
+                               aria-label="注册邮箱地址" autocomplete="email" required>
                     </div>
 
                     <div class="auth-hint">
@@ -99,17 +99,17 @@
                     </div>
                     <div class="footer__links-group">
                         <h4>关于</h4>
-                        <a href="#">关于我们</a>
-                        <a href="#">隐私政策</a>
-                        <a href="#">服务条款</a>
+                        <a href="/about.html">关于我们</a>
+                        <a href="/privacy.html">隐私政策</a>
+                        <a href="/terms.html">服务条款</a>
                     </div>
                 </div>
             </div>
             <div class="footer__bottom">
                 <p>&copy; 2026 GFYGO. All rights reserved.</p>
                 <div class="footer__social">
-                    <a href="#" aria-label="GitHub">GitHub</a>
-                    <a href="#" aria-label="Bilibili">Bilibili</a>
+                    <a href="https://github.com/GFYGO/gfygo-site" target="_blank" rel="noopener noreferrer" aria-label="GitHub">GitHub</a>
+                    <a href="https://www.bilibili.com/video/BV1g34y1j7e5/" target="_blank" rel="noopener noreferrer" aria-label="Bilibili">Bilibili</a>
                 </div>
             </div>
         </div>
@@ -118,13 +118,13 @@
     <!-- 主题切换悬浮按钮 -->
     <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
-    <script src="./js/config.js?v=20261018a"></script>
-    <script src="./js/theme.js?v=20261003a"></script>
-    <script src="./js/toast.js?v=20261016a"></script>
+    <script src="./js/config.js?v=20261025a"></script>
+    <script src="./js/theme.js?v=20261025a"></script>
+    <script src="./js/toast.js?v=20261025a"></script>
     <!-- ⚠️ js/index.js 未改动：版本号沿用与 login/register 相同的 20260911e
          （tools/test-permission-switch.mjs 会断言引用它的页面就是这一版） -->
-    <script src="./js/index.js?v=20261016a"></script>
-    <script src="./js/turnstile-widget.js?v=20261003a"></script>
-    <script src="./js/forgot.js?v=20261003a"></script>
+    <script src="./js/index.js?v=20261025a"></script>
+    <script src="./js/turnstile-widget.js?v=20261025a"></script>
+    <script src="./js/forgot.js?v=20261025a"></script>
 </body>
 </html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- CSP 与主站其余静态页逐字一致（无内联脚本、无 eval） -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="GWL Works Lab 服务条款：服务内容、账号管理、用户行为规范、第三方服务与 API 使用规则、免责声明与争议解决。">
+    <title>服务条款 | GWL</title>
+    <link rel="stylesheet" href="/css/core.css?v=20261025a">
+    <link rel="stylesheet" href="/css/styles.css?v=20261025a">
+    <link rel="stylesheet" href="/css/components.css?v=20261025a">
+    <link rel="stylesheet" href="/css/legal.css?v=20261025a">
+    <link rel="icon" href="/favicon.png" type="image/png">
+</head>
+<body>
+    <header class="header">
+        <div class="header__logo">GWL Works Lab</div>
+        <button class="header__toggle" id="menuToggle" aria-label="切换菜单" aria-expanded="false" aria-controls="headerNav">☰</button>
+        <nav class="header__nav" id="headerNav">
+            <a href="/index.html">首页</a>
+            <a href="/document.html">文档</a>
+            <a href="/org/index.html">组织</a>
+            <a href="/discover/index.html">发现</a>
+            <a href="/login.html">登录</a>
+            <a href="/register.html">注册</a>
+        </nav>
+        <div class="header__actions">
+            <div id="auth-container"></div>
+            <div class="permission-buttons" id="permissionButtons"></div>
+        </div>
+    </header>
+
+    <main class="legal-page">
+        <article class="legal-card">
+            <h1>服务条款</h1>
+<p class="legal-meta">最后更新日期：2026-10-21</p>
+<h2>1. 协议主体与适用范围</h2>
+<p>本服务条款由 GWL Works Lab 的运营者（以下简称“我们”或“平台”）制定。本平台由个人运营，前端托管于 GitHub Pages，后端部署于阿里云服务器。</p>
+<p>你注册、登录、浏览或使用本平台服务，即表示你已阅读、理解并同意受本服务条款约束。如你不同意本条款的任何内容，请立即停止使用本平台。</p>
+<h2>2. 服务内容</h2>
+<p>本平台主要提供以下服务：</p>
+<ol>
+<li>学习文档浏览与管理；</li>
+<li>学习分组、协作空间及相关管理功能；</li>
+<li>嵌入第三方学习网页，例如 Desmos 等第三方工具；</li>
+<li>文档、分组、第三方嵌入内容等相关功能的 API 调用；</li>
+<li>未来可能提供的代码执行、AI 辅助学习、API Key 管理、账户充值及其他新增功能。</li>
+</ol>
+<p>本平台有权根据技术升级、运营需要或法律法规要求，调整、暂停、终止部分或全部服务。对于服务调整，我们将通过网站内公告、站内通知或其他合理方式告知你。</p>
+<h2>3. 账号注册与管理</h2>
+<ol>
+<li>你应提供真实、准确、完整的注册信息，并妥善保管账号、密码、API Key、Token 等凭证。</li>
+<li>你应对账号下发生的所有行为承担责任。</li>
+<li>你不得将账号转借、出租、出售、共享给他人使用。</li>
+<li>如发现账号异常，应立即联系我们并配合处理。</li>
+<li>我们有权对违规账号采取限制功能、冻结、封禁或注销等措施。</li>
+</ol>
+<h2>4. 用户行为规范</h2>
+<p>你使用本平台时，不得实施以下行为：</p>
+<ol>
+<li>渗透、扫描、破解、反向工程、反编译、反汇编或尝试获取平台源代码、接口逻辑、服务器配置；</li>
+<li>对平台发起网络攻击、DDoS、暴力破解、爬虫滥用、接口滥用、资源耗尽攻击；</li>
+<li>恶意占用服务器资源、带宽、存储、计算资源，影响平台或其他用户正常使用；</li>
+<li>攻击、骚扰、辱骂、威胁、欺诈其他用户；</li>
+<li>上传、发布、传播违法、侵权、淫秽、暴力、虚假信息或恶意代码；</li>
+<li>绕过平台权限控制、付费机制、风控机制或安全策略；</li>
+<li>利用平台服务从事任何违反法律法规或损害他人权益的行为。</li>
+</ol>
+<p>如你违反上述规定，我们有权立即终止你的服务，并保留追究法律责任的权利。</p>
+<h2>5. 第三方服务与嵌入内容</h2>
+<p>本平台可能嵌入或链接第三方服务，包括但不限于 Desmos 等学习工具、第三方 API、外部网页或插件。第三方服务由其提供方独立运营，我们不对第三方服务的真实性、合法性、安全性、准确性、可用性承担责任。</p>
+<p>你使用第三方服务时，应同时遵守该第三方的用户协议、隐私政策及相关规则。因第三方服务导致的任何损失、纠纷或数据问题，由你与第三方自行解决，我们不承担责任。</p>
+<h2>6. API 使用规则</h2>
+<p>如你使用本平台提供的 API，应遵守以下规则：</p>
+<ol>
+<li>不得对 API 进行滥用、高频调用、绕过限流、逆向分析或用于攻击平台；</li>
+<li>不得将 API 用于违法、侵权或损害他人权益的目的；</li>
+<li>不得公开泄露、转售、共享 API Key、Token 或访问凭证；</li>
+<li>不得利用 API 构建与本平台实质性竞争的服务；</li>
+<li>我们有权根据运营情况调整 API 接口、限流策略、可用范围或终止 API 服务。</li>
+</ol>
+<p>因你保管不当导致 API Key 泄露、被盗用或被他人滥用，由此产生的损失由你自行承担。</p>
+<h2>7. 未来功能与预防性条款</h2>
+<p>本平台未来可能提供代码执行、AI 辅助学习、用户自有 API Key 接入、账户充值、内容生成、模型调用等功能。对于此类功能，你应遵守以下规则：</p>
+<ol>
+<li>你不得利用代码执行功能执行违法、恶意、破坏性或高风险代码；</li>
+<li>你不得利用 AI 功能生成违法、侵权、虚假、歧视、暴力、色情或危害他人权益的内容；</li>
+<li>如你使用自有 API Key，你应自行确保其来源合法，并自行承担该 Key 的使用费用、泄露风险及第三方服务条款约束；</li>
+<li>如你使用平台充值服务，相关规则以届时公布的充值说明、价格页面或服务协议为准；</li>
+<li>AI 生成内容、代码执行结果或第三方模型输出仅供参考，不构成专业建议，我们不保证其准确性、完整性或适用性；</li>
+<li>我们有权对高风险功能设置使用限制、审核机制、风控措施或暂停服务。</li>
+</ol>
+<h2>8. 免责声明</h2>
+<p>本平台服务按“现状”提供。除法律另有强制性规定外，我们不就服务的连续性、准确性、无错误性、无中断性或特定用途适用性作出保证。</p>
+<p>在下列情况下，因信息泄露、数据丢失、服务中断、账号异常或其他损失，我们不承担责任：</p>
+<ol>
+<li>因不可抗力、网络故障、系统维护、第三方服务异常导致的问题；</li>
+<li>因你未妥善保管账号、密码、API Key、设备或登录环境导致的信息泄露；</li>
+<li>因你主动公开、共享或泄露个人信息导致的损失；</li>
+<li>因你违反本条款、使用不当、从事违法或攻击行为导致的损失；</li>
+<li>因第三方攻击、黑客行为、病毒感染、钓鱼欺诈等非平台故意或重大过失导致的安全事件；</li>
+<li>因第三方嵌入服务、第三方 API 或外部链接导致的问题。</li>
+</ol>
+<p>本免责条款不影响你依据《中华人民共和国民法典》等法律享有的法定权利。对于因我们故意或重大过失造成的人身损害或财产损失，我们依法承担相应责任。</p>
+<h2>9. 知识产权</h2>
+<p>本平台提供的文档、界面、代码、标识、设计、API 文档及其他内容，除另有说明外，其知识产权归我们或相关权利人所有。你不得擅自复制、传播、修改、反向工程或用于商业目的。</p>
+<p>你在本平台发布的内容，知识产权原则上仍归你或原权利人所有，但你应保证拥有合法权利，并授权我们为提供服务之目的进行必要存储、展示和处理。</p>
+<h2>10. 服务变更与终止</h2>
+<p>我们有权根据运营需要变更、暂停或终止部分服务。除法律另有规定或双方另有约定外，服务终止后，我们不对你的数据备份、恢复或迁移承担责任。</p>
+<h2>11. 条款更新</h2>
+<p>我们有权根据法律法规变化、业务调整或技术升级更新本服务条款。更新后，我们将通过网站内公告、站内通知、弹窗或其他网站内方式通知你。</p>
+<p>如你继续使用本平台服务，即视为你已接受更新后的条款。如你不同意更新内容，应停止使用并申请注销账号。</p>
+<h2>12. 法律适用与争议解决</h2>
+<p>本服务条款适用中华人民共和国法律。因本条款引起的或与本平台服务有关的争议，双方应协商解决；协商不成的，任一方可向运营者所在地有管辖权的人民法院提起诉讼。</p>
+        </article>
+        <nav class="legal-page__nav" aria-label="相关页面">
+            <a class="btn-secondary" href="/privacy.html">隐私政策</a>
+            <a class="btn-secondary" href="/terms.html">服务条款</a>
+            <a class="btn-secondary" href="/about.html">关于我们</a>
+        </nav>
+    </main>
+
+    <footer class="footer">
+        <div class="footer__container">
+            <div class="footer__top">
+                <div class="footer__brand">
+                    <h3 class="footer__logo">GWL Works Lab</h3>
+                    <p class="footer__slogan">探索学习的无限可能</p>
+                </div>
+                <div class="footer__links">
+                    <div class="footer__links-group footer__links-group--quick">
+                        <h4>快速链接</h4>
+                        <a href="/index.html">首页</a>
+                        <a href="/document.html">文档</a>
+                        <a href="/login.html">登录</a>
+                        <a href="/org/index.html">组织</a>
+                        <a href="/discover/index.html">发现</a>
+                        <a href="/register.html">注册</a>
+                    </div>
+                    <div class="footer__links-group">
+                        <h4>关于</h4>
+                        <a href="/about.html">关于我们</a>
+                        <a href="/privacy.html">隐私政策</a>
+                        <a href="/terms.html">服务条款</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer__bottom">
+                <p>&copy; 2026 GFYGO. All rights reserved.</p>
+                <div class="footer__social">
+                    <a href="https://github.com/GFYGO/gfygo-site" target="_blank" rel="noopener noreferrer" aria-label="GitHub">GitHub</a>
+                    <a href="https://www.bilibili.com/video/BV1g34y1j7e5/" target="_blank" rel="noopener noreferrer" aria-label="Bilibili">Bilibili</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/js/config.js?v=20261025a"></script>
+    <script src="/js/theme.js?v=20261025a"></script>
+    <script src="/js/toast.js?v=20261025a"></script>
+    <script src="/js/index.js?v=20261025a"></script>
+</body>
+</html>

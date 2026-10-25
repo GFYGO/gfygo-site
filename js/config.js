@@ -122,14 +122,38 @@ const AuthGuard = {
       console.warn('[AuthGuard] 清除 token 失败（本地存储不可用）:', e);
     }
   },
+  /**
+   * ⭐ P2-1（2026-10-21 审查）：跳登录时带上回跳地址。
+   *
+   * 此前守卫恒定跳 login.html，`?redirect=` 只有发现页自己拼 —— 匿名点「管理我的展示内容」、
+   * 会话过期后从文档/设置深链进登录页，登录成功都会落到仪表盘默认页，丢掉刚才的位置。
+   *
+   * 口径与 js/login.js::safeLoginRedirect 完全一致：只传站内路径
+   * （单个 `/` 开头、不含 scheme / 反斜杠），hash 保留（document.html 用 #/doc/<slug>）。
+   * 登录页/注册页自身不再带 redirect（避免登录后回到登录页）。
+   */
+  loginUrlWithRedirect: function() {
+    var url = BASE_PATH + '/login.html';
+    var target = '';
+    try {
+      var loc = window.location;
+      var path = String(loc.pathname || '');
+      if (/(?:^|\/)login\.html$/.test(path) || /(?:^|\/)register\.html$/.test(path)) return url;
+      target = path + (loc.search || '') + (loc.hash || '');
+    } catch (e) {
+      return url;
+    }
+    if (target.charAt(0) !== '/' || target.charAt(1) === '/' || target.indexOf(':') !== -1) return url;
+    return url + '?redirect=' + encodeURIComponent(target);
+  },
   requireAuth: function() {
     if (!this.getToken()) {
-      window.location.href = BASE_PATH + '/login.html';
+      window.location.href = this.loginUrlWithRedirect();
     }
   },
   handleAuthError: function() {
     this.clearToken();
-    window.location.href = BASE_PATH + '/login.html';
+    window.location.href = this.loginUrlWithRedirect();
   }
 };
 

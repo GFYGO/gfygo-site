@@ -956,7 +956,9 @@
     .org-sidebar {
         flex: 0 0 auto;
         width: auto;
-        max-height: 42vh;
+        /* ⭐ P2-15（2026-10-21 审查）：42vh 在手机上会把内容区挤到只剩半屏 */
+        max-height: 32vh;
+        overflow-y: auto;
         border-right: none;
         border-bottom: 1px solid var(--color-border);
     }
@@ -981,4 +983,103 @@
 [data-theme="dark_green"] .org-popcard,
 [data-theme="gray"] .org-popcard {
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+/* =========================================
+   7. ⭐ P1-1（2026-10-21 审查）：≤768px 顶部导航折叠
+   ⚠️ 组织页的 nav 同时带 .header__nav 与 .org-header__nav：
+      styles.css 的移动端规则会把它变成 position:fixed 的整套竖排面板，
+      而本文件的 .org-header__nav{display:flex}（同特异性、后加载）只把
+      display 顶回去 → 其余「固定定位 / 竖排 / 全宽 / z-index:99」全部保留，
+      结果是一个常驻、关不掉的竖排菜单盖住正文。
+      这里显式接管：默认 display:none，只有 .header__nav--open 才展开
+      （展开态由 js/index.js 的 #menuToggle 切换）。
+   ========================================= */
+@media (max-width: 768px) {
+    .org-header__nav {
+        display: none;
+        position: fixed;
+        top: var(--header-height);
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        background: var(--color-bg-white);
+        border-bottom: 1px solid var(--color-border);
+        padding: 8px 16px;
+        gap: 0;
+        z-index: 99;
+        box-shadow: var(--shadow-md);
+    }
+
+    /* 两个类一起写，才有足够特异性压过上面的 display:none */
+    .org-header__nav.header__nav--open {
+        display: flex;
+    }
+
+    .org-header__nav a {
+        padding: 12px 4px;
+        border-bottom: 1px solid var(--color-border);
+        font-size: 1rem;
+    }
+
+    .org-header__nav a:last-child {
+        border-bottom: none;
+    }
+
+    /* 窄屏把右侧操作区推到最右，中间留给折叠按钮 */
+    .org-header__right {
+        margin-left: auto;
+    }
+}
+
+
+/* =========================================
+   ⭐ P2-15（2026-10-21 审查）：动态页面窄屏断点
+   12 个动态页（dashboard 端 7 + org 端 5）此前 **0 个 @media**，
+   表格带 min-width、表单行是 nowrap 的 flex —— 手机上横向溢出。
+   这里按「动态页统一根容器 .admin-page」收口，新增页面不用再各写一份。
+   （与 user/dashboard.css 末尾的同一段保持一致：org 端动态页注入在组织页里。）
+   ========================================= */
+@media (max-width: 768px) {
+    /* ① 表格：在自身容器里横向滚动，不再把整页撑宽 */
+    .admin-page .admin-table,
+    .admin-page .gray-table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-width: 100%;
+    }
+
+    /* ② 通用表单行：控件换行铺满，label 不再占固定宽度 */
+    .admin-page .form-row {
+        flex-wrap: wrap;
+    }
+
+    .admin-page .form-row label {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    .admin-page .form-row input,
+    .admin-page .form-row select,
+    .admin-page .form-row textarea {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    /* ③ 各动态页自己的表单/字段容器（.groupmanage-form / .orgmanage-form / .chat-* 等） */
+    .admin-page [class$="-form"],
+    .admin-page [class$="-row"] {
+        flex-wrap: wrap;
+    }
+
+    .admin-page [class$="-field"] {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    /* ④ 页头：标题与操作按钮竖排，避免挤压 */
+    .admin-page .workspace-head {
+        flex-direction: column;
+        align-items: stretch;
+    }
 }

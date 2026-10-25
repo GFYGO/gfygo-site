@@ -167,13 +167,56 @@ var Modal = {
             });
         }
 
+        // ⭐ P1-3（2026-10-21 审查）：之前这里把 **document 上的 Enter** 无条件接到「确认」上。
+        //   而打开时焦点落在 footer 的第一个按钮（取消），于是「打开确认框 → 按 Enter」
+        //   会执行删除/撤销，而不看焦点在哪 —— 误删数据的交互缺陷。
+        //   现在：Escape = 取消；Enter 只在输入框（prompt）里 = 确认；按钮上的
+        //   Enter/Space 完全交给浏览器原生行为（焦点在「取消」就执行取消）。
+        //   另外补 Tab 焦点陷阱（P2-12：弹层焦点不该跑到遮罩后面去）。
+        var focusablesIn = function(el) {
+            var list = el.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            return Array.prototype.filter.call(list, function(node) {
+                return node && !node.disabled && node.getAttribute('aria-hidden') !== 'true';
+            });
+        };
+
         var handleKeydown = function(e) {
             if (e.key === 'Escape') {
                 var cancelBtn = cfg.buttons.find(function(b) { return b.cls === 'modal-btn-cancel'; });
-                if (cancelBtn && cancelBtn.onClick) cancelBtn.onClick();
-            } else if (e.key === 'Enter') {
-                var confirmBtn = cfg.buttons.find(function(b) { return b.cls === 'modal-btn-confirm'; });
-                if (confirmBtn && confirmBtn.onClick) confirmBtn.onClick();
+                if (cancelBtn && cancelBtn.onClick) {
+                    e.preventDefault();
+                    cancelBtn.onClick();
+                }
+                return;
+            }
+            if (e.key === 'Enter') {
+                var active = document.activeElement;
+                if (active && active.classList && active.classList.contains('modal-input')) {
+                    var confirmBtn = cfg.buttons.find(function(b) { return b.cls === 'modal-btn-confirm'; });
+                    if (confirmBtn && confirmBtn.onClick) {
+                        e.preventDefault();
+                        confirmBtn.onClick();
+                    }
+                }
+                return; // 其余 Enter 一律交给按钮自身的原生行为
+            }
+            if (e.key === 'Tab') {
+                var containerEl = container.querySelector('.modal-container');
+                if (!containerEl || typeof containerEl.contains !== 'function') return;
+                var list = focusablesIn(containerEl);
+                if (list.length === 0) return;
+                var first = list[0];
+                var last = list[list.length - 1];
+                var active = document.activeElement;
+                var inside = containerEl.contains(active);
+                if (e.shiftKey && (!inside || active === first)) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && (!inside || active === last)) {
+                    e.preventDefault();
+                    first.focus();
+                }
             }
         };
 

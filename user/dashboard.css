@@ -88,9 +88,10 @@
     color: var(--color-primary);
 }
 
+/* ⭐ P1-6（2026-10-21 审查）：白字压主题主色不达 AA（green/gray 2.54:1、dark_green 1.86:1） */
 .sidebar__nav-item.active {
     background-color: var(--color-primary);
-    color: #fff;
+    color: var(--color-on-primary, #fff);
 }
 
 .sidebar__nav-icon {
@@ -554,7 +555,7 @@
     padding: 8px 10px;
     border-radius: 6px;
     background: rgba(245, 158, 11, 0.12);
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, #6b7280);
     font-size: 12px;
     line-height: 1.5;
 }
@@ -594,7 +595,7 @@
 /* 页面加载失败时的补充说明（权限不足 / 网络异常等） */
 .empty-state__hint {
     margin-top: 6px;
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, #6b7280);
     font-size: 13px;
 }
 
@@ -795,7 +796,7 @@
 
 .pdocs-btn--primary {
     background: var(--color-primary, #2ea043);
-    color: #fff;
+    color: var(--color-on-primary, #fff);
 }
 
 .pdocs-btn--primary:hover:not(:disabled) {
@@ -907,7 +908,7 @@
 
 .pdocs-doc-card__time {
     font-size: 0.75rem;
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, #6b7280);
 }
 
 .pdocs-doc-card__actions {
@@ -978,7 +979,7 @@
 
 .pdocs-explorer-item__meta {
     font-size: 0.68rem;
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, #6b7280);
     line-height: 1;
 }
 
@@ -997,8 +998,25 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.12);
 }
 
-.pdocs-explorer-item:hover .pdocs-explorer-item__actions {
+.pdocs-explorer-item:hover .pdocs-explorer-item__actions,
+.pdocs-explorer-item:focus-within .pdocs-explorer-item__actions {
+    /* ⭐ P2-11（2026-10-21 审查）：键盘用户 Tab 进操作按钮时也要看得见它们 */
     opacity: 1;
+}
+
+/* ⭐ P2-11（2026-10-21 审查）：行内「打开」从 div 变成真 button（可用 Tab 聚焦、Enter/Space 激活），
+   这里把原生按钮外观收回到与原来的文本一致。 */
+.pdocs-explorer-item__open {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    width: 100%;
+    min-width: 0;
 }
 
 .pdocs-explorer-item__btn {
@@ -1186,7 +1204,8 @@
     transition: opacity 0.15s;
 }
 
-.pdocs-folder-chip:hover .pdocs-folder-chip__actions {
+.pdocs-folder-chip:hover .pdocs-folder-chip__actions,
+.pdocs-folder-chip:focus-within .pdocs-folder-chip__actions {
     opacity: 1;
 }
 
@@ -1333,7 +1352,7 @@
 
 .pdocs-trash-item__time {
     font-size: 0.75rem;
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, #6b7280);
 }
 
 .pdocs-trash-item__actions {
@@ -1347,7 +1366,7 @@
     grid-column: 1 / -1;
     text-align: center;
     padding: 48px 20px;
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, #6b7280);
 }
 
 .pdocs-empty__icon {
@@ -1418,7 +1437,7 @@
     cursor: default;
 }
 .pdocs-breadcrumb__sep {
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, #6b7280);
     user-select: none;
 }
 
@@ -1432,7 +1451,7 @@
  * 不影响任何既有选择器命中）。
  * ⚠️ `#pdocsBrowserContent` 同时还挂着 `markdown-body`，那是个无任何定义的历史类名，
  *    本页正文样式一律走 `.pdocs-browser-content`，不要再依赖它。
- * ⚠️ 下面那段 `pdocs-browser__*`（BEM）全仓零引用，属待清理的死 CSS，先留着不动。 */
+ * ⭐ 2026-10-21：下面那段 `pdocs-browser__*`（BEM）**已删除**（全仓零引用，原是死 CSS）。 */
 .pdocs-browser-toolbar {
     display: flex;
     align-items: center;
@@ -1475,7 +1494,7 @@
     gap: 12px;
     margin: 12px 0;
     font-size: 0.8rem;
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, #6b7280);
 }
 
 .pdocs-browser-body {
@@ -1581,131 +1600,6 @@ body.theme-gray .pdocs-browser-content pre {
     background: #0f172a;
 }
 
-/* ============================================================
- * 浏览视图（只读 Markdown 查看）—— BEM 族（`__`）
- * ⚠️ 2026-10-15 审查：下面这一族在**全仓零引用**（HTML/JS 都不用），
- *    只是历史上曾计划改用的命名。属 §4.4 的死 CSS，保留原位待清理，
- *    真正生效的是上面连字符族。
- * ============================================================ */
-.pdocs-browser {
-    background: var(--color-bg-white, #fff);
-    border: 1px solid var(--color-border, #e5e7eb);
-    border-radius: var(--radius-md, 8px);
-    padding: 16px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-}
-
-.pdocs-browser__toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.pdocs-browser__toolbar-left,
-.pdocs-browser__toolbar-right {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-}
-
-.pdocs-browser__header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    border-bottom: 1px solid var(--color-border, #e5e7eb);
-    padding-bottom: 12px;
-}
-
-.pdocs-browser__icon {
-    font-size: 1.8rem;
-    flex-shrink: 0;
-}
-
-.pdocs-browser__title {
-    margin: 0;
-    font-size: 1.4rem;
-    color: var(--color-text-main, #1f2937);
-    word-break: break-word;
-}
-
-.pdocs-browser__meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 14px;
-    font-size: 0.8rem;
-    color: var(--color-text-muted, #9ca3af);
-}
-
-.pdocs-browser__content {
-    min-height: 300px;
-    padding: 10px 2px 40px;
-    line-height: 1.7;
-    color: var(--color-text-main, #1f2937);
-    overflow: auto;
-}
-
-.pdocs-browser__content h1,
-.pdocs-browser__content h2,
-.pdocs-browser__content h3 {
-    margin: 18px 0 8px;
-    color: var(--color-text-main, #1f2937);
-}
-.pdocs-browser__content h1 { font-size: 1.5rem; }
-.pdocs-browser__content h2 { font-size: 1.25rem; }
-.pdocs-browser__content h3 { font-size: 1.1rem; }
-
-.pdocs-browser__content p { margin: 8px 0; }
-
-.pdocs-browser__content pre {
-    background: #f3f4f6;
-    padding: 12px;
-    border-radius: var(--radius-md, 8px);
-    overflow-x: auto;
-    font-size: 0.85rem;
-}
-.pdocs-browser__content code {
-    background: #f3f4f6;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.85rem;
-}
-.pdocs-browser__content pre code {
-    background: none;
-    padding: 0;
-}
-.pdocs-browser__content ul,
-.pdocs-browser__content ol { padding-left: 24px; }
-.pdocs-browser__content blockquote {
-    border-left: 4px solid var(--color-border, #d1d5db);
-    padding-left: 12px;
-    color: var(--color-text-sub, #4b5563);
-    margin: 12px 0;
-}
-.pdocs-browser__content a {
-    color: var(--color-primary, #2563eb);
-    text-decoration: none;
-}
-.pdocs-browser__content a:hover { text-decoration: underline; }
-.pdocs-browser__content img { max-width: 100%; border-radius: 6px; }
-.pdocs-browser__content table {
-    border-collapse: collapse;
-    margin: 10px 0;
-    width: 100%;
-}
-.pdocs-browser__content th,
-.pdocs-browser__content td {
-    border: 1px solid var(--color-border, #e5e7eb);
-    padding: 6px 10px;
-    font-size: 0.9rem;
-}
-.pdocs-browser__content th {
-    background: var(--color-bg-secondary, #f9fafb);
-    text-align: left;
-}
 
 /* ============================================================
  * 文件夹树形列表
@@ -1721,7 +1615,7 @@ body.theme-gray .pdocs-browser-content pre {
 
 .pdocs-folder-tree__empty {
     padding: 10px 12px;
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, #6b7280);
     font-size: 0.8rem;
     margin: 4px 0;
 }
@@ -1749,7 +1643,7 @@ body.theme-gray .pdocs-browser-content pre {
     width: 16px;
     text-align: center;
     font-size: 10px;
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, #6b7280);
     transition: transform 0.15s;
     flex-shrink: 0;
 }
@@ -1778,7 +1672,8 @@ body.theme-gray .pdocs-browser-content pre {
     transition: opacity 0.15s;
     flex-shrink: 0;
 }
-.pdocs-folder-tree__row:hover .pdocs-folder-tree__actions {
+.pdocs-folder-tree__row:hover .pdocs-folder-tree__actions,
+.pdocs-folder-tree__row:focus-within .pdocs-folder-tree__actions {
     opacity: 1;
 }
 
@@ -1967,14 +1862,32 @@ body.theme-gray .pdocs-browser-content pre {
     display: flex;
 }
 
+/* ⭐ P1-4（2026-10-21 审查）：这里原来硬编码 background:#fff。
+   而 core.css 对深色主题有「body.theme-* button{color:var(--color-text-main)}」，
+   在 dark_green / gray 下那是近白色 → 弹窗里的「取消」（.deletion-btn--secondary
+   透明底）成了白字白底，危险操作弹窗里唯一的退出路径看不见。
+   改成主题变量后：浅色主题仍是白底深字，深色主题是深底浅字，两边都可达。 */
 .deletion-modal {
-    background: #fff;
+    background: var(--color-bg-white, #fff);
+    color: var(--color-text-main, #1f2937);
     border-radius: 12px;
     width: 90%;
     max-width: 480px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     overflow: hidden;
     animation: deletion-modal-in 0.3s ease;
+}
+
+/* 深色主题下把「取消」做成描边按钮，明确是次要动作（不再依赖透明底） */
+body.theme-dark_green .deletion-btn--secondary,
+body.theme-gray .deletion-btn--secondary {
+    border-color: var(--color-border, #d1d5db);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+body.theme-dark_green .deletion-btn--secondary:hover,
+body.theme-gray .deletion-btn--secondary:hover {
+    background: rgba(255, 255, 255, 0.16);
 }
 
 @keyframes deletion-modal-in {
@@ -2146,7 +2059,7 @@ body.theme-gray .pdocs-browser-content pre {
 
 .btn.btn-primary {
     background: var(--color-primary, #2ea043);
-    color: #fff;
+    color: var(--color-on-primary, #fff);
     border: none;
     padding: 8px 20px;
     border-radius: var(--radius-sm, 6px);
@@ -2377,7 +2290,7 @@ body.theme-gray .pdocs-browser-content pre {
 }
 .workspace-card__hint {
     font-size: 0.72rem;
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, #6b7280);
 }
 .workspace-card__body {
     font-size: 0.84rem;
@@ -2477,7 +2390,7 @@ body.theme-gray .pdocs-browser-content pre {
 .workspace-setting-row__desc {
     display: block;
     font-size: 0.72rem;
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, #6b7280);
 }
 .workspace-setting-row__order {
     display: flex;
@@ -2607,7 +2520,7 @@ body.theme-gray .pdocs-browser-content pre {
 }
 .tools-source {
     font-size: 0.72rem;
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, #6b7280);
     white-space: nowrap;
 }
 .tools-embed-bar {
@@ -2681,4 +2594,57 @@ body.theme-gray .pdocs-browser-content pre {
     font-size: 0.66rem;
     font-weight: 500;
     vertical-align: middle;
+}
+
+
+/* =========================================
+   ⭐ P2-15（2026-10-21 审查）：动态页面窄屏断点
+   12 个动态页（dashboard 端 7 + org 端 5）此前 **0 个 @media**，
+   表格带 min-width、表单行是 nowrap 的 flex —— 手机上横向溢出。
+   这里按「动态页统一根容器 .admin-page」收口，新增页面不用再各写一份。
+   （org 端页面注入在 org 页里，同样受这条约束：org.css 里有一份相同副本。）
+   ========================================= */
+@media (max-width: 768px) {
+    /* ① 表格：在自身容器里横向滚动，不再把整页撑宽 */
+    .admin-page .admin-table,
+    .admin-page .gray-table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-width: 100%;
+    }
+
+    /* ② 通用表单行：控件换行铺满，label 不再占固定宽度 */
+    .admin-page .form-row {
+        flex-wrap: wrap;
+    }
+
+    .admin-page .form-row label {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    .admin-page .form-row input,
+    .admin-page .form-row select,
+    .admin-page .form-row textarea {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    /* ③ 各动态页自己的表单/字段容器（.groupmanage-form / .orgmanage-form / .chat-* 等） */
+    .admin-page [class$="-form"],
+    .admin-page [class$="-row"] {
+        flex-wrap: wrap;
+    }
+
+    .admin-page [class$="-field"] {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    /* ④ 页头：标题与操作按钮竖排，避免挤压 */
+    .admin-page .workspace-head {
+        flex-direction: column;
+        align-items: stretch;
+    }
 }

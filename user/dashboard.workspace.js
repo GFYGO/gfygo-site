@@ -19,8 +19,12 @@ var WORKSPACE_WIDGETS = [
     { id: 'checkin',       title: '📅 今日打卡',   desc: '本机打卡状态' },
     { id: 'tools',         title: '🔧 常用工具',   desc: '后端清单里的第三方工具' },
     { id: 'discover',      title: '✨ 发现广场',   desc: '公开文档 / 组 / 组织 / 工具' },
-    { id: 'profile',       title: '👤 我的资料',   desc: '昵称、公开主页与设置入口' },
-    { id: 'learning',      title: '📖 昨日学习',   desc: '学习记录（即将上线）' }
+    { id: 'profile',       title: '👤 我的资料',   desc: '昵称、公开主页与设置入口' }
+    // ⭐ P2-13（2026-10-21 审查）：「📖 昨日学习」在功能上线前不进注册表 ——
+    //   否则默认布局里就带着一张空占位卡（用户设置里还能开出它）。
+    //   若老用户的 workspace_layout 里仍有 'learning'，resolveLayout 会按未知 id 丢弃。
+    //   上线时把下面这行取消注释、并同步 dashboard.html 的 card--yesterday 卡片：
+    // { id: 'learning', title: '📖 昨日学习', desc: '学习记录' }
 ];
 
 var _wsState = {
@@ -210,9 +214,17 @@ function renderWorkspace() {
     }
 }
 
+/** ⭐ P2-5（2026-10-21 审查）：工作台初始 aria-busy="true" 却从未被置回，
+ *  读屏会一直认为这块区域在加载（live region 的更新可能被抑制）。加载结束/失败都置 false。 */
+function setWorkspaceBusy(busy) {
+    var host = document.getElementById('workspaceMasonry');
+    if (host) host.setAttribute('aria-busy', busy ? 'true' : 'false');
+}
+
 async function loadWorkspaceData() {
     if (_wsState.loading) return;
     _wsState.loading = true;
+    setWorkspaceBusy(true);
     try {
         if (!_wsState.profile) {
             var p = await wsApi('/api/v0/user/profile');
@@ -255,6 +267,7 @@ async function loadWorkspaceData() {
         renderWorkspace();
     } finally {
         _wsState.loading = false;
+        setWorkspaceBusy(false);
     }
 }
 

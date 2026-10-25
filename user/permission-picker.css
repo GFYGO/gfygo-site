@@ -45,7 +45,7 @@
 .pr-del {
     border: none;
     background: transparent;
-    color: #9ca3af;
+    color: #6b7280;
     cursor: pointer;
     font-size: 13px;
     padding: 2px 4px;
@@ -290,7 +290,7 @@
 .pp-arrow {
     display: inline-block;
     font-size: 10px;
-    color: #9ca3af;
+    color: #6b7280;
     transition: transform 0.2s;
     width: 12px;
     text-align: center;
@@ -382,18 +382,18 @@
 }
 
 .pp-node-row--allow .pp-node-icon {
-    background: #22c55e;
+    background: #15803d;
     color: #fff;
 }
 
 .pp-node-row--deny .pp-node-icon {
-    background: #ef4444;
+    background: #b91c1c;
     color: #fff;
 }
 
 .pp-node-row--inherit .pp-node-icon {
     background: #e5e7eb;
-    color: #9ca3af;
+    color: #6b7280;
 }
 
 .pp-node-info {
@@ -423,7 +423,7 @@
 
 .pp-node-desc {
     font-size: 11px;
-    color: #9ca3af;
+    color: #6b7280;
     margin-top: 1px;
 }
 
@@ -444,7 +444,7 @@
     align-items: center;
     justify-content: center;
     font-size: 12px;
-    color: #9ca3af;
+    color: #6b7280;
     transition: all 0.15s;
     padding: 0;
 }
@@ -454,26 +454,26 @@
 }
 
 .pp-state-btn--allow:hover {
-    background: #22c55e;
-    border-color: #22c55e;
+    background: #15803d;
+    border-color: #15803d;
     color: #fff;
 }
 
 .pp-state-btn--inherit:hover {
-    background: #9ca3af;
-    border-color: #9ca3af;
+    background: #4b5563;
+    border-color: #6b7280;
     color: #fff;
 }
 
 .pp-state-btn--deny:hover {
-    background: #ef4444;
-    border-color: #ef4444;
+    background: #b91c1c;
+    border-color: #b91c1c;
     color: #fff;
 }
 
 .pp-state-btn--active.pp-state-btn--allow {
-    background: #22c55e;
-    border-color: #22c55e;
+    background: #15803d;
+    border-color: #15803d;
     color: #fff;
 }
 
@@ -484,8 +484,8 @@
 }
 
 .pp-state-btn--active.pp-state-btn--deny {
-    background: #ef4444;
-    border-color: #ef4444;
+    background: #b91c1c;
+    border-color: #b91c1c;
     color: #fff;
 }
 
@@ -504,7 +504,7 @@
 }
 
 .pp-tree::-webkit-scrollbar-thumb:hover {
-    background: #9ca3af;
+    background: #4b5563;
 }
 
 /* === 嵌套组缩进 === */
@@ -597,4 +597,88 @@ body.theme-gray .pp-search-clear {
 body.theme-dark_green .pp-search-clear:hover,
 body.theme-gray .pp-search-clear:hover {
     background: var(--color-border, #4b5563);
+}
+
+
+/* =========================================
+   ⭐ P2-9（2026-10-21 审查）：深色主题覆盖
+   本组件是前端里唯一几乎全部硬编码浅色的模块（#fff / #f9fafb / #f3f4f6 / #6b7280），
+   在 theme-gray / theme-dark_green 下会露出一整块白。这里把承重面改为主题变量，
+   浅色主题不受影响（变量值本来就等于原来的颜色）。
+   ========================================= */
+body.theme-gray .pp-level-bar,
+body.theme-dark_green .pp-level-bar,
+body.theme-gray .pp-bulk-ops,
+body.theme-dark_green .pp-bulk-ops {
+    background: var(--color-bg-secondary);
+    border-bottom-color: var(--color-border);
+}
+
+body.theme-gray .pp-level-label,
+body.theme-dark_green .pp-level-label,
+body.theme-gray .pp-node-name,
+body.theme-dark_green .pp-node-name {
+    color: var(--color-text-main);
+}
+
+body.theme-gray .pp-level-btn,
+body.theme-dark_green .pp-level-btn,
+body.theme-gray .pp-bulk-btn,
+body.theme-dark_green .pp-bulk-btn,
+body.theme-gray .pp-state-btn,
+body.theme-dark_green .pp-state-btn {
+    background: var(--color-bg-white);
+    border-color: var(--color-border);
+    color: var(--color-text-muted);
+}
+
+body.theme-gray .pp-level-btn:hover,
+body.theme-dark_green .pp-level-btn:hover,
+body.theme-gray .pp-bulk-btn:hover,
+body.theme-dark_green .pp-bulk-btn:hover,
+body.theme-gray .pp-state-btn:hover,
+body.theme-dark_green .pp-state-btn:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: var(--color-bg-hover);
+}
+
+body.theme-gray .pp-node-code,
+body.theme-dark_green .pp-node-code {
+    background: var(--color-bg-section-alt);
+    color: var(--color-text-muted);
+}
+
+body.theme-gray .pp-node-desc,
+body.theme-dark_green .pp-node-desc,
+body.theme-gray .pp-arrow,
+body.theme-dark_green .pp-arrow {
+    color: var(--color-text-muted);
+}
+
+body.theme-gray .pp-search-clear,
+body.theme-dark_green .pp-search-clear {
+    background: var(--color-bg-section-alt);
+    color: var(--color-text-muted);
+}
+
+body.theme-gray .pp-group,
+body.theme-dark_green .pp-group {
+    border-bottom-color: var(--color-border);
+}
+
+body.theme-gray .pp-group-header,
+body.theme-dark_green .pp-group-header {
+    background: var(--color-bg-secondary);
+}
+
+body.theme-gray .pp-group-header:hover,
+body.theme-dark_green .pp-group-header:hover {
+    background: var(--color-bg-hover);
+}
+
+body.theme-gray .pp-group--open > .pp-group-header,
+body.theme-dark_green .pp-group--open > .pp-group-header {
+    background: var(--color-bg-section-alt);
+    border-bottom-color: var(--color-border);
 }

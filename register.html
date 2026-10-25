@@ -7,14 +7,14 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>GWL | 个人学习平台 - 注册</title>
+    <title>注册 | GWL</title>
     <!-- Cloudflare Turnstile：SDK 与组件挂载都在 js/turnstile-widget.js 里，
          register.js 只负责「取 token + 提交」，两者互不依赖（SDK 挂掉也能正常提示） -->
-    <link rel="stylesheet" href="./css/core.css?v=20261016a">
-    <link rel="stylesheet" href="./css/styles.css?v=20261018a">
-    <link rel="stylesheet" href="./css/login.css?v=20260923a">
-    <link rel="stylesheet" href="./css/register.css?v=20260911d">
-    <link rel="stylesheet" href="./css/components.css?v=20261016a">
+    <link rel="stylesheet" href="./css/core.css?v=20261025a">
+    <link rel="stylesheet" href="./css/styles.css?v=20261025a">
+    <link rel="stylesheet" href="./css/login.css?v=20261025a">
+    <link rel="stylesheet" href="./css/register.css?v=20261025a">
+    <link rel="stylesheet" href="./css/components.css?v=20261025a">
     <link rel="icon" href="./favicon.png" type="image/png">
 </head>
 <body>
@@ -37,7 +37,7 @@
 
     <div class="login-page">
         <div class="login-card register-card">
-            <h2 class="login-card__title">注册账号</h2>
+            <h1 class="login-card__title">注册账号</h1>
 
             <div class="register-tabs" id="registerTabs">
                 <button class="register-tab register-tab--active" data-tab="email" type="button">邮件注册</button>
@@ -64,7 +64,7 @@
                 </div>
                 <label class="register-agreement">
                     <input type="checkbox" name="agree" required>
-                    <span>我已阅读并同意 <a href="#" style="color: var(--color-primary);">服务条款</a> 和 <a href="#" style="color: var(--color-primary);">隐私政策</a></span>
+                    <span>我已阅读并同意 <a href="/terms.html" target="_blank" rel="noopener noreferrer" style="color: var(--color-primary);">服务条款</a> 和 <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style="color: var(--color-primary);">隐私政策</a></span>
                 </label>
                 <div class="turnstile-mount">
                     <div id="turnstile-widget-email"></div>
@@ -92,7 +92,7 @@
                 </div>
                 <label class="register-agreement">
                     <input type="checkbox" name="agree" required>
-                    <span>我已阅读并同意 <a href="#" style="color: var(--color-primary);">服务条款</a> 和 <a href="#" style="color: var(--color-primary);">隐私政策</a></span>
+                    <span>我已阅读并同意 <a href="/terms.html" target="_blank" rel="noopener noreferrer" style="color: var(--color-primary);">服务条款</a> 和 <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style="color: var(--color-primary);">隐私政策</a></span>
                 </label>
                 <div class="turnstile-mount">
                     <div id="turnstile-widget-phone"></div>
@@ -143,17 +143,17 @@
                     </div>
                     <div class="footer__links-group">
                         <h4>关于</h4>
-                        <a href="#">关于我们</a>
-                        <a href="#">隐私政策</a>
-                        <a href="#">服务条款</a>
+                        <a href="/about.html">关于我们</a>
+                        <a href="/privacy.html">隐私政策</a>
+                        <a href="/terms.html">服务条款</a>
                     </div>
                 </div>
             </div>
             <div class="footer__bottom">
                 <p>&copy; 2026 GFYGO. All rights reserved.</p>
                 <div class="footer__social">
-                    <a href="#" aria-label="GitHub">GitHub</a>
-                    <a href="#" aria-label="Bilibili">Bilibili</a>
+                    <a href="https://github.com/GFYGO/gfygo-site" target="_blank" rel="noopener noreferrer" aria-label="GitHub">GitHub</a>
+                    <a href="https://www.bilibili.com/video/BV1g34y1j7e5/" target="_blank" rel="noopener noreferrer" aria-label="Bilibili">Bilibili</a>
                 </div>
             </div>
         </div>
@@ -161,11 +161,11 @@
 
     <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
-    <script src="./js/config.js?v=20261018a"></script>
-    <script src="./js/theme.js?v=20260911d"></script>
-    <script src="./js/toast.js?v=20261016a"></script>
-    <script src="./js/index.js?v=20261016a"></script>
-    <script src="./js/turnstile-widget.js?v=20260923a"></script>
-    <script src="./js/register.js?v=20260923a"></script>
+    <script src="./js/config.js?v=20261025a"></script>
+    <script src="./js/theme.js?v=20261025a"></script>
+    <script src="./js/toast.js?v=20261025a"></script>
+    <script src="./js/index.js?v=20261025a"></script>
+    <script src="./js/turnstile-widget.js?v=20261025a"></script>
+    <script src="./js/register.js?v=20261025a"></script>
 </body>
 </html>

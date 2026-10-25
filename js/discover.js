@@ -1021,8 +1021,8 @@ function fmtDateTime(s) {
     pager.page = data.page;
     pager.loaded = data.items.length;
     pager.total = data.total;
-    pager.hasMore = data.has_more === true;
-    updateMeta(pager.metaId, data);                        // 首屏文案不变：共 T 条公开内容
+    pager.hasMore = feedHasMore(data);
+    updateMeta(pager.metaId, data);                        // 首屏：共 T 条公开内容（截断时带提示）
     setMoreState(pager.hasMore ? 'more' : 'done');
     return data;
   }
@@ -1044,7 +1044,7 @@ function fmtDateTime(s) {
     pager.loaded += data.items.length;
     pager.total = data.total;
     // 后端说"还有"却回了空页 → 再点下去只会原地打转，就此收尾
-    pager.hasMore = (data.has_more === true) && data.items.length > 0;
+    pager.hasMore = feedHasMore(data) && data.items.length > 0;
     updateMeta(pager.metaId, data, pager.loaded);          // ⭐ 已加载 M / 共 T
     setMoreState(pager.hasMore ? 'more' : 'done');
     return data;
@@ -1115,11 +1115,24 @@ function fmtDateTime(s) {
    */
   function updateMeta(id, data, loaded) {
     if (!data) return;
+    // ⭐ P2-4（2026-10-21 审查）：后端这一轮扫描被截断时不能假装"到底了"。
+    //   scan_truncated 只可能为真（见 feedPageResult），缺省即 false。
+    var truncated = data.scan_truncated === true ? '（未完全扫描，可能还有更多）' : '';
     if (Number.isFinite(Number(loaded))) {
-      setText(id, '已加载 ' + Number(loaded) + ' / 共 ' + data.total);
+      setText(id, '已加载 ' + Number(loaded) + ' / 共 ' + data.total + truncated);
       return;
     }
-    setText(id, '共 ' + data.total + ' 条公开内容');
+    setText(id, '共 ' + data.total + ' 条公开内容' + truncated);
+  }
+
+  /**
+   * ⭐ P2-4（2026-10-21 审查）：判断"是否还有下一页"。
+   * 只看 has_more 会把 scan_truncated（后端扫描被截断）当成"没有更多了"，
+   * 用户以为已经到底，实际后面还有内容。
+   */
+  function feedHasMore(data) {
+    if (!data) return false;
+    return data.has_more === true || data.scan_truncated === true;
   }
 
   /** 聚合页：板块导航 + 内容流（首屏 size:24 第一页 + 「加载更多」按 page 追加），卡片显示板块标签 */
