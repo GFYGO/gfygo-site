@@ -68,12 +68,12 @@ node tools/test-turnstile-auth.mjs      # 49 项：Turnstile 认证链
 node tools/test-discover-page.mjs       # ⭐ 228 项：发现页（含「加入」真动作、登录门）
 node tools/test-user-profile-page.mjs   # 22 项：u.html 公开主页
 node tools/test-pdocs-bulk.mjs          # 50 项：个人文档批量操作 UI 契约（含 2026-10-18 批量编辑模式）
-node tools/test-dashboard-workspace.mjs # 65 项：工作台瀑布流 / 第三方工具嵌入 / 通知已读 / 超管提醒
+node tools/test-dashboard-workspace.mjs # 66 项：工作台瀑布流 / 第三方工具嵌入 / 通知已读 / 超管提醒
 node tools/test-document-folders.mjs    # 21 项：文件夹树展开持久化 + 组根文件夹展示名
 ```
 
 ⚠️ 本机**没有浏览器自动化**（沙箱起不了无头浏览器）——视觉类问题只能人工在浏览器验证；
-`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，11 套合计 **854 项**）。
+`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，11 套合计 **855 项**）。
 
 ⭐ **缓存版本号统一用脚本维护**（2026-10-25 起）：`node tools/bump-versions.mjs --list` 看现状、
 `--verify` 查漂移、`20261026a --all` 一次全站统一、`<ver> js/modal.js` 只升某个文件。

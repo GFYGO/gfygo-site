@@ -11,7 +11,7 @@
       —— 不使用 eval / new Function / 内联脚本。
       （侧边栏那 4 个基础页是 dashboard.html 里写死的静态面板，内容不经过后端。）
     -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://maxcdn.bootstrapcdn.com; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net https://maxcdn.bootstrapcdn.com; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src 'self' https://challenges.cloudflare.com https://www.geogebra.org https://www.desmos.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://maxcdn.bootstrapcdn.com; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net https://maxcdn.bootstrapcdn.com; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src 'self' https://challenges.cloudflare.com https://www.geogebra.org https://www.desmos.com https://phet.colorado.edu https://lifescience.opensource.epam.com https://ophysics.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>个人主页 | GWL</title>
     <link rel="stylesheet" href="./../css/core.css?v=20261026a">
@@ -482,7 +482,7 @@
                         <div>
                             <h2 class="panel-title">🔧 第三方工具</h2>
                             <p class="workspace-head__sub" id="toolsSubtitle">
-                                外部数学工具集合；点击卡片在本页嵌入打开，登录状态由第三方站点自己保存。
+                                外部数学 / 科学工具集合；点击卡片在本页嵌入打开，登录状态由第三方站点自己保存。
                             </p>
                         </div>
                         <span class="tools-source" id="toolsSource"></span>
