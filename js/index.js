@@ -177,10 +177,11 @@ function renderGlobalNotifications(notifications) {
 
   container.innerHTML = '';
 
-  // ⭐ P2（2026-10-15 审查）：`styles.css` 在移动端写了
-  //    `#global-notifications-container { display: none }`，但这里的内联
-  //    `display:flex` 优先级更高 → 窄屏照样弹通知（把手机屏遮掉一块）。
-  //    现在窄屏一律不显示（内联也置 none），恢复那条 CSS 的意图。
+  // ⭐ 2026-10-25（P2 复核）：容器改成常驻的 `role="log"` live region，这里不再写
+  //    内联 `display`（空容器零高度，本来就看不见）。原因有二：
+  //    ① `styles.css` 在 ≤768px 已把 `#global-notifications-container` 设为
+  //       `display:none`，内联 `display:flex` 会盖掉它（旧代码为此外挂了 matchMedia 判断）；
+  //    ② 把容器 `display:none` 会让 live region 离开可访问树，读屏听不到新通知。
   function notificationsAllowed() {
     try {
       return !(window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
@@ -190,12 +191,9 @@ function renderGlobalNotifications(notifications) {
   }
 
   if (!notifications || notifications.length === 0 || !notificationsAllowed()) {
-    container.style.display = 'none';
     return;
   }
 
-  container.style.display = 'flex';
-  
   notifications.forEach(notification => {
     const notificationEl = document.createElement('div');
     notificationEl.className = 'notification-item';
@@ -209,9 +207,6 @@ function renderGlobalNotifications(notifications) {
       notificationEl.style.opacity = '0';
       setTimeout(function() {
         notificationEl.remove();
-        if (container.children.length === 0) {
-          container.style.display = 'none';
-        }
       }, 200);
     });
     

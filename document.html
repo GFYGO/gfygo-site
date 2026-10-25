@@ -4,16 +4,17 @@
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="dns-prefetch" href="//back.gwl.net.cn">
   <meta name="description" content="GWL 文档中心：浏览公共文档、按标签与文件夹筛选、查看修订历史并导出 Markdown。">
   <title>文档 | GWL</title>
-  <link rel="stylesheet" href="./css/core.css?v=20261026b">
-  <link rel="stylesheet" href="./css/styles.css?v=20261026b">
-  <link rel="stylesheet" href="./css/document.css?v=20261026b">
+  <link rel="stylesheet" href="./css/core.css?v=20261026c">
+  <link rel="stylesheet" href="./css/styles.css?v=20261026c">
+  <link rel="stylesheet" href="./css/document.css?v=20261026c">
   <!-- ⭐ P1-2（2026-10-15 审查）：本页 .feature-grid / .feature-tile 的唯一来源是
        feature-grid.css（首页也用它），此前本页没加载 → 主页「文档列表」卡片网格
        与两个外链入口都是裸链接。见 css/README.md 的加载关系表。 -->
-  <link rel="stylesheet" href="./css/feature-grid.css?v=20261026b">
-  <link rel="stylesheet" href="./css/components.css?v=20261026b">
+  <link rel="stylesheet" href="./css/feature-grid.css?v=20261026c">
+  <link rel="stylesheet" href="./css/components.css?v=20261026c">
   <link rel="icon" href="./favicon.png" type="image/png">
 </head>
 <body>
@@ -29,7 +30,7 @@
       <a href="./register.html">注册</a>
     </nav>
     <div class="header__actions">
-      <div id="global-notifications-container" class="notification-toast"></div>
+      <div id="global-notifications-container" class="notification-toast" role="log" aria-label="站点通知" aria-live="polite"></div>
       <div id="auth-container"></div>
       <div class="permission-buttons" id="permissionButtons"></div>
     </div>
@@ -289,12 +290,12 @@
 
   <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
-  <script src="./js/config.js?v=20261026b"></script>
-  <script src="./js/sanitize.js?v=20261026b"></script>
-  <script src="./js/theme.js?v=20261026b"></script>
-  <script src="./js/toast.js?v=20261026b"></script>
-  <script src="./js/modal.js?v=20261026b"></script>
-  <script src="./js/index.js?v=20261026b"></script>
-  <script src="./js/document.js?v=20261026b"></script>
+  <script src="./js/config.js?v=20261026c"></script>
+  <script src="./js/sanitize.js?v=20261026c"></script>
+  <script src="./js/theme.js?v=20261026c"></script>
+  <script src="./js/toast.js?v=20261026c"></script>
+  <script src="./js/modal.js?v=20261026c"></script>
+  <script src="./js/index.js?v=20261026c"></script>
+  <script src="./js/document.js?v=20261026c"></script>
 </body>
 </html>

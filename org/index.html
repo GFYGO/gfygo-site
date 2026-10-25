@@ -15,11 +15,12 @@
     -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com https://back.gwl.net.cn; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="dns-prefetch" href="//back.gwl.net.cn">
     <title>组织 | GWL</title>
-    <link rel="stylesheet" href="./../css/core.css?v=20261026b">
-    <link rel="stylesheet" href="./../css/styles.css?v=20261026b">
-    <link rel="stylesheet" href="./../css/components.css?v=20261026b">
-    <link rel="stylesheet" href="./org.css?v=20261026b">
+    <link rel="stylesheet" href="./../css/core.css?v=20261026c">
+    <link rel="stylesheet" href="./../css/styles.css?v=20261026c">
+    <link rel="stylesheet" href="./../css/components.css?v=20261026c">
+    <link rel="stylesheet" href="./org.css?v=20261026c">
     <link rel="icon" href="./../favicon.png" type="image/png">
 </head>
 <body>
@@ -70,7 +71,7 @@
         </nav>
 
         <div class="org-header__right">
-            <div id="global-notifications-container" class="notification-toast"></div>
+            <div id="global-notifications-container" class="notification-toast" role="log" aria-label="站点通知" aria-live="polite"></div>
             <div id="auth-container"></div>
             <div class="permission-buttons" id="permissionButtons"></div>
         </div>
@@ -84,12 +85,15 @@
             <div class="org-sidebar__section">
                 <div class="org-sidebar__title">切换组织</div>
                 <div class="org-popwrap org-popwrap--block">
-                    <button class="org-orgswitch" id="orgSwitchBtn" aria-haspopup="listbox" aria-expanded="false">
+                    <!-- 2026-10-25：这是「按钮 + 展开列表」的 disclosure，不是 listbox——
+                         子项是真 <button>，Tab/Enter 原生可用；挂 role=listbox 却没有
+                         option/方向键，读屏会把它当空列表。 -->
+                    <button class="org-orgswitch" id="orgSwitchBtn" aria-expanded="false" aria-controls="orgSwitchCard">
                         <span class="org-orgswitch__id" id="orgCurrentId">---</span>
                         <span class="org-orgswitch__name" id="orgCurrentName">加载中…</span>
                         <span class="org-orgswitch__caret" aria-hidden="true">▾</span>
                     </button>
-                    <div class="org-popcard org-popcard--block" id="orgSwitchCard" role="listbox" aria-label="选择组织" hidden>
+                    <div class="org-popcard org-popcard--block" id="orgSwitchCard" role="group" aria-label="选择组织" hidden>
                         <div class="org-popcard__body" id="orgSwitchList"></div>
                     </div>
                 </div>
@@ -261,12 +265,12 @@
   脚本加载顺序：共享层（config/utils/toast/modal）→ 本页逻辑。
   共享层提供的全局：window.apiRequest / window.AuthGuard / window.showToast / window.Modal / window.escapeHtml
 -->
-<script src="./../js/config.js?v=20261026b"></script>
-<script src="./../js/theme.js?v=20261026b"></script>
-<script src="./../js/utils.js?v=20261026b"></script>
-<script src="./../js/toast.js?v=20261026b"></script>
-<script src="./../js/modal.js?v=20261026b"></script>
-<script src="./../js/index.js?v=20261026b"></script>
-<script src="./org.js?v=20261026b"></script>
+<script src="./../js/config.js?v=20261026c"></script>
+<script src="./../js/theme.js?v=20261026c"></script>
+<script src="./../js/utils.js?v=20261026c"></script>
+<script src="./../js/toast.js?v=20261026c"></script>
+<script src="./../js/modal.js?v=20261026c"></script>
+<script src="./../js/index.js?v=20261026c"></script>
+<script src="./org.js?v=20261026c"></script>
 </body>
 </html>

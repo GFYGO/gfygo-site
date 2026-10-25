@@ -313,10 +313,22 @@
         });
         document.addEventListener('keydown', function (e) {
             if (e.key !== 'Escape') return;
+            var closed = [];
             renderIds().forEach(function (id) {
                 var card = document.getElementById(id);
-                if (card && !card.hidden) { card.hidden = true; syncAria(id, false); }
+                if (card && !card.hidden) { card.hidden = true; syncAria(id, false); closed.push(id); }
             });
+            // ⭐ 2026-10-25：Esc 收起后把焦点还给触发按钮——否则焦点留在刚被 hidden
+            //    的卡片里，下一次 Tab 会从文档开头重新数。
+            if (closed.length) {
+                var pairs = popcardPairs();
+                for (var i = 0; i < pairs.length; i++) {
+                    if (closed.indexOf(pairs[i].card) < 0) continue;
+                    var btn = document.getElementById(pairs[i].btn);
+                    if (btn && btn.focus) btn.focus();
+                    break;
+                }
+            }
         });
         // 视口变化 → 重新收敛已展开卡片的高度/方向（否则转屏后又会伸出屏幕）
         window.addEventListener('resize', refitOpenPopcards);

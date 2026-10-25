@@ -4,12 +4,13 @@
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="dns-prefetch" href="//back.gwl.net.cn">
   <title>文档 | 发现 | GWL</title>
-  <link rel="stylesheet" href="../../css/core.css?v=20261026b">
-  <link rel="stylesheet" href="../../css/styles.css?v=20261026b">
-  <link rel="stylesheet" href="../../css/components.css?v=20261026b">
-  <link rel="stylesheet" href="../../css/discover.css?v=20261026b">
-  <link rel="icon" href="../../favicon.png?v=20261026b" type="image/png">
+  <link rel="stylesheet" href="../../css/core.css?v=20261026c">
+  <link rel="stylesheet" href="../../css/styles.css?v=20261026c">
+  <link rel="stylesheet" href="../../css/components.css?v=20261026c">
+  <link rel="stylesheet" href="../../css/discover.css?v=20261026c">
+  <link rel="icon" href="../../favicon.png?v=20261026c" type="image/png">
 </head>
 <body data-discover-page="board" data-discover-key="doc">
   <!--
@@ -41,7 +42,7 @@
   </header>
 
   <!-- 全局通知容器（在 header 下方，fixed 定位） -->
-  <div id="global-notifications-container" class="notification-toast"></div>
+  <div id="global-notifications-container" class="notification-toast" role="log" aria-label="站点通知" aria-live="polite"></div>
 
   <main class="discover-main">
     <section class="discover-hero">
@@ -90,12 +91,12 @@
   <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
   <!-- 脚本顺序固定：config → utils → sanitize → theme → toast → index → discover（契约 §7.2） -->
-  <script src="../../js/config.js?v=20261026b"></script>
-  <script src="../../js/utils.js?v=20261026b"></script>
-  <script src="../../js/sanitize.js?v=20261026b"></script>
-  <script src="../../js/theme.js?v=20261026b"></script>
-  <script src="../../js/toast.js?v=20261026b"></script>
-  <script src="../../js/index.js?v=20261026b"></script>
-  <script src="../../js/discover.js?v=20261026b"></script>
+  <script src="../../js/config.js?v=20261026c"></script>
+  <script src="../../js/utils.js?v=20261026c"></script>
+  <script src="../../js/sanitize.js?v=20261026c"></script>
+  <script src="../../js/theme.js?v=20261026c"></script>
+  <script src="../../js/toast.js?v=20261026c"></script>
+  <script src="../../js/index.js?v=20261026c"></script>
+  <script src="../../js/discover.js?v=20261026c"></script>
 </body>
 </html>

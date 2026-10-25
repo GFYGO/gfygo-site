@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="dns-prefetch" href="//back.gwl.net.cn">
   <!-- ⭐ P2（2026-10-15 审查）：全站此前 0 个 description / OG / canonical -->
   <meta name="description" content="GWL Works Lab —— 个人向学习平台与文档系统：多级权限的公共 / 组 / 私有文档库、组织与组协作、公开内容发现。">
   <link rel="canonical" href="https://gwl.net.cn/">
@@ -14,10 +15,10 @@
   <meta property="og:url" content="https://gwl.net.cn/">
   <meta name="twitter:card" content="summary">
   <title>个人学习平台 | GWL</title>
-  <link rel="stylesheet" href="./css/core.css?v=20261026b">
-  <link rel="stylesheet" href="./css/styles.css?v=20261026b">
-  <link rel="stylesheet" href="./css/components.css?v=20261026b">
-  <link rel="stylesheet" href="./css/feature-grid.css?v=20261026b">
+  <link rel="stylesheet" href="./css/core.css?v=20261026c">
+  <link rel="stylesheet" href="./css/styles.css?v=20261026c">
+  <link rel="stylesheet" href="./css/components.css?v=20261026c">
+  <link rel="stylesheet" href="./css/feature-grid.css?v=20261026c">
   <link rel="icon" href="./favicon.png" type="image/png">
 </head>
 <body>
@@ -46,7 +47,7 @@
   </header>
 
   <!-- 全局通知容器（在 header 下方，fixed 定位） -->
-  <div id="global-notifications-container" class="notification-toast"></div>
+  <div id="global-notifications-container" class="notification-toast" role="log" aria-label="站点通知" aria-live="polite"></div>
 
   <!-- Homepage Sections -->
   <main>
@@ -128,9 +129,9 @@
   <!-- 主题切换悬浮按钮 -->
   <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
-  <script src="./js/config.js?v=20261026b"></script>
-  <script src="./js/theme.js?v=20261026b"></script>
-  <script src="./js/toast.js?v=20261026b"></script>
-  <script src="./js/index.js?v=20261026b"></script>
+  <script src="./js/config.js?v=20261026c"></script>
+  <script src="./js/theme.js?v=20261026c"></script>
+  <script src="./js/toast.js?v=20261026c"></script>
+  <script src="./js/index.js?v=20261026c"></script>
 </body>
 </html>
