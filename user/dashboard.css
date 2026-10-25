@@ -1005,7 +1005,9 @@
 }
 
 /* ⭐ P2-11（2026-10-21 审查）：行内「打开」从 div 变成真 button（可用 Tab 聚焦、Enter/Space 激活），
-   这里把原生按钮外观收回到与原来的文本一致。 */
+   这里把原生按钮外观收回到与原来的文本一致。
+   ⚠️ 标题必须**保持居中**（与改造前一致）：名称按钮铺满整块 tile 只为扩大点击区，
+   文字对齐沿用 .pdocs-explorer-item 的 text-align:center，不要改成 left。 */
 .pdocs-explorer-item__open {
     background: none;
     border: none;
@@ -1013,7 +1015,7 @@
     margin: 0;
     font: inherit;
     color: inherit;
-    text-align: left;
+    text-align: center;
     cursor: pointer;
     width: 100%;
     min-width: 0;
