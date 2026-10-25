@@ -233,3 +233,41 @@ input:checked + .slider:before { transform: translateX(18px); }
 #permPickerModal > div {
     box-shadow: 0 20px 60px rgba(0,0,0,0.15);
 }
+
+/* ============================================================
+ * 深色主题覆盖（2026-10-25，审查 §4.4）
+ * dashboard-admin.css 此前 0 条 body.theme-* 规则：标签（浅底深字）、
+ * 危险按钮（浅红底）、切换滑块（#ccc）、权限 chip hover（白字压浅主色）
+ * 在 gray / dark_green 下要么刺眼、要么读不清。
+ * ============================================================ */
+body.theme-gray .tag-green,
+body.theme-dark_green .tag-green { background: rgba(16, 185, 129, 0.18); color: #6ee7b7; }
+
+body.theme-gray .tag-gray,
+body.theme-dark_green .tag-gray { background: rgba(148, 163, 184, 0.20); color: #d1d5db; }
+
+body.theme-gray .tag-red,
+body.theme-dark_green .tag-red { background: rgba(239, 68, 68, 0.18); color: #fca5a5; }
+
+body.theme-gray .tag-blue,
+body.theme-dark_green .tag-blue { background: rgba(59, 130, 246, 0.20); color: #93c5fd; }
+
+body.theme-gray .tag-yellow,
+body.theme-dark_green .tag-yellow { background: rgba(245, 158, 11, 0.18); color: #fcd34d; }
+
+body.theme-gray .btn.btn-danger,
+body.theme-dark_green .btn.btn-danger {
+    background: rgba(239, 68, 68, 0.16);
+    border-color: rgba(252, 165, 165, 0.55);
+    color: #fca5a5;
+}
+
+body.theme-gray .btn.btn-danger:hover,
+body.theme-dark_green .btn.btn-danger:hover { background: rgba(239, 68, 68, 0.26); }
+
+body.theme-gray .slider,
+body.theme-dark_green .slider { background-color: #4b5563; }
+
+/* chip hover 是「主色底 + 白字」：暗色主题的主色本身很浅，白字会糊掉 */
+body.theme-gray .perm-node-item:hover,
+body.theme-dark_green .perm-node-item:hover { color: var(--color-on-primary, #fff); }

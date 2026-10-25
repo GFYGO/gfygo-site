@@ -234,7 +234,8 @@
     align-items: center;
     gap: 6px;
     padding: 10px 12px;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    /* 2026-10-25（§4.4 / P1-6）：原 #6366f1→#8b5cf6 上白字只有 4.4:1 与 3.9:1，压深到 6.3:1 / 7.1:1 */
+    background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
     border-radius: 6px;
     color: #fff;
     font-size: 0.8rem;
@@ -468,3 +469,49 @@
         max-height: 300px;
     }
 }
+
+/* ============================================================
+ * 深色主题覆盖（2026-10-25，审查 §4.4）
+ * 紫色系激活态（#f5f3ff / #ede9fe 浅底）在 gray / dark_green 下几乎变成白块，
+ * 这里换成半透明紫；统计数字的 #22c55e / #ef4444 在深底上对比不足，一并提亮。
+ * ============================================================ */
+body.theme-gray .perm-tab.active,
+body.theme-dark_green .perm-tab.active {
+    color: #a5b4fc;
+    border-bottom-color: #a5b4fc;
+}
+
+body.theme-gray .perm-level-card:hover,
+body.theme-dark_green .perm-level-card:hover {
+    border-color: #a5b4fc;
+    background: rgba(99, 102, 241, 0.16);
+}
+
+body.theme-gray .perm-level-card.active,
+body.theme-dark_green .perm-level-card.active {
+    border-color: #a5b4fc;
+    background: rgba(99, 102, 241, 0.22);
+}
+
+body.theme-gray .perm-level-num,
+body.theme-dark_green .perm-level-num { color: #a5b4fc; }
+
+body.theme-gray .perm-user-item.active,
+body.theme-gray .perm-group-item.active,
+body.theme-dark_green .perm-user-item.active,
+body.theme-dark_green .perm-group-item.active {
+    background: rgba(99, 102, 241, 0.22);
+    border-left-color: #a5b4fc;
+}
+
+body.theme-gray .perm-user-search input:focus,
+body.theme-dark_green .perm-user-search input:focus { border-color: #a5b4fc; }
+
+body.theme-gray .perm-stat--allow .perm-stat-num,
+body.theme-dark_green .perm-stat--allow .perm-stat-num { color: #4ade80; }
+
+body.theme-gray .perm-stat--deny .perm-stat-num,
+body.theme-dark_green .perm-stat--deny .perm-stat-num { color: #f87171; }
+
+body.theme-gray .perm-stat--inherit .perm-stat-num,
+body.theme-dark_green .perm-stat--inherit .perm-stat-num { color: var(--color-text-muted); }
