@@ -363,25 +363,50 @@ function initThemeOptions(token) {
     });
 }
 
-/** 邮箱验证 - 检查状态 */
+/**
+ * 邮箱验证 - 检查状态
+ *
+ * ⚠️ 2026-10-25 修复（「验证邮箱」卡片永远不显示）：
+ *   `GET /api/v0/user/menu` 的 `user_info` **不含 email**（服务端
+ *   `UserService._menu_payload` 只给 id / username / 各级别 / group / nodes / profile），
+ *   所以调用方传进来的 `user.email` 恒为 `undefined` —— 原来那句
+ *   `if (!email) return;` 于是**每次都提前返回**，整个「验证邮箱」区域一次都没渲染过。
+ *
+ *   现在以 `/api/v0/auth/email-status` 自己返回的 email 为准（它本来就有），
+ *   入参 email 只作兜底；拿不到邮箱地址才跳过（否则会显示「验证邮箱: 」空值）。
+ */
 async function checkEmailVerificationStatus(token, email) {
-    if (!email) return;
+    if (!token) return;
 
+    let response;
     try {
-        const response = await fetch(`${API_BASE_URL}/api/v0/auth/email-status`, {
+        response = await fetch(`${API_BASE_URL}/api/v0/auth/email-status`, {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` }
         });
-
-        const data = await response.json();
-        if (response.ok && data.code === 200) {
-            if (!data.data.email_verified) {
-                showEmailVerificationSection(email);
-            }
-        }
     } catch (error) {
         console.error('检查邮箱验证状态失败:', error);
+        return;
     }
+
+    let data = null;
+    try {
+        data = await response.json();
+    } catch (error) {
+        console.error('解析邮箱验证状态失败:', error);
+        return;
+    }
+    if (!response.ok || !data || data.code !== 200) return;
+
+    const info = data.data || {};
+    if (info.email_verified) return;          // 已验证：不显示卡片
+
+    const mail = info.email || email || '';
+    if (!mail) {
+        console.warn('[email-verify] 邮箱未验证，但接口没给出邮箱地址，跳过验证卡片');
+        return;
+    }
+    showEmailVerificationSection(mail);
 }
 
 /** 邮箱验证 - 显示验证区域 */
@@ -541,6 +566,12 @@ function initAuthModules(token, user) {
     renderUserProfile(user, defaultAvatar, defaultBanner);
     renderPermissionButtons(user);
     renderTopNavAuth(user);
+
+    // ⭐ 2026-10-25：邮件里的「一键验证」链接是 user/dashboard.html?code=123456。
+    //   parsePendingEmailCode() 一直存在，但**从来没人调用**过 → 打开这种链接什么都不会发生
+    //   （既不填码、也不自动验证）。必须在 checkEmailVerificationStatus 之前调用：
+    //   卡片渲染时才会消费 pendingEmailCode，顺序反了就赶不上。
+    parsePendingEmailCode();
     checkEmailVerificationStatus(token, user.email);
     initThemeOptions(token);
 }

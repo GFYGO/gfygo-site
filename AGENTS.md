@@ -60,7 +60,7 @@
 ```powershell
 cd ..   # 回到工作区根 D:\HP(system)\Documents\GitHub\GFYGO
 node tools/test-dashboard-pages.mjs     # 144 项：仪表盘加载契约 + 动态页脚本编译 + 设置页 API Key
-node tools/test-dashboard-home.mjs      # 54 项：从 dashboard.html 解析真实 DOM 全流程装配
+node tools/test-dashboard-home.mjs      # 62 项：从 dashboard.html 解析真实 DOM 全流程装配
 node tools/test-org-page.mjs            # 135 项：组织页（含「＋ 加入」卡片 / join-info 自助加入 / 页脚 6 链接契约）
 node tools/test-superadmin-page.mjs     # 23 项：超管页（动作名与页面后端 ROUTES 对齐）
 node tools/test-permission-switch.mjs   # 55 项：权限视角切换
@@ -73,11 +73,11 @@ node tools/test-document-folders.mjs    # 21 项：文件夹树展开持久化 +
 ```
 
 ⚠️ 本机**没有浏览器自动化**（沙箱起不了无头浏览器）——视觉类问题只能人工在浏览器验证；
-`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，11 套合计 **846 项**）。
+`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，11 套合计 **854 项**）。
 
 ⭐ **缓存版本号统一用脚本维护**（2026-10-25 起）：`node tools/bump-versions.mjs --list` 看现状、
-`--verify` 查漂移、`20261025a --all` 一次全站统一、`<ver> js/modal.js` 只升某个文件。
-当前约定：**全站同一批次版本号**（2026-10-25 统一为 `20261025a`），不再逐文件各自为政。
+`--verify` 查漂移、`20261026a --all` 一次全站统一、`<ver> js/modal.js` 只升某个文件。
+当前约定：**全站同一批次版本号**（2026-10-26 统一为 `20261026a`），不再逐文件各自为政。
 
 ## 5. 目录速览（细节按需查 `file-wiki` 对应篇）
 
