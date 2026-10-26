@@ -17,6 +17,7 @@
         versions: [],
         dirty: false,
         saving: false,
+        saveFails: 0,
         previewHandle: null,
         loading: false,
     };
@@ -29,6 +30,26 @@
 
     function toast(message, type) {
         if (window.Toast && window.Toast.show) window.Toast.show(message, type || 'info');
+    }
+
+    /**
+     * 把服务端失败响应压成一句人话。
+     * 以前只取 res.msg，于是 `400 {msg:"Lua 语法错误", data:{hint:"..."}}` 在页面上
+     * 只剩「Lua 语法错误」四个字（真正原因在 hint 里被丢了），线上只剩控制台一条 400。
+     * 顺序：msg → data.errors[].path+message（字段级）→ data.hint（编译报错等）。
+     */
+    function failMessage(res, fallback) {
+        var data = (res && res.data) || {};
+        var msg = String((res && res.msg) || fallback || '请求失败');
+        var errors = data.errors;
+        if (errors && errors.length) {
+            msg += '：' + errors.slice(0, 3).map(function (e) {
+                return (e.path || '') + ' ' + (e.message || '');
+            }).join('；');
+        } else if (data.hint && msg.indexOf(data.hint) === -1) {
+            msg += '：' + data.hint;
+        }
+        return msg;
     }
 
     function setDirty(value) {
@@ -114,7 +135,7 @@
         if (state.dirty && !window.confirm('当前草稿有未保存修改，切换会丢失。继续？')) return;
         var res = await api('/api/v0/tool/' + id, { silent: true });
         if (!res || res.code !== 200) {
-            toast((res && res.msg) || '工具加载失败');
+            toast(failMessage(res, '工具加载失败'));
             return;
         }
         state.current = res.data;
@@ -206,6 +227,28 @@
         return out;
     }
 
+    /**
+     * 平台降级常驻提示（role=status，不打断阅读）。
+     * 这两条以前只存在于接口响应里：用户看到的是「保存一个 400 / 执行一个 503」，
+     * 却不知道是服务器缺依赖或平台清单坏了。
+     */
+    function renderPlatformWarn() {
+        var node = $('ctPlatformWarn');
+        if (!node) return;
+        var platform = state.platform || {};
+        var notes = [];
+        if (platform.degraded) {
+            notes.push('平台清单读取失败（服务器 data/tool_platform.json 缺失或格式不对），'
+                + '能力与 UI 写法已按「全关」处理，保存会被校验拒绝。');
+        }
+        if (platform.lua_available === false) {
+            notes.push('服务器未安装 lupa：可编辑、可保存，但执行与发布会返回 503。'
+                + '在服务器执行 pip install -r requirements.txt 后重启后端即可。');
+        }
+        node.textContent = notes.join(' ');
+        node.hidden = notes.length === 0;
+    }
+
     // ============================================================
     // 收集 / 保存
     // ============================================================
@@ -266,20 +309,26 @@
         });
         state.saving = false;
         if (!res || res.code !== 200) {
-            var msg = (res && res.msg) || '保存失败';
-            var errors = res && res.data && res.data.errors;
-            if (errors && errors.length) {
-                msg += '：' + errors.slice(0, 3).map(function (e) { return (e.path || '') + ' ' + e.message; }).join('；');
+            var msg = failMessage(res, '保存失败');
+            state.saveFails += 1;
+            if (silent) {
+                // 自动保存不刷屏：第 1 次与「主动暂停」各提示一次
+                if (state.saveFails === 1) toast(msg);
+                else if (state.saveFails === 3) {
+                    toast('自动保存已暂停（连续 3 次失败）：' + msg + '；修好后点「保存草稿」重试');
+                }
+            } else {
+                toast(msg);
             }
-            toast(msg);
             return false;
         }
+        state.saveFails = 0;
         state.current = res.data;
         setDirty(false);
         setStatusBadge(state.current.status);
         $('ctPublishedVersion').textContent = state.current.published_version_id ? ('v' + (state.current.version || '')) : '—';
         $('ctHash').textContent = state.current.content_hash || '—';
-        if (!silent) toast('草稿已保存', 'success');
+        if (!silent) toast((res && res.msg) || '草稿已保存', 'success');
         var index = state.tools.findIndex(function (t) { return t.id === state.current.id; });
         if (index >= 0) state.tools[index] = state.current;
         renderToolList();
@@ -294,7 +343,7 @@
             method: 'POST', body: {}, silent: true,
         });
         if (!res || res.code !== 200) {
-            toast((res && res.msg) || '发布失败');
+            toast(failMessage(res, '发布失败'));
             return;
         }
         toast(res.msg || '已发布', 'success');
@@ -306,7 +355,7 @@
         if (!window.confirm('删除后进入回收站（保留至少 14 天）。继续？')) return;
         var res = await api('/api/v0/tool/' + state.current.id, { method: 'DELETE', silent: true });
         if (!res || res.code !== 200) {
-            toast((res && res.msg) || '删除失败');
+            toast(failMessage(res, '删除失败'));
             return;
         }
         state.current = null;
@@ -361,7 +410,7 @@
         }
         var res = await api('/api/v0/tool/' + state.current.id + '/content?draft=1', { silent: true });
         if (!res || res.code !== 200) {
-            $('ctPreview').textContent = (res && res.msg) || '预览加载失败';
+            $('ctPreview').textContent = failMessage(res, '预览加载失败');
             return;
         }
         try {
@@ -523,9 +572,15 @@
         bind();
         var res = await api('/api/v0/tool/platform', { silent: true });
         if (res && res.code === 200) state.platform = res.data;
+        renderPlatformWarn();
         await loadTools();
         setInterval(function () {
-            if (state.dirty && state.current && !state.saving) save(true);
+            if (!state.dirty || !state.current || state.saving) return;
+            // 连续失败 3 次就暂停自动保存：否则每 30 秒再砸一条同样的 4xx，
+            // 真正的原因被刷屏（线上 5 条 400 就是这么来的）。
+            // 点「保存草稿」（非 silent）成功即恢复。
+            if (state.saveFails >= 3) return;
+            save(true);
         }, 30000);
     }
 

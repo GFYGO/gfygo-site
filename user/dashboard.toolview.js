@@ -522,4 +522,4 @@ export function mount(container, payload) {
 }
 
 export default { mount };
-window.ToolView = { mount: mount, version: '20261026f' };
+window.ToolView = { mount: mount, version: '20261026g' };

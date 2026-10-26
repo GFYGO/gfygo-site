@@ -208,6 +208,19 @@
 .ct-badge--draft { background: rgba(127, 127, 127, 0.15); }
 .ct-badge--disabled { background: rgba(180, 35, 24, 0.12); color: #b42318; }
 
+/* 平台降级横幅：缺 lupa / 平台清单损坏时常驻一行，别让 4xx/5xx 变成哑谜 */
+.ct-warn {
+    margin: 0 0 16px;
+    padding: 10px 12px;
+    border: 1px solid #f0b429;
+    border-left: 4px solid #f0b429;
+    border-radius: 6px;
+    background: rgba(240, 180, 41, 0.12);
+    color: inherit;
+    font-size: 0.86rem;
+    line-height: 1.6;
+}
+
 .ct-help,
 .ct-muted {
     color: var(--color-text-muted);
