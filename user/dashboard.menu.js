@@ -53,17 +53,21 @@ var PRIMARY_MENU = [
 // 构建版本号：便于在浏览器控制台一眼确认「当前跑的是哪一版」
 //   window.__DASHBOARD_BUILD__
 //   document.querySelector('script[src*="dashboard.menu.js"]').src
-var BUILD_VERSION = '20261026d';
+var BUILD_VERSION = '20261026f';
 window.__DASHBOARD_BUILD__ = BUILD_VERSION;
 
 var _menuData = null;
 var _pageCache = Object.create(null);   // tabKey -> 页面内容对象（含 version）
+var _toolCache = Object.create(null);   // tabKey -> 工具内容对象（含 content_hash）
+var _toolHandle = null;                  // 当前工具面板句柄（切换时 dispose）
 var _pageScriptEl = null;               // 当前页面注入的 <script>
 var _pageBlobUrl = null;                // 当前页面脚本的 Blob URL
 var _pageLoadSeq = 0;                   // 并发保护：只有最后一次切换可以写 DOM
 var _currentTab = null;
 var _backendListFailed = false;        // 后端页面列表是否加载失败（用于侧边栏可见提示）
 var _backendListError = '';            // 失败原因（服务端 msg），排查时全靠它
+var _backendToolsFailed = false;       // 工具列表是否加载失败（独立提示，不影响页面）
+var _backendToolsError = '';
 
 // ============================================================
 // 网络
@@ -105,7 +109,15 @@ async function loadMenu() {
     _backendListFailed = false;
     _backendListError = '';
 
-    var res = await fetchJSON('/api/v0/user/pages');
+    _backendToolsFailed = false;
+    _backendToolsError = '';
+
+    var results = await Promise.all([
+        fetchJSON('/api/v0/user/pages'),
+        fetchJSON('/api/v0/user/tools'),
+    ]);
+    var res = results[0];
+    var toolRes = results[1];
     if (res && res.code === 200 && Array.isArray(res.data)) {
         backendItems = res.data;
     } else {
@@ -114,6 +126,14 @@ async function loadMenu() {
         _backendListError = (res && (res.msg || ('code=' + res.code))) || '无响应';
         console.warn('[MENU] 动态页面列表加载失败:', _backendListError);
     }
+    var toolItems = [];
+    if (toolRes && toolRes.code === 200 && toolRes.data && Array.isArray(toolRes.data.items)) {
+        toolItems = toolRes.data.items;
+    } else {
+        _backendToolsFailed = true;
+        _backendToolsError = (toolRes && (toolRes.msg || ('code=' + toolRes.code))) || '无响应';
+        console.warn('[MENU] 工具列表加载失败:', _backendToolsError);
+    }
 
     // 基础项优先：后端也定义了同名 tab_key 时不重复渲染（内容仍走同一个内容接口）
     var baseKeys = Object.create(null);
@@ -121,11 +141,36 @@ async function loadMenu() {
 
     var dynamicItems = [];
     var adminItems = [];
+    var pageKeys = Object.create(null);
     backendItems.forEach(function (item) {
         if (!item || typeof item.tab_key !== 'string' || !TAB_KEY_RE.test(item.tab_key)) return;
         if (baseKeys[item.tab_key]) return;
+        pageKeys[item.tab_key] = true;
         (item.is_admin ? adminItems : dynamicItems).push(item);
     });
+
+    // 工具统一追加到非管理组尾部；页面在前、工具在后（v1.0 固定）
+    var mergedTools = toolItems.filter(function (item) {
+        if (!item || typeof item.tab_key !== 'string' || !TAB_KEY_RE.test(item.tab_key)) return false;
+        if (!/^tool_/.test(item.tab_key)) return false;
+        if (baseKeys[item.tab_key] || pageKeys[item.tab_key]) {
+            console.error('[MENU] 工具 tab_key 与页面冲突，已跳过:', item.tab_key);
+            return false;
+        }
+        return true;
+    }).map(function (item) {
+        return Object.assign({}, item, {
+            kind: 'tool',
+            label: item.label || item.name || item.tool_key || item.tab_key,
+        });
+    }).sort(function (a, b) {
+        var sa = Number(a.sort_order); var sb = Number(b.sort_order);
+        if (!Number.isFinite(sa)) sa = 100;
+        if (!Number.isFinite(sb)) sb = 100;
+        if (sa !== sb) return sa - sb;
+        return String(a.label || '').localeCompare(String(b.label || ''), 'zh-CN');
+    });
+    mergedTools.forEach(function (item) { dynamicItems.push(item); });
 
     _menuData = {
         code: res ? res.code : 500,
@@ -137,6 +182,8 @@ async function loadMenu() {
             user_info: (_menuData && _menuData.data && _menuData.data.user_info) || null,
             backend_list_failed: _backendListFailed,
             backend_list_error: _backendListError,
+            backend_tools_failed: _backendToolsFailed,
+            backend_tools_error: _backendToolsError,
         },
     };
     renderMenu(_menuData.data);
@@ -158,6 +205,10 @@ function renderMenu(data) {
             + (data.backend_list_failed
                 ? '<div class="sidebar__nav-notice">动态页面列表加载失败：'
                     + escapeMenuText(data.backend_list_error || '未知原因') + '</div>'
+                : '')
+            + (data.backend_tools_failed
+                ? '<div class="sidebar__nav-notice">工具列表加载失败：'
+                    + escapeMenuText(data.backend_tools_error || '未知原因') + '</div>'
                 : '');
         baseContainer.querySelectorAll('.sidebar__nav-item').forEach(bindTabClick);
         hasNonAdmin = (baseItems.length + dynamicItems.length) > 0;
@@ -222,9 +273,19 @@ function menuItemsHtml(items, extraClass) {
         var badge = item.tab_key === 'notifications'
             ? '<span class="sidebar__nav-badge" data-notify-badge hidden></span>'
             : '';
-        return '<a href="#" class="' + cls + '" data-tab="' + escapeMenuText(item.tab_key) + '">'
+        var isTool = item.kind === 'tool';
+        var itemCls = cls + (isTool ? ' sidebar__nav-item--tool' : '');
+        var tag = isTool
+            ? '<span class="sidebar__nav-tag" aria-hidden="true">(tool)</span>'
+            : '';
+        var aria = isTool
+            ? ' aria-label="' + escapeMenuText(item.label) + '（工具）"'
+            : '';
+        return '<a href="#" class="' + itemCls + '" data-tab="' + escapeMenuText(item.tab_key) + '"'
+            + ' data-kind="' + escapeMenuText(isTool ? 'tool' : 'page') + '"' + aria + '>'
             + '<span class="sidebar__nav-icon">' + escapeMenuText(item.icon || '📄') + '</span>'
             + '<span class="sidebar__nav-text">' + escapeMenuText(item.label) + '</span>'
+            + tag
             + badge
             + '</a>';
     }).join('');
@@ -325,6 +386,7 @@ async function renderTab(tabKey, force) {
 
     var dynamicContainer = document.getElementById('dynamicContentContainer');
     if (dynamicContainer) dynamicContainer.innerHTML = '';
+    releaseTool();
 
     document.querySelectorAll('.sidebar__nav-item').forEach(function (item) {
         item.classList.toggle('active', item.dataset.tab === tabKey);
@@ -350,6 +412,11 @@ async function renderTab(tabKey, force) {
         document.dispatchEvent(new CustomEvent('dashboard:tab-switched', {
             detail: { tabKey: tabKey, page: null },
         }));
+        return;
+    }
+
+    if (typeof tabKey === 'string' && tabKey.indexOf('tool_') === 0) {
+        await loadAndInjectTool(tabKey, force);
         return;
     }
 
@@ -454,6 +521,13 @@ function releasePageScript() {
     }
 }
 
+/** 卸载当前工具面板（移除 shadow 监听、清空内容） */
+function releaseTool() {
+    if (!_toolHandle) return;
+    try { _toolHandle.dispose(); } catch (e) { console.warn('[MENU] 工具面板卸载失败:', e); }
+    _toolHandle = null;
+}
+
 /**
  * 执行页面脚本：把后端下发的 JS 包成 Blob，用真实 <script src=blob:> 加载。
  * 不使用 eval / new Function / 内联 <script>（CSP 已禁），也不把 token 放进 URL。
@@ -492,10 +566,70 @@ function runPageScript(tabKey, js) {
     });
 }
 
+async function fetchToolContent(tabKey, force) {
+    if (!force && _toolCache[tabKey]) return _toolCache[tabKey];
+    var res = await fetchJSON('/api/v0/user/tools/' + encodeURIComponent(tabKey));
+    if (res && res.code === 200 && res.data) {
+        _toolCache[tabKey] = res.data;
+        return res.data;
+    }
+    return { __error: true, code: (res && res.code) || 500, msg: (res && res.msg) || '工具加载失败' };
+}
+
+function toolErrorHtml(tool) {
+    var code = tool && tool.code;
+    var title = code === 403 ? '无权使用该工具'
+        : (code === 404 ? '工具不存在或未安装' : '工具加载失败');
+    var detail = (tool && tool.msg) ? tool.msg : '';
+    return '<div class="empty-state">'
+        + '<div class="empty-state__icon">' + (code === 403 ? '🔒' : '🧰') + '</div>'
+        + '<p class="empty-state__text">' + escapeMenuText(title) + '</p>'
+        + (detail ? '<p class="empty-state__hint">' + escapeMenuText(detail) + '</p>' : '')
+        + '</div>';
+}
+
+async function loadAndInjectTool(tabKey, force) {
+    var container = document.getElementById('dynamicContentContainer');
+    if (!container) return;
+
+    var seq = ++_pageLoadSeq;
+    releasePageScript();
+    releaseTool();
+    clearDynamicPageStyles();
+    container.innerHTML = '<p class="loading-text">加载中...</p>';
+
+    if (typeof tabKey !== 'string' || !TAB_KEY_RE.test(tabKey)) {
+        container.innerHTML = toolErrorHtml({ code: 404 });
+        return;
+    }
+
+    var payload = await fetchToolContent(tabKey, force);
+    if (seq !== _pageLoadSeq) return;
+    if (payload.__error) {
+        container.innerHTML = toolErrorHtml(payload);
+        return;
+    }
+    if (!window.ToolView || typeof window.ToolView.mount !== 'function') {
+        container.innerHTML = toolErrorHtml({ code: 500, msg: '工具渲染器未加载' });
+        return;
+    }
+    try {
+        _toolHandle = window.ToolView.mount(container, payload);
+    } catch (e) {
+        console.error('[MENU] 工具渲染失败:', tabKey, e);
+        container.innerHTML = toolErrorHtml({ code: 500, msg: '工具渲染失败' });
+        return;
+    }
+    document.dispatchEvent(new CustomEvent('dashboard:tab-switched', {
+        detail: { tabKey: tabKey, page: null, tool: payload },
+    }));
+}
+
 async function loadAndInjectPage(tabKey, force) {
     var container = document.getElementById('dynamicContentContainer');
     if (!container) return;
 
+    releaseTool();
     var seq = ++_pageLoadSeq;
     container.innerHTML = '<p class="loading-text">加载中...</p>';
 
@@ -531,6 +665,7 @@ function getCurrentMenuData() {
 /** 清空页面缓存（例如管理端刚同步过页面后调用） */
 function clearPageCache() {
     _pageCache = Object.create(null);
+    _toolCache = Object.create(null);
 }
 
 // ===== ES Module exports =====

@@ -10,7 +10,7 @@
 | 形态 | 手写 HTML / CSS / 原生 JS；**无框架、无构建、无 npm**；浏览器直接加载 |
 | 托管 | **GitHub Pages**（公开仓库 `GFYGO/gfygo-site`，CNAME = `gwl.net.cn`） |
 | 与后端 | **两个互不嵌套的独立仓库**；接口基址硬编码在 `js/config.js` → `https://back.gwl.net.cn` |
-| 发布面 | 主站 **11 页**（`index` / `login` / `register` / `document` / `u` / `forgot` / `reset` / `404` ＋ ⭐ `privacy` / `terms` / `about`）＋ `user/dashboard.html` ＋ `org/index.html` ＋ `discover/` 11 页 ＋ `model/*` 4 页 = **28 个 HTML**（⚠️ `model/test.*` **仍会发布**，见 `file-wiki/09` §2） |
+| 发布面 | 主站 **11 页**（`index` / `login` / `register` / `document` / `u` / `forgot` / `reset` / `404` ＋ ⭐ `privacy` / `terms` / `about`）＋ `user/dashboard.html` ＋ `org/index.html` ＋ `discover/` 11 页 ＋ `model/*` 4 页 ＋ ⭐ `create-tool.html` = **29 个 HTML**（⚠️ `model/test.*` **仍会发布**，见 `file-wiki/09` §2） |
 | 加载约定 | 共享层普通 `<script>`（非 ES module）；dashboard 用 ES module 装配；动态页面脚本由**后端下发**（Blob 注入，不在本仓库） |
 | 交付 | push `origin main` → GitHub Actions 自动发 Pages；⚠️ 改前端资源**必须提升 `?v=` 版本号**（2026-10-25 起全站统一批次号，用 `tools/bump-versions.mjs`） |
 
@@ -70,14 +70,18 @@ node tools/test-user-profile-page.mjs   # 22 项：u.html 公开主页
 node tools/test-pdocs-bulk.mjs          # 59 项：个人文档批量 UI 契约 + P2-8 拆模块（懒加载 / 模块图冒烟）
 node tools/test-dashboard-workspace.mjs # 70 项：工作台瀑布流 / 第三方工具嵌入 / 通知已读 / 超管提醒
 node tools/test-document-folders.mjs    # 21 项：文件夹树展开持久化 + 组根文件夹展示名
+node tools/test-tool-create.mjs        # 27 项：创作工具页契约 / 页脚替换 / 安全底线
+node tools/test-dashboard-tools.mjs   # 26 项：左栏工具项 + tool_ 分支 + ToolView
+node tools/test-tool-blocks.mjs       # 19 项：块渲染器 DOM 契约
+node tools/test-sanitize-tool.mjs     # 20 项：工具 HTML/CSS 净化策略
 ```
 
 ⚠️ 本机**没有浏览器自动化**（沙箱起不了无头浏览器）——视觉类问题只能人工在浏览器验证；
-`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，11 套合计 **879 项**）。
+`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，15 套合计 **971 项**）。
 
 ⭐ **缓存版本号统一用脚本维护**（2026-10-25 起）：`node tools/bump-versions.mjs --list` 看现状、
-`--verify` 查漂移、`20261026c --all` 一次全站统一、`<ver> js/modal.js` 只升某个文件。
-当前约定：**全站同一批次版本号**（2026-10-26 统一为 `20261026c`），不再逐文件各自为政。
+`--verify` 查漂移、`20261026f --all` 一次全站统一、`<ver> js/modal.js` 只升某个文件。
+当前约定：**全站同一批次版本号**（2026-10-26 统一为 `20261026f`），不再逐文件各自为政。
 
 ## 5. 目录速览（细节按需查 `file-wiki` 对应篇）
 

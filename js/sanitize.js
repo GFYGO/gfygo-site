@@ -303,7 +303,170 @@
     return frag;
   }
 
+
+
+  // =========================================
+  // 6. 用户工具（Lua）专用净化（§7.5）
+  // =========================================
+
+  var TOOL_EXTRA_TAGS = ('form label button select option textarea fieldset legend ' +
+    'input p br hr h1 h2 h3 h4 h5 h6 strong b em i u s del ins mark small sub sup span div ' +
+    'ul ol li dl dt dd blockquote pre code a img table thead tbody tfoot tr th td caption ' +
+    'figure figcaption details summary kbd samp var abbr cite q time').split(' ');
+
+  var TOOL_ALLOWED = Object.create(null);
+  TOOL_EXTRA_TAGS.forEach(function (tag) { TOOL_ALLOWED[tag] = true; });
+
+  var TOOL_DROP = Object.create(null);
+  ('script style iframe object embed link meta base basefont bgsound svg math template ' +
+    'noscript noframes frame frameset applet audio video source track canvas portal marquee ' +
+    'title head xmp plaintext listing param keygen dialog foreignobject annotation-xml desc')
+    .split(' ').forEach(function (tag) { TOOL_DROP[tag] = true; });
+
+  var TOOL_DATA_ATTRS = ['data-tool-action', 'data-tool-arg', 'data-tool-out',
+    'data-tool-status', 'data-tool-config', 'data-tool-config-key'];
+
+  var TOOL_TAG_ATTRS = {
+    a: ['href', 'target'],
+    img: ['src', 'alt', 'width', 'height'],
+    input: ['type', 'name', 'placeholder', 'value', 'disabled', 'checked', 'min', 'max', 'step'],
+    button: ['type', 'name', 'value', 'disabled'],
+    select: ['name', 'disabled', 'multiple'],
+    option: ['value', 'selected', 'disabled'],
+    textarea: ['name', 'placeholder', 'disabled', 'rows', 'cols'],
+    label: ['for'],
+    form: [],
+    ol: ['start'],
+    td: ['colspan', 'rowspan'],
+    th: ['colspan', 'rowspan'],
+    time: ['datetime']
+  };
+
+  function toolUrlAllowed(raw, isImage) {
+    var value = String(raw || '');
+    var probe = urlProbe(value);
+    if (!probe) return false;
+    if (isImage && DATA_IMAGE_RE.test(probe)) return probe.length <= 32768;
+    var m = probe.match(/^([a-zA-Z][a-zA-Z0-9+.\-]*):/);
+    if (!m) return true;
+    // 同源绝对地址：允许 http(s) 且与当前页同源；外链一律丢弃
+    if (m[1].toLowerCase() !== 'http' && m[1].toLowerCase() !== 'https') return false;
+    try {
+      return new URL(value, window.location.href).origin === window.location.origin;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function cleanToolAttrs(el, tag) {
+    var extra = hasOwn(TOOL_TAG_ATTRS, tag) ? TOOL_TAG_ATTRS[tag] : [];
+    var attrs = Array.prototype.slice.call(el.attributes || []);
+    for (var i = 0; i < attrs.length; i++) {
+      var attr = attrs[i];
+      var name = String(attr.name || '').toLowerCase();
+      var value = attr.value == null ? '' : String(attr.value);
+      var keep = false;
+      if (COMMON_ATTRS.indexOf(name) !== -1) keep = true;
+      else if (TOOL_DATA_ATTRS.indexOf(name) !== -1) keep = name !== 'data-tool-config-key' || tag === 'input' || tag === 'select' || tag === 'textarea';
+      else if (/^aria-[a-z0-9-]+$/.test(name)) keep = true;
+      else if (name === 'role') keep = value.length <= 32;
+      else if (extra.indexOf(name) !== -1) keep = true;
+      if (!keep) {
+        el.removeAttribute(attr.name);
+        continue;
+      }
+      if (name === 'href') {
+        if (!toolUrlAllowed(value, false)) el.removeAttribute(attr.name);
+      } else if (name === 'src') {
+        if (!toolUrlAllowed(value, true)) el.removeAttribute(attr.name);
+      } else if (name === 'target') {
+        if (value !== '_self' && value !== '_blank') el.removeAttribute(attr.name);
+      } else if (name === 'type') {
+        var low = value.toLowerCase();
+        if (tag === 'input' && ['text', 'number', 'checkbox', 'password', 'search', 'email', 'url', 'tel'].indexOf(low) === -1) {
+          el.setAttribute('type', 'text');
+        } else if (tag === 'button' && ['button', 'submit', 'reset'].indexOf(low) === -1) {
+          el.setAttribute('type', 'button');
+        }
+      } else if (name === 'disabled' || name === 'checked' || name === 'selected' || name === 'multiple') {
+        el.setAttribute(name, '');
+      } else if (name === 'value' || name === 'placeholder' || name === 'name' || name === 'for') {
+        if (value.length > 512) el.removeAttribute(attr.name);
+      }
+    }
+    if (tag === 'a' && el.getAttribute('target') === '_blank') {
+      el.setAttribute('rel', 'noopener noreferrer');
+    }
+    // form 永远不提交：action/method/enctype 不在白名单里，上面已经丢弃
+    if (tag === 'form') {
+      el.removeAttribute('action');
+      el.removeAttribute('method');
+      el.removeAttribute('enctype');
+      el.removeAttribute('target');
+    }
+  }
+
+  function cleanToolNode(container) {
+    var children = Array.prototype.slice.call(container.childNodes || []);
+    for (var i = 0; i < children.length; i++) {
+      var child = children[i];
+      if (child.nodeType === 1) {
+        var tag = String(child.tagName || child.nodeName || '').toLowerCase();
+        if (hasOwn(TOOL_DROP, tag)) {
+          container.removeChild(child);
+        } else if (hasOwn(TOOL_ALLOWED, tag)) {
+          cleanToolAttrs(child, tag);
+          cleanToolNode(child);
+        } else {
+          // 未列入白名单：脱壳保留文本
+          cleanToolNode(child);
+          while (child.firstChild) container.insertBefore(child.firstChild, child);
+          container.removeChild(child);
+        }
+      } else if (child.nodeType === 8 || child.nodeType === 7) {
+        container.removeChild(child);
+      }
+    }
+  }
+
+  function sanitizeToolHtml(html) {
+    if (html === null || html === undefined || html === '') return '';
+    try {
+      if (typeof DOMParser === 'undefined') return escapeText(html);
+      var doc = new DOMParser().parseFromString(String(html), 'text/html');
+      var body = doc.body;
+      if (!body) return escapeText(html);
+      var bodyAttrs = Array.prototype.slice.call(body.attributes || []);
+      for (var i = 0; i < bodyAttrs.length; i++) body.removeAttribute(bodyAttrs[i].name);
+      cleanToolNode(body);
+      return body.innerHTML;
+    } catch (err) {
+      try { console.warn('[sanitize] 工具 HTML 净化失败，降级为纯文本:', err); } catch (e) { /* ignore */ }
+      return escapeText(html);
+    }
+  }
+
+  function sanitizeToolCss(css) {
+    var text = String(css === null || css === undefined ? '' : css);
+    try {
+      text = text
+        .replace(/@import[^;]*;?/gi, '')
+        .replace(/url\s*\((?:[^)]*)\)/gi, '')
+        .replace(/expression\s*\((?:[^)]*)\)/gi, '')
+        .replace(/-moz-binding\s*:[^;]*;?/gi, '')
+        .replace(/behavior\s*:[^;]*;?/gi, '')
+        .replace(/javascript\s*:/gi, '')
+        .replace(/position\s*:\s*fixed/gi, 'position:static');
+      if (text.length > 65536) text = text.slice(0, 65536);
+    } catch (e) {
+      return '';
+    }
+    return text;
+  }
+
   // ===== 全局挂载 =====
   global.sanitizeHtml = sanitizeHtml;
   global.sanitizeHtmlFragment = sanitizeHtmlFragment;
+  global.sanitizeToolHtml = sanitizeToolHtml;
+  global.sanitizeToolCss = sanitizeToolCss;
 })(typeof window !== 'undefined' ? window : this);

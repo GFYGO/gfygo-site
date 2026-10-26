@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="dns-prefetch" href="//back.gwl.net.cn">
+    <title>创作工具 | GWL</title>
+    <link rel="stylesheet" href="./css/core.css?v=20261026f">
+    <link rel="stylesheet" href="./css/styles.css?v=20261026f">
+    <link rel="stylesheet" href="./css/components.css?v=20261026f">
+    <link rel="stylesheet" href="./css/create-tool.css?v=20261026f">
+    <link rel="icon" href="./favicon.png" type="image/png">
+</head>
+<body>
+    <header class="header">
+        <div class="header__logo">GWL Works Lab</div>
+        <button class="header__toggle" id="menuToggle" aria-label="切换菜单">☰</button>
+        <nav class="header__nav" id="headerNav">
+            <a href="./index.html">首页</a>
+            <a href="./document.html">文档</a>
+            <a href="./org/index.html">组织</a>
+            <a href="./discover/index.html">发现</a>
+            <a href="./login.html">登录</a>
+            <a href="./register.html">注册</a>
+        </nav>
+        <div class="header__actions">
+            <div id="auth-container"></div>
+            <div class="permission-buttons" id="permissionButtons"></div>
+        </div>
+    </header>
+
+    <main class="ct-page">
+        <div class="ct-intro">
+            <div>
+                <h1 class="ct-title">创作工具</h1>
+                <p class="ct-subtitle">写一段 Lua，把后处理逻辑做成自己的工具。工具默认只有你自己可见。</p>
+            </div>
+            <div class="ct-top-actions">
+                <button type="button" class="btn-secondary" id="ctSaveBtn">保存草稿</button>
+                <button type="button" class="btn-primary" id="ctPublishBtn">发布</button>
+                <button type="button" class="btn-danger" id="ctDeleteBtn">删除</button>
+            </div>
+        </div>
+
+        <div class="ct-layout">
+            <aside class="ct-sidebar" aria-label="我的工具">
+                <div class="ct-sidebar__head">
+                    <h2>我的工具</h2>
+                    <button type="button" class="btn-secondary" id="ctNewToggle">＋ 新建</button>
+                </div>
+                <form class="ct-new" id="ctNewForm" hidden>
+                    <label>工具标识 <input id="ctNewKey" placeholder="word-count" maxlength="32" required></label>
+                    <label>名称 <input id="ctNewName" placeholder="字数统计" maxlength="80"></label>
+                    <button type="submit" class="btn-primary">创建草稿</button>
+                </form>
+                <div class="ct-tool-list" id="ctToolList"><p class="ct-muted">加载中…</p></div>
+            </aside>
+
+            <section class="ct-editor" aria-label="工具编辑区">
+                <div class="ct-tabs" role="tablist" aria-label="编辑分区">
+                    <button type="button" class="ct-tab" role="tab" data-tab="basic" aria-selected="true">基本信息</button>
+                    <button type="button" class="ct-tab" role="tab" data-tab="config" aria-selected="false">配置字段</button>
+                    <button type="button" class="ct-tab" role="tab" data-tab="caps" aria-selected="false">能力</button>
+                    <button type="button" class="ct-tab" role="tab" data-tab="lua" aria-selected="false">Lua</button>
+                    <button type="button" class="ct-tab" role="tab" data-tab="ui" aria-selected="false">UI</button>
+                    <button type="button" class="ct-tab" role="tab" data-tab="publish" aria-selected="false">发布</button>
+                </div>
+
+                <div class="ct-panel" data-panel="basic" role="tabpanel">
+                    <div class="ct-row"><span class="ct-label">状态</span><span id="ctStatus" class="ct-badge">未选择工具</span><span id="ctVersionLabel" class="ct-muted"></span></div>
+                    <label class="ct-field">名称<input id="ctName" maxlength="80" placeholder="字数统计"></label>
+                    <label class="ct-field">图标<input id="ctIcon" maxlength="16" placeholder="🔧"></label>
+                    <label class="ct-field">简介<textarea id="ctSummary" maxlength="255" rows="2" placeholder="一句话说明这个工具做什么"></textarea></label>
+                    <label class="ct-field">标签（逗号分隔，最多 8 个）<input id="ctTags" placeholder="文本, 统计"></label>
+                    <label class="ct-field">版本（semver）<input id="ctVersion" placeholder="0.1.0"></label>
+                    <label class="ct-field">入口函数<input id="ctEntry" placeholder="main"></label>
+                    <label class="ct-field">动作（JSON 数组）<textarea id="ctActions" rows="8" spellcheck="false" placeholder='[{"name":"go","title":"运行","function":"main","render":["text"]}]'></textarea></label>
+                </div>
+
+                <div class="ct-panel" data-panel="config" role="tabpanel" hidden>
+                    <p class="ct-help">配置字段 JSON 数组（可留空）。类型：string/text/number/boolean/select/multiselect/color/date。</p>
+                    <textarea id="ctConfig" class="ct-code" rows="14" spellcheck="false" placeholder="[]"></textarea>
+                </div>
+
+                <div class="ct-panel" data-panel="caps" role="tabpanel" hidden>
+                    <p class="ct-help">只能声明平台已启用的能力。未声明的能力即使平台启用，调用也会被拒绝。</p>
+                    <div id="ctCaps" class="ct-caps"></div>
+                </div>
+
+                <div class="ct-panel" data-panel="lua" role="tabpanel" hidden>
+                    <div class="ct-panel-head">
+                        <p class="ct-help">Lua 5.4；入口函数接收 ctx，返回 table。</p>
+                        <button type="button" class="btn-secondary" id="ctLuaTemplate">插入示例</button>
+                    </div>
+                    <textarea id="ctLua" class="ct-code" rows="20" spellcheck="false" placeholder="function main(ctx)&#10;  return { render = &quot;text&quot;, data = &quot;hello&quot; }&#10;end"></textarea>
+                </div>
+
+                <div class="ct-panel" data-panel="ui" role="tabpanel" hidden>
+                    <fieldset class="ct-radios">
+                        <legend>UI 写法</legend>
+                        <label><input type="radio" name="ctUiMode" value="none"> 无（命令行样式）</label>
+                        <label><input type="radio" name="ctUiMode" value="custom"> 自定义 HTML/CSS</label>
+                        <label><input type="radio" name="ctUiMode" value="lua"> 简单 UI（ui.*）</label>
+                    </fieldset>
+                    <div id="ctCustomBox" hidden>
+                        <label class="ct-field">HTML 片段<textarea id="ctHtml" class="ct-code" rows="10" spellcheck="false"></textarea></label>
+                        <label class="ct-field">CSS<textarea id="ctCss" class="ct-code" rows="8" spellcheck="false"></textarea></label>
+                    </div>
+                    <div id="ctLuaUiBox" hidden>
+                        <label class="ct-field">UI 函数<input id="ctUiFunction" placeholder="ui"></label>
+                        <div class="ct-panel-head">
+                            <p class="ct-help">不写 HTML/CSS；一行一个块，样式写 "color=red;size=+1"。</p>
+                            <button type="button" class="btn-secondary" id="ctUiTemplate">插入 ui.* 示例</button>
+                        </div>
+                    </div>
+                    <p class="ct-muted">预览在右侧；保存后按草稿渲染，发布前不会影响使用者。</p>
+                </div>
+
+                <div class="ct-panel" data-panel="publish" role="tabpanel" hidden>
+                    <p class="ct-help">发布前会做全量校验：Lua 语法、入口/动作函数、能力版本、UI 结构。失败项会在上方提示。</p>
+                    <div class="ct-row"><span class="ct-label">当前发布版本</span><span id="ctPublishedVersion">—</span></div>
+                    <div class="ct-row"><span class="ct-label">内容指纹</span><code id="ctHash">—</code></div>
+                    <div class="ct-row"><span class="ct-label">公开目录</span><span id="ctPublicDir">未开启</span></div>
+                    <h3>版本列表</h3>
+                    <div id="ctVersions" class="ct-versions"><p class="ct-muted">未发布</p></div>
+                    <button type="button" class="btn-primary" id="ctPublishBtn2">发布</button>
+                </div>
+            </section>
+
+            <aside class="ct-preview" aria-label="预览与试运行">
+                <div class="ct-preview__head">
+                    <h2>预览 / 试运行</h2>
+                    <button type="button" class="btn-secondary" id="ctPreviewBtn">刷新预览</button>
+                </div>
+                <div id="ctPreview" class="ct-preview__body"><p class="ct-muted">选择或新建一个工具后显示预览。</p></div>
+            </aside>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="footer__container">
+            <div class="footer__top">
+                <div class="footer__brand">
+                    <h3 class="footer__logo">GWL Works Lab</h3>
+                    <p class="footer__slogan">探索学习的无限可能</p>
+                </div>
+                <div class="footer__links">
+                    <div class="footer__links-group footer__links-group--quick">
+                        <h4>快速链接</h4>
+                        <a href="./index.html">首页</a>
+                        <a href="./document.html">文档</a>
+                        <a href="./create-tool.html" style="color: var(--color-primary); font-weight: 600;">创作工具</a>
+                        <a href="./org/index.html">组织</a>
+                        <a href="./discover/index.html">发现</a>
+                        <a href="./register.html">注册</a>
+                    </div>
+                    <div class="footer__links-group">
+                        <h4>关于</h4>
+                        <a href="/about.html">关于我们</a>
+                        <a href="/privacy.html">隐私政策</a>
+                        <a href="/terms.html">服务条款</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer__bottom">
+                <p>&copy; 2026 GFYGO. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
+
+    <script src="./js/config.js?v=20261026f"></script>
+    <script src="./js/theme.js?v=20261026f"></script>
+    <script src="./js/toast.js?v=20261026f"></script>
+    <script src="./js/sanitize.js?v=20261026f"></script>
+    <script src="./js/utils.js?v=20261026f"></script>
+    <script type="module" src="./user/dashboard.toolview.js?v=20261026f"></script>
+    <script src="./js/create-tool.js?v=20261026f"></script>
+</body>
+</html>

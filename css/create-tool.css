@@ -1,0 +1,318 @@
+/* create-tool.css —— 创作工具（用户自定义 Lua 工具）专用样式 */
+
+.ct-page {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 32px 20px 64px;
+}
+
+.ct-intro {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.ct-title {
+    margin: 0 0 6px;
+    font-size: 1.8rem;
+    color: var(--color-text);
+}
+
+.ct-subtitle {
+    margin: 0;
+    color: var(--color-text-muted);
+}
+
+.ct-top-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ct-layout {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr) minmax(320px, 0.9fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.ct-sidebar,
+.ct-editor,
+.ct-preview {
+    background: var(--color-bg-white, #fff);
+    border: 1px solid var(--color-border, #d0d7de);
+    border-radius: var(--radius-md, 8px);
+    min-width: 0;
+}
+
+.ct-sidebar {
+    padding: 12px;
+    position: sticky;
+    top: 16px;
+}
+
+.ct-sidebar__head,
+.ct-panel-head,
+.ct-preview__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.ct-sidebar__head h2,
+.ct-preview__head h2 {
+    font-size: 1rem;
+    margin: 0;
+}
+
+.ct-new {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 12px 0;
+    padding: 10px;
+    border: 1px dashed var(--color-border, #d0d7de);
+    border-radius: 6px;
+}
+
+.ct-new label,
+.ct-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.86rem;
+    color: var(--color-text-muted);
+    margin-bottom: 10px;
+}
+
+.ct-new input,
+.ct-field input,
+.ct-field textarea,
+.ct-code {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 7px 9px;
+    border: 1px solid var(--color-border, #d0d7de);
+    border-radius: 6px;
+    font: inherit;
+    color: var(--color-text, #1f2328);
+    background: var(--color-bg, #fff);
+}
+
+.ct-field textarea,
+.ct-code {
+    resize: vertical;
+    font-family: ui-monospace, Consolas, "Courier New", monospace;
+    font-size: 0.84rem;
+    line-height: 1.5;
+}
+
+.ct-tool-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    max-height: 60vh;
+    overflow: auto;
+}
+
+.ct-tool-item {
+    text-align: left;
+    border: 0;
+    background: transparent;
+    border-radius: 6px;
+    padding: 8px;
+    cursor: pointer;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ct-tool-item:hover,
+.ct-tool-item.is-active {
+    background: var(--color-bg-muted, rgba(127, 127, 127, 0.1));
+}
+
+.ct-tool-item__name {
+    font-weight: 600;
+}
+
+.ct-tool-item__meta {
+    font-size: 0.76rem;
+    color: var(--color-text-muted);
+}
+
+.ct-editor {
+    padding: 12px;
+    min-height: 520px;
+}
+
+.ct-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    border-bottom: 1px solid var(--color-border, #d0d7de);
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+}
+
+.ct-tab {
+    border: 1px solid transparent;
+    background: transparent;
+    color: inherit;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.ct-tab[aria-selected="true"] {
+    background: var(--color-primary, #2563eb);
+    color: #fff;
+}
+
+.ct-panel[hidden],
+.ct-preview [hidden],
+.ct-new[hidden],
+.ct-caps label[hidden] {
+    display: none !important;
+}
+
+.ct-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.ct-label {
+    font-size: 0.86rem;
+    color: var(--color-text-muted);
+    min-width: 6em;
+}
+
+.ct-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(127, 127, 127, 0.15);
+    font-size: 0.78rem;
+}
+
+.ct-badge--published { background: rgba(37, 99, 235, 0.15); color: #1d4ed8; }
+.ct-badge--draft { background: rgba(127, 127, 127, 0.15); }
+.ct-badge--disabled { background: rgba(180, 35, 24, 0.12); color: #b42318; }
+
+.ct-help,
+.ct-muted {
+    color: var(--color-text-muted);
+    font-size: 0.84rem;
+}
+
+.ct-caps {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 8px;
+}
+
+.ct-caps label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    border: 1px solid var(--color-border, #d0d7de);
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 0.86rem;
+}
+
+.ct-caps label.is-disabled {
+    opacity: 0.55;
+}
+
+.ct-caps small {
+    display: block;
+    color: var(--color-text-muted);
+}
+
+.ct-radios {
+    border: 1px solid var(--color-border, #d0d7de);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 0 0 12px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.ct-radios legend {
+    font-size: 0.86rem;
+    color: var(--color-text-muted);
+}
+
+.ct-versions {
+    border: 1px solid var(--color-border, #d0d7de);
+    border-radius: 6px;
+    padding: 8px;
+    margin-bottom: 12px;
+    max-height: 240px;
+    overflow: auto;
+}
+
+.ct-version {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 0.86rem;
+    border-bottom: 1px dashed var(--color-border, #d0d7de);
+}
+
+.ct-version:last-child { border-bottom: 0; }
+
+.ct-preview {
+    padding: 12px;
+    position: sticky;
+    top: 16px;
+}
+
+.ct-preview__body {
+    margin-top: 10px;
+    border: 1px dashed var(--color-border, #d0d7de);
+    border-radius: 6px;
+    min-height: 200px;
+    max-height: 70vh;
+    overflow: auto;
+    background: var(--color-bg, #fff);
+}
+
+.ct-preview__body .toolview {
+    padding: 12px;
+}
+
+.btn-danger {
+    border: 1px solid #b42318;
+    background: transparent;
+    color: #b42318;
+    border-radius: 6px;
+    padding: 7px 12px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.btn-danger:hover { background: rgba(180, 35, 24, 0.08); }
+
+@media (max-width: 1100px) {
+    .ct-layout { grid-template-columns: 220px minmax(0, 1fr); }
+    .ct-preview { grid-column: 1 / -1; position: static; }
+}
+
+@media (max-width: 760px) {
+    .ct-layout { grid-template-columns: 1fr; }
+    .ct-sidebar { position: static; }
+    .ct-intro { flex-direction: column; align-items: flex-start; }
+}
