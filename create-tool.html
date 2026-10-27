@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="./css/core.css?v=20261026g">
     <link rel="stylesheet" href="./css/styles.css?v=20261026g">
     <link rel="stylesheet" href="./css/components.css?v=20261026g">
-    <link rel="stylesheet" href="./css/create-tool.css?v=20261026g">
+    <link rel="stylesheet" href="./css/create-tool.css?v=20261027a">
     <link rel="icon" href="./favicon.png" type="image/png">
 </head>
 <body>
@@ -45,6 +45,9 @@
 
         <!-- 平台降级提示（缺 lupa / 平台清单损坏）：由 create-tool.js 按接口响应填，默认隐藏 -->
         <p class="ct-warn" id="ctPlatformWarn" role="status" hidden></p>
+
+        <!-- 分享链接导入（?import=<token>）：由 create-tool.js 填，默认隐藏 -->
+        <div class="ct-import" id="ctImportBox" role="status" hidden></div>
 
         <div class="ct-layout">
             <aside class="ct-sidebar" aria-label="我的工具">
@@ -179,7 +182,7 @@
     <script src="./js/toast.js?v=20261026g"></script>
     <script src="./js/sanitize.js?v=20261026g"></script>
     <script src="./js/utils.js?v=20261026g"></script>
-    <script type="module" src="./user/dashboard.toolview.js?v=20261026g"></script>
-    <script src="./js/create-tool.js?v=20261026g"></script>
+    <script type="module" src="./user/dashboard.toolview.js?v=20261027a"></script>
+    <script src="./js/create-tool.js?v=20261027a"></script>
 </body>
 </html>

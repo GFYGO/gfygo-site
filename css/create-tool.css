@@ -221,6 +221,54 @@
     line-height: 1.6;
 }
 
+
+/* 分享导入横幅（?import=<token>）：与平台降级横幅区分，用主色描边 */
+.ct-import {
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    border: 1px solid rgba(37, 99, 235, 0.35);
+    border-left: 4px solid #2563eb;
+    border-radius: 6px;
+    background: rgba(37, 99, 235, 0.08);
+    font-size: 0.88rem;
+    line-height: 1.6;
+}
+
+.ct-import[hidden] { display: none; }
+
+.ct-import--error {
+    border-color: rgba(180, 35, 24, 0.4);
+    border-left-color: #b42318;
+    background: rgba(180, 35, 24, 0.08);
+}
+
+.ct-import__title {
+    margin: 0 0 4px;
+    font-weight: 600;
+}
+
+.ct-import__meta,
+.ct-import__hint {
+    margin: 0 0 6px;
+    color: var(--color-text-muted);
+    font-size: 0.84rem;
+}
+
+.ct-import__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+@media (max-width: 768px) {
+    .ct-import__actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
 .ct-help,
 .ct-muted {
     color: var(--color-text-muted);

@@ -567,9 +567,123 @@
         });
     }
 
+
+    // ============================================================
+    // 分享导入（?import=<token>）
+    // ============================================================
+
+    var IMPORT_TOKEN_RE = /^[A-Za-z0-9]{4,64}$/;
+
+    function importToken() {
+        var raw = new URLSearchParams(window.location.search).get('import');
+        if (!raw) return null;
+        raw = raw.trim();
+        return IMPORT_TOKEN_RE.test(raw) ? raw : null;
+    }
+
+    function importActionText(mode) {
+        return mode === 'fork' ? '派生为我自己的工具' : '安装该工具';
+    }
+
+    function importMetaLine(d) {
+        var tool = d.tool || {};
+        var owner = d.owner || {};
+        var parts = [];
+        parts.push('标识 ' + (tool.tool_key || '?'));
+        if (tool.version) parts.push('v' + tool.version);
+        if (owner.display_name || owner.username) {
+            parts.push('作者 ' + (owner.display_name || owner.username));
+        }
+        parts.push('方式 ' + (d.get_mode === 'fork' ? '派生' : '安装'));
+        parts.push('已用 ' + (d.used_count || 0) + (d.max_uses ? '/' + d.max_uses : ' 次（不限）'));
+        parts.push(d.expires_at ? '有效期至 ' + String(d.expires_at).slice(0, 10) : '长期有效');
+        if (d.installed) parts.push('你已安装');
+        return parts.join(' · ');
+    }
+
+    function renderImport(token) {
+        var box = $('ctImportBox');
+        if (!box) return;
+        box.hidden = false;
+        box.textContent = '';
+        box.appendChild(textEl('p', 'ct-import__title', '正在读取分享信息…'));
+        api('/api/v0/tool/share/' + encodeURIComponent(token), { silent: true }).then(function (res) {
+            box.textContent = '';
+            if (!res || res.code !== 200) {
+                box.classList.add('ct-import--error');
+                box.appendChild(textEl('p', 'ct-import__title', failMessage(res, '分享链接不可用')));
+                var quit = textEl('button', 'btn-secondary', '关闭');
+                quit.type = 'button';
+                quit.addEventListener('click', function () { box.hidden = true; });
+                box.appendChild(quit);
+                return;
+            }
+            box.classList.remove('ct-import--error');
+            var d = res.data || {};
+            var tool = d.tool || {};
+            var mode = d.get_mode === 'fork' ? 'fork' : 'install';
+            box.appendChild(textEl('p', 'ct-import__title',
+                '分享的工具：' + (tool.icon || '🔧') + ' ' + (tool.name || tool.tool_key || '')));
+            box.appendChild(textEl('p', 'ct-import__meta', importMetaLine(d)));
+            box.appendChild(textEl('p', 'ct-import__hint', mode === 'fork'
+                ? '接受后会复制成你自己的私有草稿（作者与源码都不会变），可以在创作工具里改写后再发布。'
+                : '接受后会加入你的工具列表；是否启用、排序与个人配置在「工具管理」里调整。'));
+            var actions = textEl('div', 'ct-import__actions');
+            var accept = textEl('button', 'btn-primary', importActionText(mode));
+            accept.type = 'button';
+            var dash = textEl('a', 'btn-secondary', '去工具管理');
+            dash.href = '/user/dashboard.html#panel-tool-manage';
+            var close = textEl('button', 'btn-secondary', '关闭');
+            close.type = 'button';
+            close.addEventListener('click', function () { box.hidden = true; });
+            accept.addEventListener('click', async function () {
+                accept.disabled = true;
+                var res2 = await api('/api/v0/tool/import', {
+                    method: 'POST', body: { kind: 'code', token: token }, silent: true,
+                });
+                if (!res2 || res2.code !== 200) {
+                    accept.disabled = false;
+                    if (window.Toast && window.Toast.show) window.Toast.show(failMessage(res2, '导入失败'), 'error');
+                    return;
+                }
+                var data = res2.data || {};
+                if (data.mode === 'fork') {
+                    if (window.Toast && window.Toast.show) window.Toast.show('已派生为你的私有草稿', 'success');
+                    window.location.href = '/create-tool.html?tool=' + encodeURIComponent(String(data.tool_id));
+                    return;
+                }
+                accept.textContent = '已安装';
+                if (window.Toast && window.Toast.show) {
+                    window.Toast.show(data.already_installed ? '这个工具你已经安装过了' : '安装完成', 'success');
+                }
+                if (data.tab_key) {
+                    var link = textEl('a', 'btn-secondary', '打开工具');
+                    link.href = '/user/dashboard.html#panel-' + data.tab_key;
+                    actions.insertBefore(link, actions.firstChild);
+                }
+            });
+            actions.appendChild(accept);
+            actions.appendChild(dash);
+            actions.appendChild(close);
+            box.appendChild(actions);
+        });
+    }
+
+    function initImport() {
+        var token = null;
+        try {
+            token = importToken();
+        } catch (err) {
+            token = null;
+        }
+        if (!token) return;
+        renderImport(token);
+    }
+
     async function init() {
         if (window.AuthGuard && window.AuthGuard.requireAuth) window.AuthGuard.requireAuth();
         bind();
+        initImport();
         var res = await api('/api/v0/tool/platform', { silent: true });
         if (res && res.code === 200) state.platform = res.data;
         renderPlatformWarn();

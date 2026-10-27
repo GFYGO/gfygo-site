@@ -33,7 +33,24 @@ var BASE_CSS = [
     '.toolview__config-row label{min-width:8em;}',
     '.toolview__cli{background:var(--tool-bg,#fff);border:1px solid var(--tool-border,#d0d7de);border-radius:6px;padding:12px;}',
     '.toolview__cli-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}',
+    '.toolview__cli-actions{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px;}',
+    '.toolview__cli-action-btn{border:1px solid var(--tool-border,#d0d7de);background:transparent;border-radius:4px;padding:2px 10px;font:inherit;cursor:pointer;}',
+    '.toolview__cli-action-btn[aria-pressed="true"]{background:rgba(37,99,235,.12);border-color:#2563eb;color:#2563eb;font-weight:600;}',
+    '.toolview__cli-prompt{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:rgba(127,127,127,.06);border:1px solid var(--tool-border,#d0d7de);border-radius:4px;padding:8px;}',
+    '.toolview__cli-sign{font:700 14px/1 ui-monospace,Consolas,monospace;color:#2563eb;}',
+    '.toolview__cli-cmd{font:13px/1.4 ui-monospace,Consolas,monospace;opacity:.9;}',
+    '.toolview__cli-fields{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}',
+    '.toolview__cli-field{display:flex;align-items:center;gap:4px;font-size:13px;}',
+    '.toolview__cli-field label{white-space:nowrap;}',
+    '.toolview__cli-field input,.toolview__cli-field select{min-width:6em;max-width:14em;}',
+    '.toolview__cli-req{color:#b42318;}',
+    '.toolview__cli-params{font-size:12px;opacity:.75;margin:6px 0 0;}',
+    '.toolview__cli-params code{font-family:ui-monospace,Consolas,monospace;}',
+    '.toolview__cli-empty{font-size:12px;opacity:.65;}',
+    '.toolview__cli-outhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0 4px;font:12px/1.4 ui-monospace,Consolas,monospace;opacity:.75;}',
+    '.toolview__cli-copy{padding:1px 8px;font-size:12px;}',
     '.toolview__cli-output{background:#0d1117;color:#e6edf3;padding:8px;border-radius:4px;max-height:320px;overflow:auto;white-space:pre-wrap;word-break:break-word;font:12px/1.5 ui-monospace,Consolas,monospace;}',
+    '.toolview__cli-output:focus{outline:2px solid #2563eb;outline-offset:2px;}',
     '.toolblock{box-sizing:border-box;}',
     '.toolblock--button{border:0;}',
     '.toolblock--md h1,.toolblock--md h2,.toolblock--md h3{margin:.4em 0;}',
@@ -324,19 +341,25 @@ function runAction(payload, action, root, state) {
             if (button) button.disabled = false;
             if (!res) {
                 setStatus(state, '网络异常', true);
+                if (state.cli && state.cli.fail) state.cli.fail(action, input, '网络异常');
                 return;
             }
             if (res.code !== 200) {
                 setStatus(state, (res.msg || '执行失败'), true);
+                if (state.cli && state.cli.fail) state.cli.fail(action, input, res.msg || '执行失败');
                 return;
             }
             var result = res.data || {};
             state.ctx.input = input;
             state.ctx.result = (result.render === 'fields' || result.render === 'table')
                 ? (result.data || {}) : { data: result.data };
-            var target = root.querySelector('[data-tool-out="' + cssEscape(action) + '"]')
-                || root.querySelector('.toolview__output');
-            renderResult(target, result);
+            if (state.cli && typeof state.cli.append === 'function') {
+                state.cli.append(action, input, result);
+            } else {
+                var target = root.querySelector('[data-tool-out="' + cssEscape(action) + '"]')
+                    || root.querySelector('.toolview__output');
+                renderResult(target, result);
+            }
             updateBindings(root, state.ctx);
             setStatus(state, '成功 ' + (result.duration_ms || 0) + 'ms' + (result.truncated ? '（已截断）' : ''), false);
         })
@@ -344,6 +367,7 @@ function runAction(payload, action, root, state) {
             if (button) button.disabled = false;
             if (err && err.message === 'input_invalid') return;
             setStatus(state, '执行失败', true);
+            if (state.cli && state.cli.fail) state.cli.fail(action, input, '执行失败');
         });
 }
 
@@ -423,6 +447,118 @@ function renderLua(root, payload, state) {
     return host;
 }
 
+function cliTypeLabel(rule) {
+    var t = (rule && rule.type) || 'string';
+    if (t === 'string') return '字符串';
+    if (t === 'number') return '数字';
+    if (t === 'int') return '整数';
+    if (t === 'boolean') return '布尔';
+    if (t === 'enum') return '枚举';
+    return t;
+}
+
+function cliDescribeParams(spec) {
+    var rules = (spec && spec.input) || {};
+    var keys = Object.keys(rules);
+    if (!keys.length) return '无参数 · 按 Enter 运行 · ↑/↓ 调出历史';
+    var parts = keys.map(function (key) {
+        var rule = rules[key] || {};
+        var text = key + '（' + cliTypeLabel(rule);
+        if (rule.type === 'enum' && rule.enum && rule.enum.length) text += '：' + rule.enum.join('|');
+        text += rule.required ? '，必填' : '，可选';
+        if (rule.type === 'number' || rule.type === 'int') {
+            if (rule.min !== undefined) text += ' ≥' + rule.min;
+            if (rule.max !== undefined) text += ' ≤' + rule.max;
+        }
+        if (rule.type === 'string') {
+            if (rule.min_length !== undefined) text += ' ≥' + rule.min_length + ' 字';
+            if (rule.max_length !== undefined) text += ' ≤' + rule.max_length + ' 字';
+        }
+        return text + '）';
+    });
+    return '参数：' + parts.join('；') + ' · Enter 运行 · ↑/↓ 调出历史';
+}
+
+function cliValueText(value) {
+    if (value === undefined || value === null) return '';
+    if (typeof value === 'boolean') return value ? 'true' : 'false';
+    if (typeof value === 'object') return JSON.stringify(value);
+    var text = String(value);
+    if (text === '' || /\s/.test(text)) return JSON.stringify(text);
+    return text;
+}
+
+function cliEcho(action, input) {
+    var keys = Object.keys(input || {});
+    var parts = keys.map(function (key) { return key + '=' + cliValueText(input[key]); });
+    return '$ ' + action + (parts.length ? ' ' + parts.join(' ') : '');
+}
+
+function cliFieldsText(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+    var keys = Object.keys(data);
+    if (!keys.length) return '（空）';
+    var width = 0;
+    keys.forEach(function (key) { if (key.length > width) width = key.length; });
+    return keys.map(function (key) {
+        var value = data[key];
+        var text = value === null || value === undefined ? ''
+            : (typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value));
+        return key + ' '.repeat(Math.max(1, width - key.length + 2)) + text;
+    }).join('\n');
+}
+
+function cliTableText(rows) {
+    if (!Array.isArray(rows) || !rows.length) return '（空表）';
+    var cols = [];
+    rows.forEach(function (row) {
+        Object.keys(row || {}).forEach(function (key) {
+            if (cols.indexOf(key) < 0) cols.push(key);
+        });
+    });
+    if (!cols.length) return '（空表）';
+    var cells = rows.map(function (row) {
+        return cols.map(function (key) {
+            var value = (row || {})[key];
+            if (value === null || value === undefined) return '';
+            return typeof value === 'object' ? JSON.stringify(value) : String(value);
+        });
+    });
+    var widths = cols.map(function (col, index) {
+        var w = col.length;
+        cells.forEach(function (line) { if (line[index].length > w) w = line[index].length; });
+        return w;
+    });
+    function padRow(line) {
+        return line.map(function (cell, index) {
+            return index === line.length - 1 ? cell : cell + ' '.repeat(widths[index] - cell.length + 2);
+        }).join('');
+    }
+    var head = padRow(cols);
+    var sep = padRow(cols.map(function (col, index) { return '-'.repeat(widths[index]); }));
+    return [head, sep].concat(cells.map(padRow)).join('\n');
+}
+
+function cliResultText(result) {
+    result = result || {};
+    var lines = [];
+    if (result.title) lines.push(String(result.title));
+    var data = result.data;
+    if (result.render === 'text') {
+        lines.push(typeof data === 'string' ? data
+            : (data === undefined || data === null ? '' : JSON.stringify(data, null, 2)));
+    } else if (result.render === 'fields') {
+        var fields = cliFieldsText(data);
+        lines.push(fields === null ? (JSON.stringify(data, null, 2) || '') : fields);
+    } else if (result.render === 'table') {
+        lines.push(Array.isArray(data) ? cliTableText(data) : (JSON.stringify(data, null, 2) || ''));
+    } else {
+        lines.push(JSON.stringify(data, null, 2) || '');
+    }
+    if (result.truncated) lines.push('（已截断）');
+    return lines.join('\n');
+}
+
 function renderNone(root, payload, state) {
     var style = document.createElement('style');
     style.textContent = BASE_CSS;
@@ -434,35 +570,233 @@ function renderNone(root, payload, state) {
     var head = el('div', 'toolview__cli-head');
     head.appendChild(el('span', 'toolview__title', (payload.name || '工具') + ' v' + (payload.version || '')));
     cli.appendChild(head);
-    var actions = (payload.manifest && payload.manifest.actions) || [];
+
+    var actions = ((payload.manifest && payload.manifest.actions) || [])
+        .filter(function (action) { return action && action.name; });
     var status = el('p', 'toolview__status');
+    status.setAttribute('role', 'status');
     var output = el('pre', 'toolview__cli-output');
-    actions.forEach(function (action) {
-        var box = el('div', 'toolview__cli-action');
-        box.appendChild(el('div', '', '$ ' + (action.title || action.name)));
-        var rules = action.input || {};
-        Object.keys(rules).forEach(function (key) {
-            var rule = rules[key] || {};
-            var wrap = el('div', 'toolview__config-row');
-            wrap.appendChild(el('label', '', rule.label || key));
-            var input = el('input');
-            input.type = rule.type === 'int' || rule.type === 'number' ? 'number' : 'text';
-            input.setAttribute('data-tool-input', key);
-            input.placeholder = rule.placeholder || '';
-            wrap.appendChild(input);
-            box.appendChild(wrap);
+    output.setAttribute('role', 'log');
+    output.setAttribute('aria-live', 'polite');
+    output.setAttribute('aria-atomic', 'false');
+    output.setAttribute('tabindex', '0');
+    output.setAttribute('data-tool-cli-output', '1');
+    var cliState = { active: actions.length ? actions[0].name : '', lines: [], used: false, runs: [], historyIndex: -1 };
+
+    function paint() {
+        output.textContent = cliState.lines.join('\n');
+        output.scrollTop = output.scrollHeight;
+    }
+    function pushLines(lines) {
+        if (!cliState.used) {
+            cliState.used = true;
+            cliState.lines = [];
+        }
+        lines.forEach(function (line) { cliState.lines.push(line); });
+        var overflow = cliState.lines.length - 800;
+        if (overflow > 0) cliState.lines.splice(0, overflow);
+        paint();
+    }
+    function record(action, input) {
+        cliState.runs.push({ action: action, input: input || {} });
+        if (cliState.runs.length > 50) cliState.runs.shift();
+        cliState.historyIndex = -1;
+    }
+    state.cli = {
+        append: function (action, input, result) {
+            record(action, input);
+            pushLines([cliEcho(action, input), cliResultText(result)]);
+        },
+        fail: function (action, input, message) {
+            record(action, input);
+            pushLines([cliEcho(action, input), '错误：' + (message || '执行失败')]);
+        },
+    };
+
+    var cmd = el('span', 'toolview__cli-cmd', cliState.active);
+    var fieldsWrap = el('div', 'toolview__cli-fields');
+    var runBtn = el('button', 'toolview__cli-run', '运行');
+    runBtn.type = 'button';
+    var params = el('p', 'toolview__cli-params');
+    var actionsBar = el('div', 'toolview__cli-actions');
+    actionsBar.setAttribute('role', 'group');
+    actionsBar.setAttribute('aria-label', '选择动作');
+    var actionBtns = [];
+
+    function buildField(key, rule) {
+        rule = rule || {};
+        var wrap = el('div', 'toolview__cli-field');
+        var id = 'tool-cli-' + key;
+        var label = el('label', '', rule.label || key);
+        label.setAttribute('for', id);
+        wrap.appendChild(label);
+        if (rule.required) {
+            var req = el('span', 'toolview__cli-req', '*');
+            req.setAttribute('aria-hidden', 'true');
+            req.title = '必填';
+            wrap.appendChild(req);
+        }
+        var ctrl;
+        if (rule.type === 'boolean') {
+            ctrl = el('select');
+            [['false', '否'], ['true', '是']].forEach(function (pair) {
+                var option = el('option', '', pair[1]);
+                option.value = pair[0];
+                ctrl.appendChild(option);
+            });
+        } else if (rule.type === 'enum' && Array.isArray(rule.enum)) {
+            ctrl = el('select');
+            if (!rule.required) {
+                var empty = el('option', '', '（不填）');
+                empty.value = '';
+                ctrl.appendChild(empty);
+            }
+            rule.enum.forEach(function (value) {
+                var option = el('option', '', String(value));
+                option.value = String(value);
+                ctrl.appendChild(option);
+            });
+        } else {
+            ctrl = el('input');
+            if (rule.type === 'int' || rule.type === 'number') {
+                ctrl.type = 'number';
+                ctrl.step = 'any';
+                if (rule.min !== undefined) ctrl.min = String(rule.min);
+                if (rule.max !== undefined) ctrl.max = String(rule.max);
+            } else {
+                ctrl.type = 'text';
+                if (rule.max_length !== undefined) ctrl.maxLength = rule.max_length;
+                if (rule.min_length !== undefined) ctrl.minLength = rule.min_length;
+            }
+        }
+        ctrl.id = id;
+        ctrl.setAttribute('data-tool-input', key);
+        ctrl.placeholder = rule.placeholder || (rule.required ? '必填' : '可选');
+        wrap.appendChild(ctrl);
+        return wrap;
+    }
+
+    function selectAction(name) {
+        cliState.active = name;
+        cmd.textContent = name;
+        runBtn.setAttribute('data-tool-action', name);
+        actionBtns.forEach(function (btn) {
+            var on = btn.getAttribute('data-tool-cli-action') === name;
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
-        var button = el('button', '', '运行');
-        button.type = 'button';
-        button.setAttribute('data-tool-action', action.name);
-        box.appendChild(button);
-        var out = el('div', 'toolview__output');
-        out.setAttribute('data-tool-out', action.name);
-        box.appendChild(out);
-        cli.appendChild(box);
+        fieldsWrap.textContent = '';
+        var spec = actionSpec(payload, name) || {};
+        var rules = spec.input || {};
+        var keys = Object.keys(rules);
+        keys.forEach(function (key) { fieldsWrap.appendChild(buildField(key, rules[key])); });
+        if (!keys.length) fieldsWrap.appendChild(el('span', 'toolview__cli-empty', '（无参数）'));
+        params.textContent = cliDescribeParams(spec);
+    }
+
+    actions.forEach(function (action) {
+        var btn = el('button', 'toolview__cli-action-btn', action.title || action.name);
+        btn.type = 'button';
+        btn.setAttribute('data-tool-cli-action', action.name);
+        btn.title = action.name + '：' + cliDescribeParams(action);
+        actionsBar.appendChild(btn);
+        actionBtns.push(btn);
     });
-    cli.appendChild(status);
+    actionsBar.addEventListener('click', function (event) {
+        var node = event.target;
+        while (node && node !== actionsBar) {
+            if (node.getAttribute && node.getAttribute('data-tool-cli-action')) {
+                selectAction(node.getAttribute('data-tool-cli-action'));
+                return;
+            }
+            node = node.parentNode;
+        }
+    });
+
+    function runActive() {
+        if (!cliState.active || runBtn.disabled) return;
+        runAction(payload, cliState.active, root, state);
+    }
+
+    function restoreRun(run, keepIndex) {
+        if (!run) return;
+        if (run.action !== cliState.active) {
+            selectAction(run.action);
+            cliState.historyIndex = keepIndex;
+        }
+        Object.keys(run.input || {}).forEach(function (key) {
+            var node = fieldsWrap.querySelector('[data-tool-input="' + cssEscape(key) + '"]');
+            if (!node) return;
+            var value = run.input[key];
+            if (node.tagName === 'SELECT') {
+                node.value = value === true ? 'true' : value === false ? 'false'
+                    : String(value === undefined || value === null ? '' : value);
+            } else {
+                node.value = value === undefined || value === null ? '' : String(value);
+            }
+        });
+    }
+
+    fieldsWrap.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            runActive();
+            return;
+        }
+        if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            if (!cliState.runs.length) return;
+            event.preventDefault();
+            var next = cliState.historyIndex + (event.key === 'ArrowUp' ? 1 : -1);
+            if (next < -1) next = -1;
+            if (next > cliState.runs.length - 1) next = cliState.runs.length - 1;
+            cliState.historyIndex = next;
+            if (next >= 0) restoreRun(cliState.runs[cliState.runs.length - 1 - next], next);
+        }
+    });
+
+    if (actions.length) {
+        var prompt = el('div', 'toolview__cli-prompt');
+        prompt.setAttribute('role', 'group');
+        prompt.setAttribute('aria-label', '输入参数');
+        prompt.appendChild(el('span', 'toolview__cli-sign', '$'));
+        prompt.appendChild(cmd);
+        prompt.appendChild(fieldsWrap);
+        prompt.appendChild(runBtn);
+        cli.appendChild(actionsBar);
+        cli.appendChild(prompt);
+        cli.appendChild(params);
+        selectAction(cliState.active);
+    } else {
+        cli.appendChild(el('p', 'toolview__cli-params', '这个工具还没有动作，无法运行。'));
+    }
+
+    cliState.lines.push('# 选择动作、填写参数后按 Enter 运行；↑/↓ 调出历史');
+    paint();
+
+    var outHead = el('div', 'toolview__cli-outhead');
+    outHead.appendChild(el('span', '', '── 输出 ──'));
+    var copyBtn = el('button', 'toolview__cli-copy', '复制');
+    copyBtn.type = 'button';
+    copyBtn.title = '复制输出内容';
+    copyBtn.onclick = function () {
+        var text = output.textContent || '';
+        if (!text) {
+            setStatus(state, '还没有输出可复制', true);
+            return;
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () {
+                setStatus(state, '已复制输出', false);
+            }, function () {
+                setStatus(state, '复制失败：请选中输出区手动复制', true);
+            });
+        } else {
+            setStatus(state, '请选中输出区手动复制', false);
+        }
+    };
+    outHead.appendChild(copyBtn);
+    cli.appendChild(outHead);
     cli.appendChild(output);
+    cli.appendChild(status);
     host.appendChild(cli);
     root.appendChild(host);
     state.status = status;
@@ -522,4 +856,4 @@ export function mount(container, payload) {
 }
 
 export default { mount };
-window.ToolView = { mount: mount, version: '20261026g' };
+window.ToolView = { mount: mount, version: '20261027a' };
