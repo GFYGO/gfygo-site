@@ -20,15 +20,15 @@
     <link rel="stylesheet" href="./../css/components.css?v=20261101a">
     <!-- 第三方工具页复用首页的 feature-grid / feature-tile 观感 -->
     <link rel="stylesheet" href="./../css/feature-grid.css?v=20261101a">
-    <link rel="stylesheet" href="./dashboard.css?v=20261101a">
+    <link rel="stylesheet" href="./../user/dashboard.css?v=20261101a">
     <!--
       ⚠️ dashboard-profile.css 是「个人主页（#panel-home）」的唯一样式来源
       （profile-banner / profile-avatar-large / profile-cards / card / calendar-* / checkin-btn）。
       该文件此前**从未被任何 HTML 引用**（孤儿文件）→ 个人主页长期是无样式的裸 DOM。
       删除或重命名它之前，先确认 #panel-home 的结构是否仍在使用。
     -->
-    <link rel="stylesheet" href="./dashboard-profile.css?v=20261101a">
-    <link rel="stylesheet" href="./dashboard-admin.css?v=20261101a">
+    <link rel="stylesheet" href="./../user/dashboard-profile.css?v=20261101a">
+    <link rel="stylesheet" href="./../user/dashboard-admin.css?v=20261101a">
     <!-- ⭐ P2-8（2026-10-21 审查）：EasyMDE 的 CSS/JS 改为懒加载（dashboard.pdocs.js::ensureEasyMDELoaded） -->
     <link rel="icon" href="./../favicon.png" type="image/png">
 </head>
@@ -560,7 +560,6 @@
                                 <p class="calendar-note">打卡记录只保存在本机浏览器</p>
                             </div>
                         </div>
-
                     </div>
 
                     <!--
@@ -589,18 +588,14 @@
                                 <a href="./../org/index.html">组织</a>
                                 <a href="./../discover/index.html">发现</a>
                                 <a href="./../register.html">注册</a>
+                                <a href="mailto:gfygo_@outlook.com">反馈邮箱</a>
+                                <a href="https://github.com/GFYGO/gfygo-site/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>
                             </div>
                             <div class="footer__links-group">
                                 <h4>关于</h4>
                                 <a href="/about.html">关于我们</a>
                                 <a href="/privacy.html">隐私政策</a>
                                 <a href="/terms.html">服务条款</a>
-                            </div>
-
-                            <div class="footer__links-group">
-                              <h4>反馈</h4>
-                              <a href="mailto:gfygo_@outlook.com">反馈邮箱</a>
-                              <a href="https://github.com/GFYGO/gfygo-site/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>
                             </div>
                         </div>
                     </div>
@@ -660,17 +655,17 @@
     <script src="./../js/theme.js?v=20261101a"></script>
     <script src="./../js/modal.js?v=20261101a"></script>
     <!-- Dashboard 模块：ES Module 加载 -->
-    <script type="module" src="./dashboard.permission.js?v=20261101a"></script>
-    <script type="module" src="./dashboard.auth.js?v=20261101a"></script>
-    <script type="module" src="./dashboard.checkin.js?v=20261101a"></script>
-    <script type="module" src="./dashboard.deletion.js?v=20261101a"></script>
-    <script type="module" src="./dashboard.toolview.js?v=20261101a"></script>
-    <script type="module" src="./dashboard.menu.js?v=20261101a"></script>
-    <script type="module" src="./dashboard.notifications.js?v=20261101a"></script>
-    <script type="module" src="./dashboard.workspace.js?v=20261101a"></script>
-    <script type="module" src="./dashboard.tools.js?v=20261101a"></script>
-    <script type="module" src="./dashboard.pdocs.js?v=20261101a"></script>
-    <script type="module" src="./dashboard.profile.js?v=20261101a"></script>
-    <script type="module" src="./dashboard.js?v=20261101a"></script>
+    <script type="module" src="./../user/dashboard.permission.js?v=20261101a"></script>
+    <script type="module" src="./../user/dashboard.auth.js?v=20261101a"></script>
+    <script type="module" src="./../user/dashboard.checkin.js?v=20261101a"></script>
+    <script type="module" src="./../user/dashboard.deletion.js?v=20261101a"></script>
+    <script type="module" src="./../user/dashboard.toolview.js?v=20261101a"></script>
+    <script type="module" src="./../user/dashboard.menu.js?v=20261101a"></script>
+    <script type="module" src="./../user/dashboard.notifications.js?v=20261101a"></script>
+    <script type="module" src="./../user/dashboard.workspace.js?v=20261101a"></script>
+    <script type="module" src="./../user/dashboard.tools.js?v=20261101a"></script>
+    <script type="module" src="./../user/dashboard.pdocs.js?v=20261101a"></script>
+    <script type="module" src="./../user/dashboard.profile.js?v=20261101a"></script>
+    <script type="module" src="./../user/dashboard.js?v=20261101a"></script>
 </body>
 </html>

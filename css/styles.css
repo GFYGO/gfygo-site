@@ -301,14 +301,16 @@ body.theme-gray .header {
   margin: 0 auto;
 }
 
-/* ⭐ 2026-11-01：页脚改 4 列 —— 品牌(1fr) + 链接区(3fr)，
-   链接区再 3 等分（快速链接 / 关于 / 反馈），合计 4 个等宽列。
-   .footer__links-group--quick 那 3 条规则不能动（tools/test-org-page.mjs 按文本断言）。 */
+/* ⭐ 2026-11-01：页脚 4 列 —— 品牌靠左、链接区整体靠右（space-between）。
+   「反馈」两条链接并入「快速链接」组，作为该组的第三小列（无独立标题），
+   视觉上仍是 4 列：品牌 / 快速链接(6) / 反馈(2) / 关于(3)。
+   .footer__links-group--quick 的网格规则被 tools/test-org-page.mjs 按文本断言。 */
 .footer__top {
-  display: grid;
-  grid-template-columns: 1fr 3fr;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
   gap: 40px;
-  align-items: start;
   padding-bottom: 32px;
   border-bottom: 1px solid var(--color-border);
   margin-bottom: 24px;
@@ -327,10 +329,9 @@ body.theme-gray .header {
 }
 
 .footer__links {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 40px;
-  align-items: start;
+  display: flex;
+  align-items: flex-start;
+  gap: 60px;
 }
 
 .footer__links-group h4 {
@@ -351,13 +352,13 @@ body.theme-gray .header {
   color: var(--color-primary);
 }
 
-/* ⭐ 2026-10-18：快速链接固定 6 个 —— **沿用原来的竖列间距**，只是排成两列
-   （左列首页/文档/登录，右列组织/发现/注册）；不再加行距 / 字号等额外样式。 */
+/* ⭐ 2026-11-01：快速链接 = 6 条快捷链接 + 2 条反馈链接（第三小列），
+   先竖后横：左列 首页/文档/创作工具，中列 组织/发现/注册，右列 反馈邮箱/GitHub Issues。 */
 .footer__links-group--quick {
   display: grid;
-  grid-template-columns: repeat(2, max-content);
+  grid-template-columns: repeat(3, max-content);
   grid-template-rows: auto repeat(3, auto);
-  grid-auto-flow: column;   /* 先填满左列 3 个，再填右列 */
+  grid-auto-flow: column;   /* 先填满一列 3 个，再填下一列 */
   column-gap: 40px;
 }
 .footer__links-group--quick h4 {
@@ -391,8 +392,10 @@ body.theme-gray .footer {
 }
 
 @media (max-width: 768px) {
+  /* 窄屏：品牌与链接区改为纵向居中排列 */
   .footer__top {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: center;
     gap: 32px;
     text-align: center;
   }
@@ -402,14 +405,9 @@ body.theme-gray .footer {
   }
 
   .footer__links {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    justify-items: center;
-    gap: 24px 32px;
-  }
-
-  /* 快速链接是 2×3 的 max-content 网格，两列布局时通栏，避免窄屏溢出 */
-  .footer__links-group--quick {
-    grid-column: 1 / -1;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 40px;
   }
 
   .footer__bottom {
@@ -424,6 +422,8 @@ body.theme-gray .footer {
 
 @media (max-width: 480px) {
   .footer__links {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
   }
 }

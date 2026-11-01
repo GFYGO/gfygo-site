@@ -10,7 +10,7 @@
 | 形态 | 手写 HTML / CSS / 原生 JS；**无框架、无构建、无 npm**；浏览器直接加载 |
 | 托管 | **GitHub Pages**（公开仓库 `GFYGO/gfygo-site`，CNAME = `gwl.net.cn`） |
 | 与后端 | **两个互不嵌套的独立仓库**；接口基址硬编码在 `js/config.js` → `https://back.gwl.net.cn` |
-| 发布面 | 主站 **11 页**（`index` / `login` / `register` / `document` / `u` / `forgot` / `reset` / `404` ＋ ⭐ `privacy` / `terms` / `about`）＋ `user/dashboard.html` ＋ `org/index.html` ＋ `discover/` 11 页 ＋ `model/*` 4 页 ＋ ⭐ `create-tool.html` = **29 个 HTML**（⚠️ `model/test.*` **仍会发布**，见 `file-wiki/09` §2） |
+| 发布面 | 主站 **11 页**（`index` / `login` / `register` / `document` / `u` / `forgot` / `reset` / `404` ＋ ⭐ `privacy` / `terms` / `about`）＋ `user/dashboard.html` ＋ `org/index.html` ＋ `discover/` 11 页 ＋ `model/*` 6 页 ＋ ⭐ `create-tool.html` = **31 个 HTML**（⚠️ `model/test.*` **仍会发布**，见 `file-wiki/09` §2） |
 | 加载约定 | 共享层普通 `<script>`（非 ES module）；dashboard 用 ES module 装配；动态页面脚本由**后端下发**（Blob 注入，不在本仓库） |
 | 交付 | push `origin main` → GitHub Actions 自动发 Pages；⚠️ 改前端资源**必须提升 `?v=` 版本号**（2026-10-25 起全站统一批次号，用 `tools/bump-versions.mjs`） |
 
@@ -61,7 +61,7 @@
 cd ..   # 回到工作区根 D:\HP(system)\Documents\GitHub\GFYGO
 node tools/test-dashboard-pages.mjs     # 149 项：仪表盘加载契约 + 动态页脚本编译 + 设置页 API Key + 全站静态契约（dns-prefetch / 通知 live region / 死 CSS）
 node tools/test-dashboard-home.mjs      # 62 项：从 dashboard.html 解析真实 DOM 全流程装配
-node tools/test-org-page.mjs            # 146 项：组织页（含「＋ 加入」卡片 / join-info 自助加入 / 页脚 4 列契约（快速 6 / 关于 3 / 反馈 2）/ 切换组织 disclosure 与 Esc 焦点）
+node tools/test-org-page.mjs            # 146 项：组织页（含「＋ 加入」卡片 / join-info 自助加入 / 页脚 4 列契约（快速链接组 8 = 6 快捷 + 2 反馈 / 关于 3 / 整体右对齐）/ 切换组织 disclosure 与 Esc 焦点）
 node tools/test-superadmin-page.mjs     # 23 项：超管页（动作名与页面后端 ROUTES 对齐）
 node tools/test-permission-switch.mjs   # 55 项：权限视角切换
 node tools/test-turnstile-auth.mjs      # 49 项：Turnstile 认证链
