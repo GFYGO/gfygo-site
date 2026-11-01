@@ -5,17 +5,19 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="dns-prefetch" href="//back.gwl.net.cn">
-  <title>工具 | 发现 | GWL</title>
-  <link rel="stylesheet" href="../../css/core.css?v=20261026g">
-  <link rel="stylesheet" href="../../css/styles.css?v=20261026g">
-  <link rel="stylesheet" href="../../css/components.css?v=20261026g">
-  <link rel="stylesheet" href="../../css/discover.css?v=20261026g">
-  <link rel="icon" href="../../favicon.png?v=20261026g" type="image/png">
+  <title>工具广场 | 发现 | GWL</title>
+  <link rel="stylesheet" href="../../css/core.css?v=20261101a">
+  <link rel="stylesheet" href="../../css/styles.css?v=20261101a">
+  <link rel="stylesheet" href="../../css/components.css?v=20261101a">
+  <link rel="stylesheet" href="../../css/discover.css?v=20261101a">
+  <link rel="icon" href="../../favicon.png?v=20261101a" type="image/png">
 </head>
-<body data-discover-page="board" data-discover-key="tool">
+<body data-discover-page="tool-board" data-discover-key="tool">
   <!--
-    「工具」板块静态页：key 写死（data-discover-key="tool"，**不读 ?key=**）。
-    渲染逻辑与 discover/section.html 相同，由 js/discover.js 统一处理。
+    「工具广场」静态页：body 的 data-discover-page="tool-board" 由 js/discover-tool.js 接管
+    （js/discover.js 的通用板块流不再初始化本页，doc / group / org 三板块不受影响）。
+    展示的是「能直接打开来用」的工具：发布者（官方 / 第三方 / 用户）+ 搜索 / 标签筛选 +
+    「打开工具」外链；数据来自 /api/v0/discover/feed?section=tool，第三方清单由后端维护。
     本页在 /discover/tool/ 下（两层深）：静态资源前缀 ../../，window.BASE_PATH 也由 js/config.js 按 URL 目录深度算成 '../..'。
   -->
   <header class="header">
@@ -46,19 +48,23 @@
 
   <main class="discover-main">
     <section class="discover-hero">
-      <h1 class="discover-hero__title" id="discoverTitle">🧰 工具</h1>
-      <p class="discover-hero__desc" id="discoverDesc">这里汇总所有公开的「工具」展示内容。</p>
+      <h1 class="discover-hero__title" id="discoverTitle">🧰 工具广场</h1>
+      <p class="discover-hero__desc" id="discoverDesc">这里收录能直接在浏览器里打开使用的工具：第三方教学工具、官方工具与用户分享。按发布者或标签筛选，点「打开工具」就会在新标签页打开。</p>
+      <p class="discover-tool-hero__stats" id="discoverToolStats" aria-live="polite"></p>
     </section>
 
     <div class="discover-toolbar">
       <span class="discover-toolbar__crumbs">
         <a href="../../discover/index.html">发现</a> / <a href="../../discover/tool/index.html">工具</a>
       </span>
-      <span class="discover-toolbar__meta" id="discoverMeta"></span>
+      <span class="discover-toolbar__meta" id="discoverMeta" role="status" aria-live="polite"></span>
     </div>
 
-    <section aria-label="工具板块内容">
-      <div class="discover-grid" id="discoverFeed"></div>
+    <!-- 筛选条由 js/discover-tool.js 渲染（搜索 / 发布者 / 标签）；容器必须常驻，别把 innerHTML 写进静态页 -->
+    <div class="discover-tool-filters" id="discoverToolFilters" aria-label="工具筛选"></div>
+
+    <section aria-label="工具列表">
+      <div class="discover-tool-grid" id="discoverFeed" aria-live="polite"></div>
     </section>
   </main>
 
@@ -79,6 +85,19 @@
             <a href="../../discover/index.html">发现</a>
             <a href="../../register.html">注册</a>
           </div>
+
+          <div class="footer__links-group">
+            <h4>关于</h4>
+            <a href="/about.html">关于我们</a>
+            <a href="/privacy.html">隐私政策</a>
+            <a href="/terms.html">服务条款</a>
+          </div>
+
+          <div class="footer__links-group">
+            <h4>反馈</h4>
+            <a href="mailto:gfygo_@outlook.com">反馈邮箱</a>
+            <a href="https://github.com/GFYGO/gfygo-site/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>
+          </div>
         </div>
       </div>
       <div class="footer__bottom">
@@ -90,13 +109,14 @@
   <!-- 主题切换悬浮按钮 -->
   <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
-  <!-- 脚本顺序固定：config → utils → sanitize → theme → toast → index → discover（契约 §7.2） -->
-  <script src="../../js/config.js?v=20261026g"></script>
-  <script src="../../js/utils.js?v=20261026g"></script>
-  <script src="../../js/sanitize.js?v=20261026g"></script>
-  <script src="../../js/theme.js?v=20261026g"></script>
-  <script src="../../js/toast.js?v=20261026g"></script>
-  <script src="../../js/index.js?v=20261026g"></script>
-  <script src="../../js/discover.js?v=20261026g"></script>
+  <!-- 脚本顺序固定：config → utils → sanitize → theme → toast → index → discover → discover-tool（契约 §7.2） -->
+  <script src="../../js/config.js?v=20261101a"></script>
+  <script src="../../js/utils.js?v=20261101a"></script>
+  <script src="../../js/sanitize.js?v=20261101a"></script>
+  <script src="../../js/theme.js?v=20261101a"></script>
+  <script src="../../js/toast.js?v=20261101a"></script>
+  <script src="../../js/index.js?v=20261101a"></script>
+  <script src="../../js/discover.js?v=20261101a"></script>
+  <script src="../../js/discover-tool.js?v=20261101a"></script>
 </body>
 </html>

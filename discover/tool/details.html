@@ -6,18 +6,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="dns-prefetch" href="//back.gwl.net.cn">
   <title>工具详情 | 发现 | GWL</title>
-  <link rel="stylesheet" href="../../css/core.css?v=20261026g">
-  <link rel="stylesheet" href="../../css/styles.css?v=20261026g">
-  <link rel="stylesheet" href="../../css/components.css?v=20261026g">
-  <link rel="stylesheet" href="../../css/discover.css?v=20261026g">
-  <link rel="icon" href="../../favicon.png?v=20261026g" type="image/png">
+  <link rel="stylesheet" href="../../css/core.css?v=20261101a">
+  <link rel="stylesheet" href="../../css/styles.css?v=20261101a">
+  <link rel="stylesheet" href="../../css/components.css?v=20261101a">
+  <link rel="stylesheet" href="../../css/discover.css?v=20261101a">
+  <link rel="icon" href="../../favicon.png?v=20261101a" type="image/png">
 </head>
-<body data-discover-page="detail" data-discover-key="tool">
+<body data-discover-page="tool-detail" data-discover-key="tool">
   <!--
-    「工具」详情页：读 ?id=<item_id>，按后端下发的 item.actions 渲染按钮（use，
-    只弹预留提示、不接任何真实接口、不发任何请求）。
-    空态：id 缺失/非数字 → 「缺少展示内容 id」；404 → 「展示内容不存在或未公开」；
-    网络失败 → 「加载失败，请稍后重试」（逻辑在 js/discover.js::loadDetail）。
+    「工具详情」页：body 的 data-discover-page="tool-detail" 由 js/discover-tool.js 接管
+    （js/discover.js 的通用详情不再初始化本页，doc / group / org 三板块不受影响）。
+    读 ?id=<item_id>，展示：发布者 / 外部地址（打开工具、复制链接）/ 工具说明 /
+    工具信息（发布者、工具地址、工具标识、收录时间）/ 同类工具。
+    刻意不显示文档域的「来源类型 / 来源标识 / 展示时间」，也不再有「操作」占位说明。
+    空态：id 缺失或非数字 → 「缺少有效的工具编号」；404 → 「工具不存在或未公开」；
+    网络失败 → 「加载失败，请稍后重试」（带重新加载按钮）。
     本页在 /discover/tool/ 下（两层深）：静态资源前缀 ../../，window.BASE_PATH 也由 js/config.js 按 URL 目录深度算成 '../..'。
   -->
   <header class="header">
@@ -53,7 +56,7 @@
       </span>
     </div>
 
-    <div id="discoverDetail"></div>
+    <div class="discover-tool-detail-page" id="discoverDetail" aria-live="polite"></div>
   </main>
 
   <footer class="footer">
@@ -73,6 +76,19 @@
             <a href="../../discover/index.html">发现</a>
             <a href="../../register.html">注册</a>
           </div>
+
+          <div class="footer__links-group">
+            <h4>关于</h4>
+            <a href="/about.html">关于我们</a>
+            <a href="/privacy.html">隐私政策</a>
+            <a href="/terms.html">服务条款</a>
+          </div>
+
+          <div class="footer__links-group">
+            <h4>反馈</h4>
+            <a href="mailto:gfygo_@outlook.com">反馈邮箱</a>
+            <a href="https://github.com/GFYGO/gfygo-site/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>
+          </div>
         </div>
       </div>
       <div class="footer__bottom">
@@ -84,13 +100,14 @@
   <!-- 主题切换悬浮按钮 -->
   <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
-  <!-- 脚本顺序固定：config → utils → sanitize → theme → toast → index → discover（契约 §7.2） -->
-  <script src="../../js/config.js?v=20261026g"></script>
-  <script src="../../js/utils.js?v=20261026g"></script>
-  <script src="../../js/sanitize.js?v=20261026g"></script>
-  <script src="../../js/theme.js?v=20261026g"></script>
-  <script src="../../js/toast.js?v=20261026g"></script>
-  <script src="../../js/index.js?v=20261026g"></script>
-  <script src="../../js/discover.js?v=20261026g"></script>
+  <!-- 脚本顺序固定：config → utils → sanitize → theme → toast → index → discover → discover-tool（契约 §7.2） -->
+  <script src="../../js/config.js?v=20261101a"></script>
+  <script src="../../js/utils.js?v=20261101a"></script>
+  <script src="../../js/sanitize.js?v=20261101a"></script>
+  <script src="../../js/theme.js?v=20261101a"></script>
+  <script src="../../js/toast.js?v=20261101a"></script>
+  <script src="../../js/index.js?v=20261101a"></script>
+  <script src="../../js/discover.js?v=20261101a"></script>
+  <script src="../../js/discover-tool.js?v=20261101a"></script>
 </body>
 </html>

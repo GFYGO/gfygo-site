@@ -61,33 +61,33 @@
 cd ..   # 回到工作区根 D:\HP(system)\Documents\GitHub\GFYGO
 node tools/test-dashboard-pages.mjs     # 149 项：仪表盘加载契约 + 动态页脚本编译 + 设置页 API Key + 全站静态契约（dns-prefetch / 通知 live region / 死 CSS）
 node tools/test-dashboard-home.mjs      # 62 项：从 dashboard.html 解析真实 DOM 全流程装配
-node tools/test-org-page.mjs            # 141 项：组织页（含「＋ 加入」卡片 / join-info 自助加入 / 页脚 6 链接契约 / 切换组织 disclosure 与 Esc 焦点）
+node tools/test-org-page.mjs            # 146 项：组织页（含「＋ 加入」卡片 / join-info 自助加入 / 页脚 4 列契约（快速 6 / 关于 3 / 反馈 2）/ 切换组织 disclosure 与 Esc 焦点）
 node tools/test-superadmin-page.mjs     # 23 项：超管页（动作名与页面后端 ROUTES 对齐）
 node tools/test-permission-switch.mjs   # 55 项：权限视角切换
 node tools/test-turnstile-auth.mjs      # 49 项：Turnstile 认证链
-node tools/test-discover-page.mjs       # ⭐ 228 项：发现页（含「加入」真动作、登录门）
+node tools/test-discover-page.mjs       # ⭐ 272 项：发现页（含「加入」真动作、登录门、⭐ 工具广场 发布者/标签/搜索 + 工具详情 44 项）
 node tools/test-user-profile-page.mjs   # 22 项：u.html 公开主页
 node tools/test-pdocs-bulk.mjs          # 59 项：个人文档批量 UI 契约 + P2-8 拆模块（懒加载 / 模块图冒烟）
 node tools/test-dashboard-workspace.mjs # 70 项：工作台瀑布流 / 第三方工具嵌入 / 通知已读 / 超管提醒
 node tools/test-document-folders.mjs    # 21 项：文件夹树展开持久化 + 组根文件夹展示名
-node tools/test-tool-create.mjs        # 27 项：创作工具页契约 / 页脚替换 / 安全底线
-node tools/test-dashboard-tools.mjs   # 26 项：左栏工具项 + tool_ 分支 + ToolView
+node tools/test-tool-create.mjs        # 34 项：创作工具页契约 / 页脚替换 / 安全底线
+node tools/test-dashboard-tools.mjs   # 30 项：左栏工具项 + tool_ 分支 + ToolView
 node tools/test-tool-blocks.mjs       # 19 项：块渲染器 DOM 契约
 node tools/test-sanitize-tool.mjs     # 20 项：工具 HTML/CSS 净化策略
 ```
 
 ⚠️ 本机**没有浏览器自动化**（沙箱起不了无头浏览器）——视觉类问题只能人工在浏览器验证；
-`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，15 套合计 **971 项**）。
+`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，15 套合计 **1031 项**）。
 
 ⭐ **缓存版本号统一用脚本维护**（2026-10-25 起）：`node tools/bump-versions.mjs --list` 看现状、
-`--verify` 查漂移、`20261026f --all` 一次全站统一、`<ver> js/modal.js` 只升某个文件。
-当前约定：**全站同一批次版本号**（2026-10-26 统一为 `20261026f`），不再逐文件各自为政。
+`--verify` 查漂移、`20261101a --all` 一次全站统一、`<ver> js/modal.js` 只升某个文件。
+当前约定：**全站同一批次版本号**（2026-11-01 统一为 `20261101a`，页脚 4 列 + 反馈列那一批），不再逐文件各自为政。
 
 ## 5. 目录速览（细节按需查 `file-wiki` 对应篇）
 
 | 目录 | 一句话 | 导航篇 |
 |---|---|---|
-| 根 `*.html` + `js/` | 主站 11 页（含隐私政策 / 服务条款 / 关于我们）+ 16 个共享/页面脚本（config / sanitize / theme / toast / modal / utils / turnstile-widget / index / login / register / forgot / reset / document / user-profile / discover / discover-own-site） | `11`、`10` |
+| 根 `*.html` + `js/` | 主站 11 页（含隐私政策 / 服务条款 / 关于我们）+ 18 个共享/页面脚本（config / sanitize / theme / toast / modal / utils / turnstile-widget / index / login / register / forgot / reset / document / user-profile / create-tool / discover / discover-own-site / ⭐ discover-tool） | `11`、`10` |
 | `user/` | 仪表盘：`dashboard.html` + **15 个** `user/*.js`（14 个 `dashboard.*`，其中 `pdocs.editor` / `pdocs.bulk` 由 `dashboard.pdocs.js` 按视图动态 import + `permission-picker.js`）+ 6 个 CSS | `12` |
 | `org/` | 组织页：`index.html` / `org.css` / `org.js`（侧栏「我加入的组」标题旁有 ⭐ **「＋ 加入」** 卡片：public 自助加入 / 邀请码 / 单次链接 / 我的申请 / 我收到的邀请） | `13` ＋ `site-back/memory/05-permission.md` §5.6 |
 | `discover/` | 发现页 11 个普通静态页（2026-10-02 新增） | `11` §7 |

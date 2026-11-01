@@ -8,12 +8,16 @@
  *   §7.3 window.Discover 门面
  *   §7.4 页面清单与职责
  *
- * ⚠️ 本文件同时负责 11 个发现页的初始化（页面里不允许写内联脚本标签），
+ * ⚠️ 本文件通用地负责 9 个发现页（doc / group / org 三板块的列表页与详情页）
+ *    以及聚合页 / 通用板块页的初始化（页面里不允许写内联脚本标签），
  *    页面通过 body 上的 data 属性声明自己是哪一类：
  *      body[data-discover-page="index"]                              聚合页（板块导航 + 全板块流）
  *      body[data-discover-page="section"]                            通用板块页（读 ?key=）
  *      body[data-discover-page="board"][data-discover-key="doc"]     静态板块页（key 写死，不读 query）
  *      body[data-discover-page="detail"][data-discover-key="doc"]    详情页（读 ?id=）
+ *    ⭐ 2026-10-31：工具板块的两个页面改由 js/discover-tool.js 接管
+ *      （body[data-discover-page="tool-board" | "tool-detail"]），本文件的 initPage
+ *      对这两个值**不做任何事**；卡片 / 筛选 / 详情布局都在那个文件里。
  *
  * ⚠️ 「前端写死板块表、按后端返回的 item.type / item.actions 渲染」：本文件不猜类型，
  *    一律读后端字段；未知 action 静默忽略（不渲染按钮、不发请求）。
@@ -25,7 +29,9 @@
  *        列出可加入的公开组，逐个「加入」；
  *      * 组条目（`ref_type='group'`）→ 直接加入（公开组即时入组；私有组转成**申请**，
  *        等管理员批准）。
- *    `use` 仍是占位（工具板块没有真实接口）。
+ *    ⭐ 2026-10-31：工具板块的 `use` 不再是纯占位 —— discover-tool.js 会直接
+ *    `window.open(item.link_url, '_blank', 'noopener,noreferrer')`；只有**没有外链**的
+ *    工具（官方占位 / 用户分享未填地址）才回落到本文件的占位提示文案。
  *
  * ⭐ 2026-10-06「服务端分页（B1）」：
  *    * `feed({section, limit})` —— **旧路径，逐字不变**（随机抽样一页；`total` ≠ `items.length`）。
@@ -1355,6 +1361,10 @@ function fmtDateTime(s) {
     // —— 额外的辅助键（契约未列，页面/自测复用）——
     detailState: detailState,   // 详情页靠它区分 缺少 id / 404 / 网络失败
     ACTION_LABELS: ACTION_LABELS,
+    // ⭐ 2026-10-31：工具广场（js/discover-tool.js）复用同一套发布者徽标与文案，
+    //    避免「官方 / 第三方 / 用户」三套标签在第二个文件里各写一份再漂移。
+    publisherBadge: publisherBadge,
+    PUBLISHER_LABELS: PUBLISHER_LABELS,
     TEXT: TEXT,
     // ⭐ 分页（B1 服务端分页）：`appendFeed` 只追加、不替换；`startFeed` 是 11 个
     //    发现页内容流的入口（首屏替换 + 动态「加载更多」按钮）；`pager` 是它的运行态
