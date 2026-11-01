@@ -268,7 +268,8 @@
    */
   function fetchAuthorDocs(authorId, page, size) {
     return window.apiRequest('/api/v0/document/list', {
-      params: { scope: 'public', author_id: authorId, page: page, size: size },
+      // ⭐ E2（2026-11-01）：folder_id 不传现在=根目录（0），这里要作者全部文档 → 显式 -1
+      params: { scope: 'public', author_id: authorId, page: page, size: size, folder_id: -1 },
       silent: true
     }).then(function (res) {
       var empty = { ok: false, items: [], page: page, total: 0, hasMore: false };

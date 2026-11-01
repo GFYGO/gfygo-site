@@ -243,7 +243,8 @@ async function loadWorkspaceData() {
 
         var tasks = [];
         if (_wsState.data.docs === null) {
-            tasks.push(wsApi('/api/v0/document/list?scope=private&page=1&size=5').then(function (d) {
+            // ⭐ E2（2026-11-01）：folder_id 不传现在=根目录（0），工作台要看全部 → 显式 -1
+            tasks.push(wsApi('/api/v0/document/list?scope=private&folder_id=-1&page=1&size=5').then(function (d) {
                 if (d && d.code === 200 && d.data && Array.isArray(d.data.items)) {
                     _wsState.data.docs = d.data.items;
                 } else {

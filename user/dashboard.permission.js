@@ -76,8 +76,11 @@ function resolveNodeName(nodeCode) {
         'admin.stats.view': '查看统计',
         'doc.public.view': '查看公共文档', 'doc.public.create': '创建公共文档',
         'doc.public.edit': '编辑公共文档', 'doc.public.delete': '删除公共文档',
+        'doc.public.show': '在目录中显示公共文档',
         'doc.private.view': '查看私有文档', 'doc.private.create': '创建私有文档',
         'doc.private.edit': '编辑私有文档', 'doc.private.delete': '删除私有文档',
+        'doc.private.show': '在目录中显示私有文档',
+        'doc.group.show': '在目录中显示组文档',
     };
     return nodeMap[nodeCode] || nodeCode;
 }
