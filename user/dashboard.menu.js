@@ -53,7 +53,7 @@ var PRIMARY_MENU = [
 // 构建版本号：便于在浏览器控制台一眼确认「当前跑的是哪一版」
 //   window.__DASHBOARD_BUILD__
 //   document.querySelector('script[src*="dashboard.menu.js"]').src
-var BUILD_VERSION = '20261101b';
+var BUILD_VERSION = '20261101d';
 window.__DASHBOARD_BUILD__ = BUILD_VERSION;
 
 var _menuData = null;
@@ -274,15 +274,18 @@ function menuItemsHtml(items, extraClass) {
             ? '<span class="sidebar__nav-badge" data-notify-badge hidden></span>'
             : '';
         var isTool = item.kind === 'tool';
-        var itemCls = cls + (isTool ? ' sidebar__nav-item--tool' : '');
+        // 技能 = 与页面/工具同机制的动态页面（org_scope='skill'），获取后由后端追加进本列表
+        var isSkill = !isTool && !!item.is_skill;
+        var itemCls = cls + (isTool ? ' sidebar__nav-item--tool' : '')
+            + (isSkill ? ' sidebar__nav-item--skill' : '');
         var tag = isTool
             ? '<span class="sidebar__nav-tag" aria-hidden="true">(tool)</span>'
-            : '';
+            : (isSkill ? '<span class="sidebar__nav-tag" aria-hidden="true">(skill)</span>' : '');
         var aria = isTool
             ? ' aria-label="' + escapeMenuText(item.label) + '（工具）"'
-            : '';
+            : (isSkill ? ' aria-label="' + escapeMenuText(item.label) + '（技能）"' : '');
         return '<a href="#" class="' + itemCls + '" data-tab="' + escapeMenuText(item.tab_key) + '"'
-            + ' data-kind="' + escapeMenuText(isTool ? 'tool' : 'page') + '"' + aria + '>'
+            + ' data-kind="' + escapeMenuText(isTool ? 'tool' : (isSkill ? 'skill' : 'page')) + '"' + aria + '>'
             + '<span class="sidebar__nav-icon">' + escapeMenuText(item.icon || '📄') + '</span>'
             + '<span class="sidebar__nav-text">' + escapeMenuText(item.label) + '</span>'
             + tag

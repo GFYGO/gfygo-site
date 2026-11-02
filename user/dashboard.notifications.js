@@ -182,8 +182,11 @@ async function loadNotifications() {
 
 async function markNotifyRead(kind, id) {
     var body = kind === 'personal' ? { personal_ids: [id] } : { global_ids: [id] };
+    // ⚠️ body 必须是**对象**：apiRequest 内部会 JSON.stringify 一次，
+    //    这里再 stringify 会让后端收到 JSON 字符串 → _json_body() 判非 dict → {}，
+    //    mark_read 变成空操作但返回 200（线上「标为已读不好用」的根因）。
     var d = await notifyApi('/api/v0/notify/read', {
-        method: 'POST', body: JSON.stringify(body)
+        method: 'POST', body: body
     });
     if (!d || d.code !== 200) {
         if (window.showToast) window.showToast((d && d.msg) || '标记已读失败', 'error');
@@ -198,8 +201,9 @@ async function markNotifyRead(kind, id) {
 
 async function markAllNotifyRead() {
     var ids = _notifyState.global.map(function (n) { return n.id; });
+    // 同上：交给 apiRequest 统一 stringify，不要二次编码。
     var d = await notifyApi('/api/v0/notify/read-all', {
-        method: 'POST', body: JSON.stringify({ global_ids: ids })
+        method: 'POST', body: { global_ids: ids }
     });
     if (!d || d.code !== 200) {
         if (window.showToast) window.showToast((d && d.msg) || '全部已读失败', 'error');

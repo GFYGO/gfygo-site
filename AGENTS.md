@@ -23,8 +23,8 @@
 | `../file-wiki/12-frontend-dashboard.md` | ⭐ 仪表盘（全前端最复杂） | 改 `user/dashboard.*` 时 |
 | `../file-wiki/13-frontend-org.md` | 组织页 + `permission-picker` | 改 `org/` 时 |
 | `../file-wiki/15-frontend-callgraph.md` | ⭐ 调用关系总图 + 文件 × 接口全表 | 排查「谁加载了谁 / 谁调了哪个接口」；§1.5 版本号 |
-| `../site-back/PROJECT_MEMORY.md` | 前端速查（二手资料） | §6.2 动态页面加载链路、§6.5 缓存版本号 |
-| `../site-back/UNTRUSTED.md` | 「声明≠实现」清单（含前端条目） | 动相关代码前必读（H13 命名两套 / H16 零引用文件等） |
+| `../PROJECT_MEMORY.md` | 前端速查（二手资料） | §6.2 动态页面加载链路、§6.5 缓存版本号 |
+| `../UNTRUSTED.md` | 「声明≠实现」清单（含前端条目） | 动相关代码前必读（H13 命名两套 / H16 零引用文件等） |
 
 ## 2. 按任务找（`file-wiki` = `../file-wiki/`）
 
@@ -38,7 +38,7 @@
 | 找「这个全局函数是谁挂的」 | `file-wiki/10-frontend-shared-js.md`（按全局名搜） |
 | 查「谁调了哪个接口」 | `file-wiki/15` §5（文件 × `/api/v0/*` 全表） |
 | 改完提升版本号 | 本文件 §4（`tools/bump-versions.mjs`）＋ `09` §6.2 |
-| 接口字段级核对 | `../site-back/API-WIKI.md` |
+| 接口字段级核对 | `../API-WIKI.md` |
 
 ## 3. 硬性约束（会咬人的几条）
 

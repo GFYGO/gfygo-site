@@ -118,6 +118,11 @@
     filter: saturate(0.9);
 }
 
+/* 技能（与页面/工具同机制的动态页面）：图标略偏青，小字同 .sidebar__nav-tag */
+.sidebar__nav-item--skill .sidebar__nav-icon {
+    filter: hue-rotate(150deg) saturate(0.95);
+}
+
 /* 底部用户区 */
 /* ========== 邮箱验证区域 ========== */
 .sidebar__verification {

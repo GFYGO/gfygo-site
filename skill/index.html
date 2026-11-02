@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="dns-prefetch" href="//back.gwl.net.cn">
+  <meta name="description" content="GWL 技能广场：获取官方提供的技能（动态页面），在技能页或仪表盘里直接使用。">
+  <title>技能 | GWL</title>
+  <link rel="stylesheet" href="../css/core.css?v=20261101d">
+  <link rel="stylesheet" href="../css/styles.css?v=20261101d">
+  <link rel="stylesheet" href="../css/components.css?v=20261101d">
+  <link rel="stylesheet" href="./skill.css?v=20261101d">
+  <link rel="icon" href="../favicon.png?v=20261101d" type="image/png">
+</head>
+<body data-skill-page="catalog">
+  <!--
+    技能广场：技能本质是**服务器官方提供的动态页面**（site-back/skills/<tab_key>/），
+    与仪表盘里的 pages/、组织页里的 org-func/ 同一套目录契约，只是端不同。
+    目录（本站）：GET /api/v0/skills → { items, acquired_count, can_manage }
+    获取：POST /api/v0/skills/<tab_key>/acquire   取消：DELETE 同一路径
+    内容：GET /api/v0/skills/<tab_key> → { html, css, js, api_base }
+    页面内不写内联脚本、不写内联事件（CSP 会拦）；脚本由 js/skill.js 统一挂事件。
+  -->
+  <header class="header">
+    <div class="header__logo">GWL Works Lab</div>
+    <button class="header__toggle" id="menuToggle" aria-label="切换菜单">☰</button>
+    <nav class="header__nav" id="headerNav">
+      <a href="../index.html">首页</a>
+      <a href="../document.html">文档</a>
+      <a href="../org/index.html">组织</a>
+      <a href="../discover/index.html">发现</a>
+      <a href="./index.html" class="is-active" aria-current="page">技能</a>
+      <a href="../login.html">登录</a>
+      <a href="../register.html">注册</a>
+    </nav>
+    <div class="header__actions">
+      <div id="auth-container"></div>
+      <div class="permission-buttons" id="permissionButtons"></div>
+    </div>
+  </header>
+
+  <div id="global-notifications-container" class="notification-toast" role="log" aria-label="站点通知" aria-live="polite"></div>
+
+  <main class="skill-main">
+    <section class="skill-hero">
+      <h1 class="skill-hero__title">技能广场</h1>
+      <p class="skill-hero__desc">
+        技能是<strong>官方提供的小工具页</strong>：由超级管理员维护在服务器上，你点「获取」之后就能在这里打开，
+        也会出现在仪表盘侧边栏（带 <code>(skill)</code> 小字）。获取不复制内容，官方更新一次，所有人立刻用上新版。
+      </p>
+      <div class="skill-hero__actions">
+        <a class="skill-link-btn" href="../user/dashboard.html">去仪表盘使用</a>
+      </div>
+    </section>
+
+    <section class="skill-toolbar" aria-label="技能筛选">
+      <label class="skill-search">
+        <span class="skill-search__icon" aria-hidden="true">🔍</span>
+        <input type="search" id="skillSearch" placeholder="搜索技能名称或说明" autocomplete="off">
+      </label>
+      <div class="skill-filters" role="tablist" aria-label="筛选范围">
+        <button type="button" class="skill-filter is-active" data-skill-filter="all" role="tab" aria-selected="true">全部</button>
+        <button type="button" class="skill-filter" data-skill-filter="acquired" role="tab" aria-selected="false">已获取</button>
+      </div>
+      <span class="skill-meta" id="skillMeta" role="status" aria-live="polite"></span>
+    </section>
+
+    <section class="skill-grid" id="skillGrid" aria-label="技能列表"></section>
+
+    <p class="skill-empty" id="skillEmpty" hidden>还没有可用的技能。等官方上架后再来看看。</p>
+
+    <!-- 技能使用区：点「打开」后加载内容（html/css/js 由服务端下发） -->
+    <section class="skill-runner" id="skillRunner" hidden aria-label="技能使用区">
+      <div class="skill-runner__bar">
+        <div class="skill-runner__title">
+          <span id="skillRunnerIcon" class="skill-runner__icon" aria-hidden="true">🧩</span>
+          <strong id="skillRunnerName">技能</strong>
+          <span class="skill-runner__tag">(skill)</span>
+        </div>
+        <div class="skill-runner__actions">
+          <button type="button" class="skill-btn skill-btn--ghost" id="skillRunnerClose">收起</button>
+        </div>
+      </div>
+      <div class="skill-runner__body" id="skillRunnerBody"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer__container">
+      <div class="footer__top">
+        <div class="footer__brand">
+          <h3 class="footer__logo">GWL Works Lab</h3>
+          <p class="footer__slogan">探索学习的无限可能</p>
+        </div>
+        <div class="footer__links">
+          <div class="footer__links-group footer__links-group--quick">
+            <h4>快速链接</h4>
+            <a href="../index.html">首页</a>
+            <a href="../document.html">文档</a>
+            <a href="../create-tool.html">创作工具</a>
+            <a href="../org/index.html">组织</a>
+            <a href="../discover/index.html">发现</a>
+            <a href="./index.html">技能</a>
+            <a href="mailto:gfygo_@outlook.com">反馈邮箱</a>
+            <a href="https://github.com/GFYGO/gfygo-site/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>
+          </div>
+          <div class="footer__links-group">
+            <h4>关于</h4>
+            <a href="/about.html">关于我们</a>
+            <a href="/privacy.html">隐私政策</a>
+            <a href="/terms.html">服务条款</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer__bottom">
+        <p>&copy; 2026 GFYGO. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
+
+  <!-- 脚本顺序固定：config → utils → sanitize → theme → toast → index → 本页 -->
+  <script src="../js/config.js?v=20261101d"></script>
+  <script src="../js/utils.js?v=20261101d"></script>
+  <script src="../js/sanitize.js?v=20261101d"></script>
+  <script src="../js/theme.js?v=20261101d"></script>
+  <script src="../js/toast.js?v=20261101d"></script>
+  <script src="../js/index.js?v=20261101d"></script>
+  <script src="./skill.js?v=20261101d"></script>
+</body>
+</html>
