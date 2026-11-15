@@ -53,7 +53,7 @@ var PRIMARY_MENU = [
 // 构建版本号：便于在浏览器控制台一眼确认「当前跑的是哪一版」
 //   window.__DASHBOARD_BUILD__
 //   document.querySelector('script[src*="dashboard.menu.js"]').src
-var BUILD_VERSION = '20261115b';
+var BUILD_VERSION = '20261115c';
 window.__DASHBOARD_BUILD__ = BUILD_VERSION;
 
 var _menuData = null;
@@ -438,6 +438,17 @@ function runStaticPanelHook(tabKey) {
     // 注销状态每次进入都刷新（它在 deletion.js 里，通过直接 import 拿到）
     if (tabKey === 'settings') {
         renderDeletionStatus();
+        // ⭐ 2026-11-15：设置面板的「数据导出」区块（实现在 dashboard.pdocs.js）。
+        //   单独调而不是塞进 STATIC_PANEL_HOOKS：那张表是「一个 tab 一个钩子」，
+        //   而这里必须照样保留 settings → initProfilePanel（资料表单懒加载）。
+        //   钩子可能还没注册（模块加载失败 / 顺序）→ 跳过，面板本身照常显示。
+        try {
+            if (typeof window.initSettingsExportPanel === 'function') {
+                window.initSettingsExportPanel();
+            }
+        } catch (e) {
+            console.warn('[MENU] 数据导出区块初始化失败:', e);
+        }
     }
     var hookName = STATIC_PANEL_HOOKS[tabKey];
     if (!hookName) return;

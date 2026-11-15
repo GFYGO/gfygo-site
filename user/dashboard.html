@@ -15,21 +15,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="dns-prefetch" href="//back.gwl.net.cn">
     <title>个人主页 | GWL</title>
-    <link rel="stylesheet" href="./../css/core.css?v=20261115b">
-    <link rel="stylesheet" href="./../css/styles.css?v=20261115b">
-    <link rel="stylesheet" href="./../css/components.css?v=20261115b">
+    <link rel="stylesheet" href="./../css/core.css?v=20261115c">
+    <link rel="stylesheet" href="./../css/styles.css?v=20261115c">
+    <link rel="stylesheet" href="./../css/components.css?v=20261115c">
     <!-- 第三方工具页复用首页的 feature-grid / feature-tile 观感 -->
-    <link rel="stylesheet" href="./../css/feature-grid.css?v=20261115b">
-    <link rel="stylesheet" href="./../css/image-lightbox.css?v=20261115b">
-  <link rel="stylesheet" href="./dashboard.css?v=20261115b">
+    <link rel="stylesheet" href="./../css/feature-grid.css?v=20261115c">
+    <link rel="stylesheet" href="./../css/image-lightbox.css?v=20261115c">
+  <link rel="stylesheet" href="./dashboard.css?v=20261115c">
     <!--
       ⚠️ dashboard-profile.css 是「个人主页（#panel-home）」的唯一样式来源
       （profile-banner / profile-avatar-large / profile-cards / card / calendar-* / checkin-btn）。
       该文件此前**从未被任何 HTML 引用**（孤儿文件）→ 个人主页长期是无样式的裸 DOM。
       删除或重命名它之前，先确认 #panel-home 的结构是否仍在使用。
     -->
-    <link rel="stylesheet" href="./dashboard-profile.css?v=20261115b">
-    <link rel="stylesheet" href="./dashboard-admin.css?v=20261115b">
+    <link rel="stylesheet" href="./dashboard-profile.css?v=20261115c">
+    <link rel="stylesheet" href="./dashboard-admin.css?v=20261115c">
     <!-- ⭐ P2-8（2026-10-21 审查）：EasyMDE 的 CSS/JS 改为懒加载（dashboard.pdocs.js::ensureEasyMDELoaded） -->
     <link rel="icon" href="./../favicon.png" type="image/png">
 </head>
@@ -290,6 +290,26 @@
 
                     <hr class="settings-divider">
 
+                    <!-- ⭐ 2026-11-15：数据导出（原「个人文档」工具栏的「⬇ 导出全部数据」移到这里）。
+                         走 `GET /api/v0/user/export.zip`（同步打包，文档多时要等几十秒 → 按钮禁用 + 状态文字）。
+                         逻辑仍在 dashboard.pdocs.js（pdocsDownload / exportPdocsAllData）。 -->
+                    <div class="settings-section" id="exportSection">
+                        <h3>数据导出</h3>
+                        <p class="settings-desc" style="color: var(--color-text-muted); font-size: 0.85rem; margin-bottom: 12px;">
+                            打包含 <strong>资料 / 文档与插图 / 修订 / 发现条目 / 通知 / 权限</strong> 的 zip。
+                            凭据类字段（密码、API Key 等）一律不导出；文档单次最多 200 篇。
+                        </p>
+                        <div class="settings-form__actions">
+                            <button type="button" class="btn btn-primary" id="settingsExportAllBtn">⬇ 导出全部数据</button>
+                            <span class="settings-form__status" id="settingsExportStatus"></span>
+                        </div>
+                        <p class="settings-form__hint">
+                            只想导出部分文档？到「个人文档」里用「⬇ 导出文件夹」或浏览单篇时的「⬇ 导出 .md」。
+                        </p>
+                    </div>
+
+                    <hr class="settings-divider">
+
                     <div class="settings-section" id="deletionSection">
                         <h3 class="settings-section__danger">注销账号</h3>
                         <p class="settings-desc" style="color: var(--color-text-muted); font-size: 0.85rem; margin-bottom: 12px;">
@@ -367,9 +387,13 @@
                                 <button class="pdocs-btn pdocs-btn--secondary" id="pdocsBatchBtn"
                                         type="button" aria-pressed="false">☑️ 批量编辑</button>
                                 <button class="pdocs-btn pdocs-btn--secondary" id="pdocsTrashBtn">🗑 回收站</button>
-                                <!-- ⭐ B5：个人全量数据导出（profile / 文档+图片 / 发现 / 通知 / 权限） -->
-                                <button class="pdocs-btn pdocs-btn--secondary" id="pdocsExportAllBtn"
-                                        title="把我创建的全部文档、图片、发现条目、通知与权限打成 zip">⬇ 导出全部数据</button>
+                                <!-- ⭐ 2026-11-15：导出**当前所在文件夹**（zip：documents/**.md + assets + manifest）。
+                                     ⚠️ 「导出全部数据」（个人全量 zip）已移到「⚙️ 设置 → 数据导出」——
+                                        它不属于"文档列表"这个上下文，放工具栏里天天占位却没几次要点。
+                                     这里只导出**本层**文档：子文件夹需分别进入后导出（后端 export.zip 的
+                                     folder_id / ids 都是"某一层"，不做递归）。 -->
+                                <button class="pdocs-btn pdocs-btn--secondary" id="pdocsExportFolderBtn"
+                                        title="把当前文件夹（含根目录）里的文档打包成 zip；只含本层文档，不含子文件夹">⬇ 导出文件夹</button>
                             </div>
                         </div>
                         <input type="file" id="pdocsImportFileInput" accept=".md,.markdown,text/markdown,text/plain" style="display:none;">
@@ -657,26 +681,26 @@
     </div>
 
     <!-- 共享脚本：普通 <script> 加载，暴露到 window -->
-    <script src="./../js/config.js?v=20261115b"></script>
-    <script src="./../js/sanitize.js?v=20261115b"></script>
-    <script src="./../js/utils.js?v=20261115b"></script>
-    <script src="./../js/toast.js?v=20261115b"></script>
-    <script src="./../js/theme.js?v=20261115b"></script>
-    <script src="./../js/modal.js?v=20261115b"></script>
+    <script src="./../js/config.js?v=20261115c"></script>
+    <script src="./../js/sanitize.js?v=20261115c"></script>
+    <script src="./../js/utils.js?v=20261115c"></script>
+    <script src="./../js/toast.js?v=20261115c"></script>
+    <script src="./../js/theme.js?v=20261115c"></script>
+    <script src="./../js/modal.js?v=20261115c"></script>
     <!-- Dashboard 模块：ES Module 加载 -->
-    <script src="./../js/avatar-menu.js?v=20261115b"></script>
-  <script src="./../js/image-lightbox.js?v=20261115b"></script>
-    <script type="module" src="./dashboard.permission.js?v=20261115b"></script>
-    <script type="module" src="./dashboard.auth.js?v=20261115b"></script>
-    <script type="module" src="./dashboard.checkin.js?v=20261115b"></script>
-    <script type="module" src="./dashboard.deletion.js?v=20261115b"></script>
-    <script type="module" src="./dashboard.toolview.js?v=20261115b"></script>
-    <script type="module" src="./dashboard.menu.js?v=20261115b"></script>
-    <script type="module" src="./dashboard.notifications.js?v=20261115b"></script>
-    <script type="module" src="./dashboard.workspace.js?v=20261115b"></script>
-    <script type="module" src="./dashboard.tools.js?v=20261115b"></script>
-    <script type="module" src="./dashboard.pdocs.js?v=20261115b"></script>
-    <script type="module" src="./dashboard.profile.js?v=20261115b"></script>
-    <script type="module" src="./dashboard.js?v=20261115b"></script>
+    <script src="./../js/avatar-menu.js?v=20261115c"></script>
+  <script src="./../js/image-lightbox.js?v=20261115c"></script>
+    <script type="module" src="./dashboard.permission.js?v=20261115c"></script>
+    <script type="module" src="./dashboard.auth.js?v=20261115c"></script>
+    <script type="module" src="./dashboard.checkin.js?v=20261115c"></script>
+    <script type="module" src="./dashboard.deletion.js?v=20261115c"></script>
+    <script type="module" src="./dashboard.toolview.js?v=20261115c"></script>
+    <script type="module" src="./dashboard.menu.js?v=20261115c"></script>
+    <script type="module" src="./dashboard.notifications.js?v=20261115c"></script>
+    <script type="module" src="./dashboard.workspace.js?v=20261115c"></script>
+    <script type="module" src="./dashboard.tools.js?v=20261115c"></script>
+    <script type="module" src="./dashboard.pdocs.js?v=20261115c"></script>
+    <script type="module" src="./dashboard.profile.js?v=20261115c"></script>
+    <script type="module" src="./dashboard.js?v=20261115c"></script>
 </body>
 </html>

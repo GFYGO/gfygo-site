@@ -67,7 +67,7 @@
 
 ```powershell
 cd ..   # 回到工作区根 D:\HP(system)\Documents\GitHub\GFYGO
-node tools/test-dashboard-pages.mjs     # 150 项：仪表盘加载契约 + 动态页脚本编译 + 设置页 API Key + 全站静态契约（dns-prefetch / 通知 live region / 死 CSS）
+node tools/test-dashboard-pages.mjs     # 158 项：仪表盘加载契约 + 动态页脚本编译 + 设置页 API Key + 数据导出入口（全量→设置 / 文件夹→文档工具栏）+ 全站静态契约（dns-prefetch / 通知 live region / 死 CSS）
 node tools/test-dashboard-home.mjs      # 62 项：从 dashboard.html 解析真实 DOM 全流程装配
 node tools/test-org-page.mjs            # 146 项：组织页（含「＋ 加入」卡片 / join-info 自助加入 / 页脚 4 列契约（快速链接组 9 = 7 快捷 + 2 反馈，含创作者 / 关于 3 / 整体右对齐）/ 切换组织 disclosure 与 Esc 焦点）
 node tools/test-superadmin-page.mjs     # 23 项：超管页（动作名与页面后端 ROUTES 对齐）
@@ -91,7 +91,7 @@ node tools/test-creator-page.mjs      # 113 项：创作者工作台（四面板
 
 ⭐ **缓存版本号统一用脚本维护**（2026-10-25 起）：`node tools/bump-versions.mjs --list` 看现状、
 `--verify` 查漂移、`20261101a --all` 一次全站统一、`<ver> js/modal.js` 只升某个文件。
-当前约定：**全站同一批次版本号**（⭐ 2026-11-15 第一、二批为 `20261115a`，第三批升到 **`20261115b`**：头像模块化 / 创作者四项 / 审核台 / 导入图片 / 图片灯箱；`user/dashboard.menu.js` 的 `BUILD_VERSION` 必须同步），不再逐文件各自为政。
+当前约定：**全站同一批次版本号**（⭐ 2026-11-15 第一、二批为 `20261115a`，第三批升到 `20261115b`：头像模块化 / 创作者四项 / 审核台 / 导入图片 / 图片灯箱；⭐ 同日后继批次 **`20261115c`**：数据导出入口调整——「导出全部数据」移进设置、个人文档工具栏改为「导出文件夹」；`user/dashboard.menu.js` 的 `BUILD_VERSION` 必须同步），不再逐文件各自为政。
 
 ## 5. 目录速览（细节按需查 `file-wiki` 对应篇）
 

@@ -296,17 +296,24 @@ function initPersonalDocsPanel() {
 
 // =========================================
 // ⭐ B5（2026-10-06）：导出
-//   接口：GET /api/v0/document/<id>/export.md  （单篇 Markdown；能看就能导）
-//         GET /api/v0/user/export.zip         （个人全量数据；需登录）
-// ⚠️ 这两个是**下载**而不是 JSON 接口 → **不能**用 `pdocsRequest`（它按 JSON 解析响应）：
+//   接口：GET  /api/v0/document/<id>/export.md  （单篇 Markdown；能看就能导）
+//         POST /api/v0/document/export.zip      （文件夹 / 按 ids 批量；逐篇判权）
+//         GET  /api/v0/user/export.zip          （个人全量数据；需登录）
+// ⚠️ 这三个是**下载**而不是 JSON 接口 → **不能**用 `pdocsRequest`（它按 JSON 解析响应）：
 //    必须 fetch 拿 blob，再用 `Content-Disposition` 里的文件名触发保存。
+// ⭐ 2026-11-15：全量导出按钮移到「⚙️ 设置 → 数据导出」（#settingsExportAllBtn），
+//    个人文档工具栏改为「⬇ 导出文件夹」（#pdocsExportFolderBtn，导出当前所在这一层）。
 // =========================================
-async function pdocsDownload(url, fallbackName) {
+async function pdocsDownload(url, fallbackName, options = {}) {
     const token = AuthGuard.getToken();
     if (!token) { AuthGuard.handleAuthError(); throw new Error('登录已失效，请重新登录'); }
+    const method = (options.method || 'GET').toUpperCase();
+    const hasBody = options.body !== undefined && options.body !== null;
+    const headers = { 'Authorization': `Bearer ${token}` };
+    if (hasBody) headers['Content-Type'] = 'application/json';
     let res;
     try {
-        res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        res = await fetch(url, { method, headers, body: hasBody ? options.body : undefined });
     } catch (e) {
         throw new Error('导出失败：网络错误');
     }
@@ -350,17 +357,99 @@ async function exportPdocsDocMarkdown(docId) {
     }
 }
 
-async function exportPdocsAllData() {
-    const btn = $('pdocsExportAllBtn');
+/** 单次导出上限（后端 services/export.py::MAX_EXPORT_DOCS）—— 超了就明确拒绝，不静默截断。 */
+const PDOCS_EXPORT_MAX_DOCS = 200;
+
+/**
+ * 取「当前文件夹这一层」全部文档的 id（服务端分页翻完；最多收到上限 + 1 篇就停）。
+ *
+ * ⚠️ 为什么不用 export.zip 的 `folder_id` 参数：后端把 `folder_id=0` 当作
+ *    「**不**按文件夹过滤」（= 全部私人文档，见 services/export.py::_resolve_documents），
+ *    而根目录恰好就是 0 —— 用那条路径点「导出文件夹」会悄悄把整个账号的私人文档都导出去。
+ *    改为先按 `/document/mine?folder_id=<0|正整数>` 精确取这一层（根目录 = 0，与列表页同口径），
+ *    再按 `ids` 导出：语义与眼前的列表完全一致。
+ *
+ * @param {number} folderId 0 = 根目录；正整数 = 指定文件夹（与 loadPersonalDocs 同口径）
+ * @returns {Promise<number[]>}
+ */
+async function collectPdocsFolderDocIds(folderId) {
+    const ids = [];
+    for (let page = 1; page <= 50; page++) {
+        const data = await pdocsRequest(`/mine?folder_id=${folderId}&page=${page}&size=100`);
+        if (!data || data.code !== 200) {
+            throw new Error((data && data.msg) || '读取文件夹内容失败');
+        }
+        const pageData = pdocsNormalizePage(data.data);
+        pageData.items.forEach((doc) => {
+            if (pdocsIsValidId(doc.id)) ids.push(doc.id);
+        });
+        if (!pageData.hasMore) break;
+        if (ids.length > PDOCS_EXPORT_MAX_DOCS) break;   // 已经超限，不必再翻
+    }
+    return ids;
+}
+
+/**
+ * ⭐ 2026-11-15：「⬇ 导出文件夹」—— 导出**当前所在这一层**的文档 zip。
+ *
+ * * 在文件夹里 → 该文件夹的文档；在根目录 → 根目录下的文档；
+ * * **不含子文件夹**（进入子文件夹再导一次即可）；
+ * * 走 `POST /document/export.zip` 的 `ids` 分支：逐篇判权，越权/已删的写进 `manifest.skipped`。
+ */
+async function exportPdocsFolder() {
+    const btn = $('pdocsExportFolderBtn');
+    const fid = PDocsState.currentFolderId;
+    const folderId = (typeof fid === 'number' && fid > 0) ? fid : 0;
     if (btn) { btn.disabled = true; btn.textContent = '打包中...'; }
     try {
-        const name = await pdocsDownload(`${API_BASE_URL}/api/v0/user/export.zip`,
-                                         'gfygo-export.zip');
+        const ids = await collectPdocsFolderDocIds(folderId);
+        if (!ids.length) throw new Error('这个文件夹里没有可导出的文档');
+        if (ids.length > PDOCS_EXPORT_MAX_DOCS) {
+            throw new Error('本文件夹文档超过 ' + PDOCS_EXPORT_MAX_DOCS + ' 篇，请分批导出');
+        }
+        const name = await pdocsDownload(`${API_BASE_URL}/api/v0/document/export.zip`,
+                                         'gfygo-export.zip', {
+            method: 'POST',
+            body: JSON.stringify({ ids, include_images: true, front_matter: true, include_manifest: true })
+        });
         showToast('已导出 ' + name, 'success');
     } catch (e) {
         showToast((e && e.message) || '导出失败', 'error');
     } finally {
-        if (btn) { btn.disabled = false; btn.textContent = '⬇ 导出全部数据'; }
+        if (btn) { btn.disabled = false; btn.textContent = '⬇ 导出文件夹'; }
+    }
+}
+
+/** ⭐ 2026-11-15：设置面板「数据导出」区块（原在个人文档工具栏，按钮已移到 #panel-settings）。 */
+async function exportPdocsAllData() {
+    const btn = $('settingsExportAllBtn');
+    const status = $('settingsExportStatus');
+    if (btn) btn.disabled = true;
+    if (status) status.textContent = '打包中...（文档多时需要等一会儿）';
+    try {
+        const name = await pdocsDownload(`${API_BASE_URL}/api/v0/user/export.zip`,
+                                         'gfygo-export.zip');
+        showToast('已导出 ' + name, 'success');
+        if (status) status.textContent = '已导出 ' + name;
+    } catch (e) {
+        showToast((e && e.message) || '导出失败', 'error');
+        if (status) status.textContent = '';
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+/**
+ * 设置面板的「数据导出」绑定（幂等；**只绑定、不发请求**）。
+ *
+ * 由 `dashboard.menu.js::runStaticPanelHook` 在切到 settings 时调用 ——
+ * 不放在 initPersonalDocs() 里：用户可能一次都没打开过「个人文档」就直接进设置。
+ */
+function initSettingsExportPanel() {
+    const btn = $('settingsExportAllBtn');
+    if (btn && !btn.dataset.pdocsBound) {
+        btn.dataset.pdocsBound = '1';
+        on(btn, 'click', exportPdocsAllData);
     }
 }
 
@@ -406,11 +495,12 @@ function initPersonalDocs() {
     bind('pdocsTrashBulkRestoreBtn', () => withBulk((m) => m.pdocsBulkTrash('trash', 'restore')));
     bind('pdocsTrashBulkPermanentBtn', () => withBulk((m) => m.pdocsBulkTrash('trash', 'permanent')));
     bind('pdocsTrashBackBtn', () => showPdocsView('list'));
-    // ⭐ B5：导出（单篇 Markdown / 个人全量 zip）
+    // ⭐ B5：导出（单篇 Markdown / 当前文件夹 zip）
+    //   全量导出（个人 zip）已移到设置面板 → 见 initSettingsExportPanel()
     bind('pdocsBrowserExportBtn', () => {
         if (pdocsIsValidId(PDocsState.browserDocId)) exportPdocsDocMarkdown(PDocsState.browserDocId);
     });
-    bind('pdocsExportAllBtn', exportPdocsAllData);
+    bind('pdocsExportFolderBtn', exportPdocsFolder);
     bind('pdocsBackBtn', () => showPdocsView('list'));
     bind('pdocsUpBtn', () => goUpOneLevel());
     bind('pdocsFolderAddBtn', addPersonalFolder);
@@ -1687,6 +1777,8 @@ export {
     pdocsRefBasename,
     pdocsUnzip,
     pdocsWireImageZoom,
+    // ⭐ 2026-11-15：设置面板「数据导出」区块（全量导出按钮已从个人文档工具栏移过去）
+    initSettingsExportPanel,
 };
 
 // ===== 兼容层：挂载初始化函数到 window =====
@@ -1699,6 +1791,8 @@ window.handlePdocsImportBundle = handlePdocsImportBundle;
 window.initPersonalDocs = initPersonalDocs;
 window.initPersonalDocsPanel = initPersonalDocsPanel;
 window.loadPersonalDocs = loadPersonalDocs;
+// ⭐ 2026-11-15：设置面板「数据导出」的初始化（dashboard.menu.js 切到 settings 时调用）
+window.initSettingsExportPanel = initSettingsExportPanel;
 
 // ===== 导出导航动作（供 dashboard.js 从 URL 恢复时调用） =====
 window.PDocsActions = {
