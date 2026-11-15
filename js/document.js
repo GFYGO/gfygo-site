@@ -75,6 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
       bindVisTabs();
       bindRevisionsToggle();
       bindRevisionModal();
+      bindDocImageZoom();     // ⭐ 2026-11-15（B2）：正文 / 修订弹层的插图点击 → 灯箱
       updateVisEmptyPlaceholders();
       bindDocLoadMore();
       renderDocLoadMore();
@@ -1572,6 +1573,7 @@ function renderDocDetailView(doc) {
         if (ok) {
           // marked 输出经白名单净化后再写入（sanitize.js 缺失时降级为纯文本）
           $content.innerHTML = renderMarkdownSafe(raw);
+          decorateDocImages($content);   // ⭐ B2：插图可点（cursor / title / 键盘可达）
         } else {
           $content.innerHTML = `<p class="doc-loading-text" style="background:var(--color-bg-section-alt);padding:12px;border-radius:8px;">
             ⚠️ Markdown 渲染器加载失败，下方为原始文本：
@@ -1638,6 +1640,62 @@ function renderMarkdownSafe(raw) {
     return fallback;
   }
   return window.sanitizeHtml(html);
+}
+
+// =========================================
+// 11. 图片灯箱（B1/B2，2026-11-15）
+//
+//   ⭐ 需求：「查看图片」时展示**嵌入链接（可复制）**。
+//   * 组件本体是 js/image-lightbox.js（window.ImageLightbox = { open, close }），
+//     本页只负责把正文 / 修订正文里的 <img> 接到它上面。
+//   * 用**事件委托**绑在容器上（#docContent / #docRevModalBody 都是 document.html 里的
+//     静态节点，不会被 innerHTML 替换），因此每次重渲染正文都**不需要**重新绑监听器。
+//   * window.ImageLightbox 缺失（CSP / 广告拦截器 / 旧缓存）时静默降级：图片照常显示，
+//     只是点不开 —— 不做任何兜底弹窗（本页不加载 modal.js）。
+// =========================================
+function decorateDocImages(root) {
+  if (!root || typeof root.querySelectorAll !== 'function') return;
+  const imgs = root.querySelectorAll('img');
+  for (const img of imgs) {
+    img.classList.add('doc-zoomable');       // cursor: zoom-in（image-lightbox.css）
+    if (!img.getAttribute('title')) img.title = '点击查看大图 / 复制链接';
+    // 键盘可达：role=button + tabindex=0，回车 / 空格等同点击（见 bindDocImageZoom）
+    if (!img.hasAttribute('tabindex')) img.tabIndex = 0;
+    if (!img.hasAttribute('role')) img.setAttribute('role', 'button');
+  }
+}
+
+function openDocImage(img) {
+  const lb = window.ImageLightbox;
+  if (!lb || typeof lb.open !== 'function' || !img) return;
+  const src = img.currentSrc || img.src || img.getAttribute('src');
+  if (!src) return;
+  lb.open(src, img.alt || '');
+}
+
+function bindDocImageZoom() {
+  ['docContent', 'docRevModalBody'].forEach((id) => {
+    const box = document.getElementById(id);
+    if (!box || box.dataset.imageZoomBound === '1') return;
+    box.dataset.imageZoomBound = '1';
+    box.addEventListener('click', (e) => {
+      const img = (e.target && e.target.closest) ? e.target.closest('img') : null;
+      if (!img || !box.contains(img)) return;
+      decorateDocImages(box);   // 万一有渲染路径没走到装饰（容错，幂等）
+      // 被包在 <a> 里的插图：点图开灯箱，**不**跟随链接
+      e.preventDefault();
+      e.stopPropagation();
+      openDocImage(img);
+    });
+    box.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+      const img = e.target;
+      if (!img || img.tagName !== 'IMG') return;
+      e.preventDefault();
+      openDocImage(img);
+    });
+    decorateDocImages(box);
+  });
 }
 
 // =========================================
@@ -1781,6 +1839,7 @@ async function openRevisionModal(revNum) {
     + (d.data.summary ? ` · 📝 ${d.data.summary}` : '')
     + ` · 当前版本 ${d.data.current_version}`;
   els.body.innerHTML = `<div class="doc-revmodal__content doc-markdown">${renderMarkdownSafe(d.data.content)}</div>`;
+  decorateDocImages(els.body);   // ⭐ B2：修订正文里的插图同样可点开灯箱
   if (els.restore) {
     els.restore.style.display = d.data.can_restore ? '' : 'none';
   }
@@ -1841,6 +1900,7 @@ function bindRevisionModal() {
         ? `<pre class="doc-revmodal__raw">${escapeHtml(original())}</pre>`
         : `<div class="doc-revmodal__content doc-markdown">${renderMarkdownSafe(original())}</div>`;
       if (body) body.innerHTML = html;
+      if (body && !raw) decorateDocImages(body);   // 切回渲染视图：重新挂可点样式
       hit.textContent = raw ? '查看渲染' : '查看原文';
       return;
     }

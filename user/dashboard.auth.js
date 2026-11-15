@@ -169,6 +169,10 @@ function renderTopNavAuth(user) {
     const authContainer = $('auth-container');
     if (!authContainer) return;
 
+    // ⚠️ 重建前先拆上一轮面板：本函数会被重复调用（换头像 / 切等级后会重绘），
+    //    清空容器只删节点，document 上的监听必须显式摘，否则泄漏。
+    if (window.AvatarMenu) window.AvatarMenu.teardown();
+
     authContainer.innerHTML = '';
 
     const navLoginLinks = $$('.header__nav a[href*="login"]');
@@ -201,6 +205,20 @@ function renderTopNavAuth(user) {
     userEl.appendChild(logoutLink);
 
     authContainer.appendChild(userEl);
+
+    // ⭐ 2026-11-15：顶栏头像下拉面板与主站共用 `js/avatar-menu.js` 的**唯一**实现。
+    //    本页不加载 js/index.js（面板原先只长在那里），所以必须在这里自己接一次；
+    //    window.AvatarMenu 缺失时（漏引 script）退化为「只有头像 + 用户名」，不抛错。
+    if (window.AvatarMenu) {
+        const userMenuPanel = window.AvatarMenu.build(user);
+        authContainer.appendChild(userMenuPanel);
+        // class 只负责光标与展开态样式（core.css 的 .user-menu-trigger）
+        img.classList.add('user-menu-trigger');
+        usernameLink.classList.add('user-menu-trigger');
+        window.AvatarMenu.bind([img, usernameLink], userMenuPanel);
+    } else {
+        console.warn('未加载 js/avatar-menu.js，右上角用户菜单不可用');
+    }
 
     navLoginLinks.forEach(link => link.style.display = 'none');
     navRegisterLinks.forEach(link => link.style.display = 'none');

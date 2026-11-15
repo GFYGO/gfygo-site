@@ -1,0 +1,172 @@
+/* =========================================
+   css/image-lightbox.css
+   图片灯箱（js/image-lightbox.js）的样式 —— 2026-11-15（B1）
+
+   为什么单独一个文件（而不是塞进 document.css）：
+     灯箱在**三个页面上下文**里用（document.html / 仪表盘个人文档 / 组文档动态页），
+     document.css 只有文档页加载；单独一份命名空间化（全部 .doc-lightbox*）的
+     小样式表可以按需 <link> 到任何页面，不会和页面自身样式打架。
+
+   依赖：主题变量（--color-bg / --color-text / --color-border …）取自 css/core.css，
+        取不到时下面每条都写了兜底色 —— 本文件可以独立工作。
+   ========================================= */
+
+.doc-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 4000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(15, 23, 42, .82);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+}
+
+.doc-lightbox[hidden] { display: none; }
+
+.doc-lightbox-open { overflow: hidden; }
+
+.doc-lightbox__dialog {
+    width: min(920px, 100%);
+    max-height: calc(100vh - 48px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 18px 18px;
+    border-radius: 14px;
+    background: var(--color-bg, #fff);
+    color: var(--color-text, #1f2937);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .35);
+    overflow: auto;
+}
+
+.doc-lightbox__dialog:focus { outline: none; }
+.doc-lightbox__dialog:focus-visible { outline: 2px solid var(--color-primary, #2563eb); outline-offset: 2px; }
+
+.doc-lightbox__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.doc-lightbox__title {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+    font-size: .98rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.doc-lightbox__close {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    line-height: 1;
+    font-size: 1.4rem;
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 8px;
+    background: var(--color-bg-section-alt, #f9fafb);
+    color: inherit;
+    cursor: pointer;
+}
+
+.doc-lightbox__close:hover { background: var(--color-border, #e5e7eb); }
+
+.doc-lightbox__figure {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 120px;
+    padding: 8px;
+    border-radius: 10px;
+    background: var(--color-bg-section-alt, #f9fafb);
+}
+
+.doc-lightbox__img {
+    display: block;
+    max-width: 100%;
+    max-height: min(62vh, 620px);
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 6px;
+    background: #fff;
+}
+
+/* 加载 / 出错文案（图片 404 时 img 本身是空的，这里给出人话） */
+.doc-lightbox__status {
+    margin: 0;
+    font-size: .88rem;
+    color: var(--color-text-light, #6b7280);
+    text-align: center;
+}
+
+.doc-lightbox__status[hidden] { display: none; }
+
+.doc-lightbox__refs {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.doc-lightbox__ref {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 8px;
+    background: var(--color-bg, #fff);
+}
+
+.doc-lightbox__ref-label {
+    flex: none;
+    min-width: 76px;
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--color-text-light, #6b7280);
+}
+
+.doc-lightbox__code {
+    flex: 1;
+    min-width: 0;
+    padding: 2px 4px;
+    font-size: .82rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    word-break: break-all;
+    overflow-wrap: anywhere;
+}
+
+.doc-lightbox__copy {
+    flex: none;
+    padding: 4px 10px;
+    font-size: .82rem;
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 6px;
+    background: var(--color-bg-section-alt, #f9fafb);
+    color: inherit;
+    cursor: pointer;
+}
+
+.doc-lightbox__copy:hover { background: var(--color-border, #e5e7eb); }
+.doc-lightbox__copy.is-copied {
+    border-color: var(--color-success, #16a34a);
+    color: var(--color-success, #16a34a);
+}
+
+/* 正文里的插图：可点击（配合 js 里设置 title / role） */
+.doc-zoomable { cursor: zoom-in; }
+
+@media (max-width: 640px) {
+    .doc-lightbox { padding: 12px; }
+    .doc-lightbox__dialog { padding: 12px; gap: 10px; }
+    .doc-lightbox__ref { flex-wrap: wrap; }
+    .doc-lightbox__ref-label { min-width: 0; }
+    .doc-lightbox__code { flex-basis: 100%; }
+}

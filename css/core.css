@@ -210,7 +210,8 @@ a { text-decoration: none; color: inherit; transition: color 0.2s ease; }
 /* =========================================
    ⭐ 2026-11-15：右上角用户菜单（头像下拉面板）
    =========================================
-   为什么放在 core.css：面板由 js/index.js::renderAuthStatus 生成、全站顶栏都会用到，
+   为什么放在 core.css：面板由 js/avatar-menu.js 生成（主站 js/index.js::renderAuthStatus
+   与仪表盘 user/dashboard.auth.js::renderTopNavAuth 共用这一份实现）、全站顶栏都会用到，
    而 core.css 是唯一「所有页面必加载」的样式表（styles.css / 页面级 CSS 都按页加载），
    放在这里才能保证「有顶栏就有面板」，也不会被页面级 CSS 的加载顺序影响。
 

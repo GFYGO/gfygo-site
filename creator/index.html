@@ -13,11 +13,11 @@
   <link rel="dns-prefetch" href="//back.gwl.net.cn">
   <meta name="description" content="GWL 创作者工作台：在一块屏幕上管理公共文档与私有草稿——文档树、Markdown 编辑与实时预览、修订历史、图片上传、动态页面与站内交流。">
   <title>创作者工作台 | GWL</title>
-  <link rel="stylesheet" href="../css/core.css?v=20261115a">
-  <link rel="stylesheet" href="../css/styles.css?v=20261115a">
-  <link rel="stylesheet" href="../css/components.css?v=20261115a">
-  <link rel="stylesheet" href="./creator.css?v=20261115a">
-  <link rel="icon" href="../favicon.png?v=20261115a" type="image/png">
+  <link rel="stylesheet" href="../css/core.css?v=20261115b">
+  <link rel="stylesheet" href="../css/styles.css?v=20261115b">
+  <link rel="stylesheet" href="../css/components.css?v=20261115b">
+  <link rel="stylesheet" href="./creator.css?v=20261115b">
+  <link rel="icon" href="../favicon.png?v=20261115b" type="image/png">
 </head>
 <body>
   <!--
@@ -26,7 +26,10 @@
       · 左栏文档树：公共文档（投稿目标）/ 我的草稿 / 最近修订 + 搜索 + 加载更多；
       · 中栏编辑器：元信息 + Markdown 文本域 + 实时预览（marked@12 + sanitizeHtml）+ 修订历史抽屉；
       · 右上动态页面面板：GET /api/v0/user/pages 列表 → 打开时注入 html/css/js；
-      · 右下交流面板：GET /api/v0/notify/global + /personal，POST /read-all 一键已读。
+        末尾「🏛 组织功能页」可先选组再浏览该组的 org-func 页面
+        （GET /api/v0/org/classes → GET /api/v0/org/class/<cid>/pages，请求带 X-Org-Class）。
+      · 右下交流面板：GET /api/v0/notify/global + /personal，POST /read-all 一键已读；
+        头部「全部组 / <组名>」下拉选中具体组时，改为内嵌该组的 chat 页面（同一套 Blob 机制）。
 
     ⚠️ 本页不写内联脚本、不写内联 on*=（CSP 会拦）；所有事件在 creator.js 里绑定。
     ⚠️ 后端字符串一律走 textContent / escapeHtml 落 DOM（见 creator.js 顶部说明）。
@@ -128,12 +131,18 @@
           </label>
           <div class="creator-field creator-field--bits">
             <span>可见等级</span>
-            <div class="creator-bits" id="creatorBits">
-              <label><input type="checkbox" data-bit="1" checked>Lv1</label>
-              <label><input type="checkbox" data-bit="2">Lv2</label>
-              <label><input type="checkbox" data-bit="3">Lv3</label>
-              <label><input type="checkbox" data-bit="4">Lv4</label>
-              <label><input type="checkbox" data-bit="5">Lv5</label>
+            <!--
+              ⚠️ 五个等级位默认全部 disabled：等级未知前不许点（creator.js 拿到
+              /api/v0/creator/status 的 level 后，才把 <= 自己等级的位打开）。
+              Lv1 恒可选；高于自己等级的位即使文档原本开着，也保持勾选 + 禁用
+              （不静默降级，保存时原样回传，后端同样只拒绝「新开」高位）。
+            -->
+            <div class="creator-bits" id="creatorBits" title="正在读取你的等级…">
+              <label><input type="checkbox" data-bit="1" checked disabled>Lv1</label>
+              <label><input type="checkbox" data-bit="2" disabled>Lv2</label>
+              <label><input type="checkbox" data-bit="3" disabled>Lv3</label>
+              <label><input type="checkbox" data-bit="4" disabled>Lv4</label>
+              <label><input type="checkbox" data-bit="5" disabled>Lv5</label>
               <label class="creator-bits__fixed" title="第 6 位是超管兜底位，恒为 1（不可改）"><input type="checkbox" checked disabled>超管</label>
             </div>
           </div>
@@ -182,17 +191,37 @@
           </div>
         </section>
 
-        <!-- 右下：交流（公开通知 + 我的通知） -->
+        <!-- 右下：交流（公开通知 + 我的通知；选组后切换成该组的 chat 页面） -->
         <section class="creator-panel" aria-label="交流">
           <div class="creator-panel__head">
             <h2 class="creator-panel__title">💬 交流</h2>
-            <button type="button" class="creator-btn creator-btn--ghost creator-btn--sm" id="creatorReadAllBtn">全部已读</button>
+            <div class="creator-panel__tools">
+              <!--
+                组下拉：「全部组」= 现状（公开通知 + 我的通知）；
+                选中具体组 = 在面板内跑该组 org-func 的 chat 页面（X-Org-Class 头）。
+                选项由 creator.js 用 GET /api/v0/org/classes 填充（textContent，不拼 HTML）。
+              -->
+              <select id="creatorChatGroup" class="creator-input creator-input--sm creator-chat__select"
+                      aria-label="选择组：查看组内交流" title="选择组可查看该组的交流（chat）页面">
+                <option value="">全部组</option>
+              </select>
+              <button type="button" class="creator-btn creator-btn--ghost creator-btn--sm" id="creatorReadAllBtn">全部已读</button>
+            </div>
           </div>
           <div class="creator-panel__body">
-            <h3 class="creator-notify__sub">公开通知</h3>
-            <div class="creator-notify" id="creatorNotifyGlobal"><p class="creator-empty">正在加载…</p></div>
-            <h3 class="creator-notify__sub">我的通知</h3>
-            <div class="creator-notify" id="creatorNotifyPersonal"><p class="creator-empty">登录后可见</p></div>
+            <div class="creator-notify__view" id="creatorNotifyView">
+              <h3 class="creator-notify__sub">公开通知</h3>
+              <div class="creator-notify" id="creatorNotifyGlobal"><p class="creator-empty">正在加载…</p></div>
+              <h3 class="creator-notify__sub">我的通知</h3>
+              <div class="creator-notify" id="creatorNotifyPersonal"><p class="creator-empty">登录后可见</p></div>
+            </div>
+            <div class="creator-chat" id="creatorChatPane" hidden>
+              <div class="creator-chat__bar">
+                <button type="button" class="creator-btn creator-btn--ghost creator-btn--sm" id="creatorChatBackBtn">← 返回通知</button>
+                <span class="creator-chat__group" id="creatorChatGroupName"></span>
+              </div>
+              <div class="creator-chat__body" id="creatorChatBody"></div>
+            </div>
           </div>
         </section>
       </aside>
@@ -249,6 +278,7 @@
             <a href="../org/index.html">组织</a>
             <a href="../discover/index.html">发现</a>
             <a href="../skill/index.html">技能</a>
+            <a href="../creator/index.html">创作者</a>
             <a href="mailto:gfygo_@outlook.com">反馈邮箱</a>
             <a href="https://github.com/GFYGO/gfygo-site/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>
           </div>
@@ -268,14 +298,16 @@
 
   <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
-  <!-- 脚本顺序固定：config → utils → sanitize → theme → toast → modal → index → 本页 -->
-  <script src="../js/config.js?v=20261115a"></script>
-  <script src="../js/utils.js?v=20261115a"></script>
-  <script src="../js/sanitize.js?v=20261115a"></script>
-  <script src="../js/theme.js?v=20261115a"></script>
-  <script src="../js/toast.js?v=20261115a"></script>
-  <script src="../js/modal.js?v=20261115a"></script>
-  <script src="../js/index.js?v=20261115a"></script>
-  <script src="./creator.js?v=20261115a"></script>
+  <!-- 脚本顺序固定：config → utils → sanitize → theme → toast → modal → avatar-menu → index → 本页 -->
+  <script src="../js/config.js?v=20261115b"></script>
+  <script src="../js/utils.js?v=20261115b"></script>
+  <script src="../js/sanitize.js?v=20261115b"></script>
+  <script src="../js/theme.js?v=20261115b"></script>
+  <script src="../js/toast.js?v=20261115b"></script>
+  <script src="../js/modal.js?v=20261115b"></script>
+  <!-- 头像下拉面板（window.AvatarMenu）：js/index.js 依赖它，缺了就是「点头像无面板 + 控制台一条 warn」 -->
+  <script src="../js/avatar-menu.js?v=20261115b"></script>
+  <script src="../js/index.js?v=20261115b"></script>
+  <script src="./creator.js?v=20261115b"></script>
 </body>
 </html>

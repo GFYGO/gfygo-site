@@ -658,7 +658,14 @@
   margin: 0 0 1em;
   color: var(--color-text-muted);
 }
-.doc-content img { max-width: 100%; border-radius: 8px; margin: 1em 0; }
+/* ⭐ 2026-11-15（B2）：正文插图可点开灯箱 —— 只加 cursor / 焦点环，**不动**尺寸与
+   原有的 max-width / 圆角 / 间距（布局零变化）。点击行为由 js/document.js 事件委托提供。 */
+.doc-content img { max-width: 100%; border-radius: 8px; margin: 1em 0; cursor: zoom-in; }
+.doc-content img:hover { outline: 2px solid var(--color-primary, #2563eb); outline-offset: 1px; }
+.doc-content img:focus-visible { outline: 3px solid var(--color-primary, #2563eb); outline-offset: 2px; }
+/* 修订弹层里的正文同款（同一套 markdown 渲染） */
+.doc-revmodal__body img { max-width: 100%; cursor: zoom-in; }
+.doc-revmodal__body img:focus-visible { outline: 3px solid var(--color-primary, #2563eb); outline-offset: 2px; }
 .doc-content table { width: 100%; border-collapse: collapse; margin-bottom: 1em; }
 .doc-content th, .doc-content td {
   border: 1px solid var(--color-border);

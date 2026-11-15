@@ -2,7 +2,7 @@
  * js/modules/index.js —— 前端模块（Web Components）统一入口。
  *
  * 引入方式（普通静态页）：
- *   <script type="module" src="/js/modules/index.js?v=20261115a"></script>
+ *   <script type="module" src="/js/modules/index.js?v=20261115b"></script>
  *
  * 引入后可用：
  *   - <gfy-doc-preview>        文档快速查看（卡片 / 嵌入）

@@ -837,6 +837,150 @@ body.creator-resizing {
 .creator-file { display: none; }
 
 /* =========================================
+   9b. 我的草稿：文件夹树（2026-11-15 需求 4）
+   ========================================= */
+.creator-folder-tree { display: flex; flex-direction: column; gap: 2px; }
+
+.creator-folder-node { display: block; }
+
+.creator-folder-node__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px;
+  font-size: 0.78rem;
+  border-radius: var(--radius-sm);
+}
+
+.creator-folder-node__row:hover { background: var(--color-bg-hover); }
+
+.creator-folder-node__arrow {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.creator-folder-node__arrow:disabled { cursor: default; opacity: 0.6; }
+.creator-folder-node__arrow:focus-visible { outline: 2px solid var(--color-primary); }
+
+.creator-folder-node__icon { flex: none; }
+.creator-folder-node__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.creator-folder-node__count {
+  flex: none;
+  margin-left: auto;
+  padding: 0 5px;
+  font-size: 0.66rem;
+  color: var(--color-text-muted);
+  background: var(--color-bg-section-alt);
+  border-radius: 999px;
+}
+
+.creator-folder-node__children {
+  padding-left: 16px;
+  border-left: 1px dashed var(--color-border);
+  margin-left: 12px;
+}
+
+/* hidden 属性必须赢过本文件里的 display 声明（否则展开/收起看不出变化） */
+.creator-folder-node__children[hidden] { display: none; }
+
+.creator-doc--in-folder { padding-left: 18px; }
+
+.creator-tree__hint {
+  margin: 2px 2px 6px;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+/* =========================================
+   9c. 组织功能页入口 / 组选择 / 交流面板的组下拉
+   ========================================= */
+/* 页面打开后列表被收起（需求 2）：[hidden] 要能盖住 .creator-pages 的 display:flex */
+.creator-pages[hidden] { display: none; }
+
+.creator-pages__hint {
+  margin: 4px 2px;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.creator-pages__back {
+  align-self: flex-start;
+  margin-bottom: 4px;
+}
+
+.creator-pages__group {
+  margin: 2px 2px 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+/* 组 / 组织条目与 org-func 页面条目：用左边一条细边区分来源 */
+.creator-page--group { border-left: 2px solid var(--color-border); }
+.creator-page--org { margin-top: 4px; border-top: 1px dashed var(--color-border); border-radius: 0; }
+.creator-page--org-page { border-left: 2px solid var(--color-primary); }
+
+.creator-panel__tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.creator-chat__select {
+  max-width: 108px;
+  font-size: 0.72rem;
+}
+
+.creator-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+
+.creator-chat[hidden] { display: none; }
+
+.creator-chat__bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.creator-chat__group {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+/* 组 chat 页面（org-func/chat）挂在这里：页面自己的 CSS 由 <style> 注入 */
+.creator-chat__body {
+  min-height: 120px;
+  max-height: 360px;
+  overflow: auto;
+  font-size: 0.82rem;
+}
+
+/* =========================================
    10. 响应式：窄屏堆叠（面板改上下排列）
    ========================================= */
 @media (max-width: 1080px) {

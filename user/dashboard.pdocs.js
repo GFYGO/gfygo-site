@@ -451,6 +451,28 @@ function initPersonalDocs() {
             await handlePdocsImportFile(file);
         });
     }
+    // ⭐ 2026-11-15（需求 A1）：导入「Markdown + 图片」。
+    //    ⚠️ 标记（lead 补在 dashboard.html）：按钮 #pdocsImportImagesBtn + 隐藏多选
+    //    input #pdocsImportImagesInput（multiple，accept = .md + 9 种图片扩展名）。
+    //    这里自带接线：元素存在就绑、不存在就跳过（重复进面板不重复绑，dataset 旗标区分）。
+    bind('pdocsImportImagesBtn', () => {
+        closePdocsImportMenu();
+        const input = $('pdocsImportImagesInput');
+        if (input) input.click();
+    });
+    const importImagesInput = $('pdocsImportImagesInput');
+    if (importImagesInput && importImagesInput.dataset.pdocsImagesBound !== '1') {
+        importImagesInput.dataset.pdocsImagesBound = '1';
+        importImagesInput.addEventListener('change', async () => {
+            const files = importImagesInput.files;
+            const list = files ? Array.prototype.slice.call(files) : [];
+            importImagesInput.value = '';   // 先清空：允许再次选中同一个文件
+            await handlePdocsImportBundle(list);
+        });
+    }
+    // ⭐ 2026-11-15（需求 B3）：浏览视图 / 编辑器预览里的插图 → 灯箱
+    pdocsWireImageZoom();
+
     // 点击下拉外区域关闭
     if (!PDocsState._importOutsideBound) {
         PDocsState._importOutsideBound = true;
@@ -517,6 +539,427 @@ async function handlePdocsImportFile(file) {
         console.error('[pdocs] 导入文件失败:', e);
         showToast('导入文件失败：文件读取错误', 'error');
     }
+}
+
+// =========================================
+// ⭐ 2026-11-15（需求 A1）：导入「Markdown + 图片」
+//
+// 与 handlePdocsImportFile() 的区别：那条路径只读**一个** .md 文本；这里选中的是一**批**
+// 文件（.md + 若干图片，或一个 .zip），流程是：
+//   1. 先按既有逻辑建文档（private / 100000）—— 图片必须挂在已存在的文档 id 上；
+//   2. 逐张压缩 → POST /api/v0/document/<id>/media（multipart 字段名 file）→ 拿**绝对 URL**；
+//   3. 按**文件名**（basename，去扩展名、小写归一、兼容 ./ 前缀与 URL 编码）把正文里的
+//      图片引用重写成后端返回的 URL（Markdown ![](p) / ![](p "t") / HTML <img src="p">）；
+//   4. PUT /api/v0/document/<id> 带 version 写回正文（乐观锁；见 C1 编辑锁）。
+//
+// ⚠️ 上传**不能**走 pdocsRequest()：它强制 JSON + JSON.stringify(body)，FormData 会被
+//    串成 {}（与 dashboard.pdocs.editor.js::pdocsUploadImage 的取舍同源，那里是手写 fetch）。
+// ⚠️ 图片必须经 /media 接口：URL 只来自后端返回的绝对地址，正文里**不拼**任何本地路径。
+// =========================================
+
+//: 允许当图片的扩展名（与后端 config.ALLOWED_MEDIA_MIMES 的 9 类 + 常见别名对齐）
+const PDOCS_IMPORT_IMAGE_EXTS = ['svg', 'jpg', 'jpeg', 'png', 'gif', 'tiff', 'tif', 'raw', 'webp', 'pdf', 'apng'];
+//: 允许当正文的扩展名
+const PDOCS_IMPORT_TEXT_EXTS = ['md', 'markdown', 'txt'];
+//: 个人文档（visibility=private）的单张上限：512KiB（services/document/media.choose_size_limit）
+const PDOCS_IMPORT_IMAGE_LIMIT = 512 * 1024;
+
+function pdocsFileListToArray(files) {
+    if (!files) return [];
+    if (Array.isArray(files)) return files.filter(Boolean);
+    if (typeof files.length === 'number') {
+        const out = [];
+        for (let i = 0; i < files.length; i++) if (files[i]) out.push(files[i]);
+        return out;
+    }
+    return [files];
+}
+
+function pdocsFileExt(name) {
+    const m = /\.([a-z0-9]+)$/i.exec(String(name || '').trim());
+    return m ? m[1].toLowerCase() : '';
+}
+
+function pdocsIsTextFile(file) {
+    return PDOCS_IMPORT_TEXT_EXTS.indexOf(pdocsFileExt(file && file.name)) >= 0;
+}
+
+function pdocsIsImageFile(file) {
+    return PDOCS_IMPORT_IMAGE_EXTS.indexOf(pdocsFileExt(file && file.name)) >= 0;
+}
+
+function pdocsRefBasename(ref) {
+    let s = String(ref === null || ref === undefined ? '' : ref).trim();
+    if (!s) return '';
+    s = s.split('#')[0].split('?')[0];
+    try { s = decodeURIComponent(s); } catch (e) { /* 非法编码：保持原样 */ }
+    s = s.replace(/\\/g, '/');
+    s = s.replace(/^\.\//, '');
+    const parts = s.split('/');
+    s = parts[parts.length - 1] || '';
+    s = s.replace(/\.[^.]*$/, '');
+    return s.toLowerCase();
+}
+
+function pdocsRewriteImageRefs(raw, urlByBase) {
+    let content = (raw === null || raw === undefined) ? '' : String(raw);
+    const map = urlByBase || {};
+    let matched = 0;
+    const unmatched = [];
+    const seen = Object.create(null);
+
+    const noteUnmatched = (ref) => {
+        const base = pdocsRefBasename(ref);
+        if (!base) return;
+        if (seen[base]) return;
+        seen[base] = 1;
+        unmatched.push(base);
+    };
+
+    content = content.replace(/(!\[[^\]]*\]\(\s*)(<[^>\n]*>|[^)\s]+)((?:\s+"[^"]*")?\s*\))/g,
+        (whole, head, ref, tail) => {
+            const bare = String(ref).replace(/^<|>$/g, '');
+            const base = pdocsRefBasename(bare);
+            if (base && map[base]) { matched += 1; return head.replace(/\s*$/, '') + map[base] + tail; }
+            noteUnmatched(bare);
+            return whole;
+        });
+
+    content = content.replace(/(<img\b[^>]*?\bsrc\s*=\s*)(["'])([^"']*)\2/gi,
+        (whole, head, quote, ref) => {
+            const base = pdocsRefBasename(ref);
+            if (base && map[base]) { matched += 1; return head + quote + map[base] + quote; }
+            noteUnmatched(ref);
+            return whole;
+        });
+
+    return { content: content, matched: matched, unmatched: unmatched };
+}
+
+function pdocsImportShrink(file, maxBytes) {
+    const LIMIT = maxBytes || PDOCS_IMPORT_IMAGE_LIMIT;
+    const RASTER = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/apng'];
+    return new Promise((resolve) => {
+        const passthrough = () => resolve({ blob: file, name: (file && file.name) || 'image.png' });
+        if (!file || !file.type || RASTER.indexOf(file.type) < 0) { passthrough(); return; }
+        if (file.size <= LIMIT && file.type === 'image/webp') { passthrough(); return; }
+        if (typeof document === 'undefined' || !document.createElement) { passthrough(); return; }
+
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            const canvas = document.createElement('canvas');
+            let scale = 1;
+            let quality = 0.85;
+            let attempt = 0;
+            const encode = () => {
+                canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+                canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                if (!canvas.toBlob) { passthrough(); return; }
+                canvas.toBlob((blob) => {
+                    if (!blob) { passthrough(); return; }
+                    if (blob.size <= LIMIT || attempt >= 6) {
+                        const base = String(file.name || 'image.png').replace(/\.[^.\/\\]+$/, '') || 'image';
+                        resolve({ blob: blob, name: base + '.webp' });
+                        return;
+                    }
+                    attempt += 1;
+                    if (quality > 0.56) { quality -= 0.15; } else { scale *= 0.8; quality = 0.8; }
+                    encode();
+                }, 'image/webp', quality);
+            };
+            encode();
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); passthrough(); };
+        img.src = url;
+    });
+}
+
+async function pdocsImportUploadMedia(docId, file) {
+    const token = AuthGuard.getToken();
+    if (!token) { AuthGuard.handleAuthError(); throw new Error('登录已失效，请重新登录'); }
+    if (!pdocsIsValidId(docId)) throw new Error('目标文档 id 无效');
+
+    const out = await pdocsImportShrink(file, PDOCS_IMPORT_IMAGE_LIMIT);
+    const fd = new FormData();
+    fd.append('file', out.blob, out.name || 'image.webp');
+
+    let res;
+    try {
+        // ⚠️ 手写 fetch：pdocsRequest() 会 JSON.stringify(body)，FormData 变成 {}
+        res = await fetch(API_BASE_URL + '/api/v0/document/' + docId + '/media', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token },
+            body: fd
+        });
+    } catch (e) {
+        throw new Error('上传失败：网络错误');
+    }
+    if (res.status === 401) { AuthGuard.handleAuthError(); throw new Error('登录已失效，请重新登录'); }
+    // 413 可能是 Nginx 自己的 HTML 错误页 → 先看状态码再解析
+    if (res.status === 413) throw new Error('图片超过 512KB（压缩后仍超限），请换小图');
+
+    let data = null;
+    try { data = await res.json(); } catch (e) { throw new Error('上传失败：服务端返回异常'); }
+    if (!res.ok || !data || data.code !== 200 || !data.data || !data.data.url) {
+        throw new Error((data && data.msg) || '上传失败');
+    }
+    return data.data.url;
+}
+
+function pdocsCanUnzip() {
+    try {
+        if (typeof DecompressionStream !== 'function') return false;
+        // 构造一次即知是否支持 'deflate-raw'（不支持的实现会抛 TypeError）
+        new DecompressionStream('deflate-raw');
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+async function pdocsInflateRaw(bytes) {
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    const buf = await new Response(stream).arrayBuffer();
+    return new Uint8Array(buf);
+}
+
+async function pdocsUnzip(file) {
+    if (!pdocsCanUnzip()) throw new Error('NO_DEFLATE');
+    const buffer = await file.arrayBuffer();
+    const view = new DataView(buffer);
+    const u8 = new Uint8Array(buffer);
+
+    // EOCD（0x06054b50）在文件尾部，注释最长 64KiB
+    let eocd = -1;
+    const floor = Math.max(0, u8.length - 66000);
+    for (let i = u8.length - 22; i >= floor; i--) {
+        if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    }
+    if (eocd < 0) throw new Error('ZIP 结构无法识别');
+    const total = view.getUint16(eocd + 10, true);
+    const cdOffset = view.getUint32(eocd + 16, true);
+
+    const out = [];
+    let p = cdOffset;
+    for (let i = 0; i < total; i++) {
+        if (p + 46 > u8.length || view.getUint32(p, true) !== 0x02014b50) break;
+        const method = view.getUint16(p + 10, true);
+        const compSize = view.getUint32(p + 20, true);
+        const nameLen = view.getUint16(p + 28, true);
+        const extraLen = view.getUint16(p + 30, true);
+        const commentLen = view.getUint16(p + 32, true);
+        const localOffset = view.getUint32(p + 42, true);
+        let name = '';
+        try {
+            name = new TextDecoder('utf-8').decode(u8.subarray(p + 46, p + 46 + nameLen));
+        } catch (e) { name = ''; }
+        p += 46 + nameLen + extraLen + commentLen;
+        if (!name || name.slice(-1) === '/') continue;             // 目录项
+        if (name.indexOf('__MACOSX/') === 0) continue;             // macOS 元数据
+        const base = name.split('/').pop();
+        if (!base || base.charAt(0) === '.') continue;             // .DS_Store 等
+
+        const lNameLen = view.getUint16(localOffset + 26, true);
+        const lExtraLen = view.getUint16(localOffset + 28, true);
+        const dataStart = localOffset + 30 + lNameLen + lExtraLen;
+        const comp = u8.subarray(dataStart, dataStart + compSize);
+        let data;
+        if (method === 0) data = comp.slice();
+        else if (method === 8) data = await pdocsInflateRaw(comp);
+        else continue;                                             // 其它压缩算法：跳过
+
+        out.push(new File([data], base, { type: pdocsGuessMime(base) }));
+    }
+    return out;
+}
+
+function pdocsGuessMime(name) {
+    const ext = pdocsFileExt(name);
+    const table = {
+        md: 'text/markdown', markdown: 'text/markdown', txt: 'text/plain',
+        png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
+        webp: 'image/webp', apng: 'image/apng', svg: 'image/svg+xml',
+        tiff: 'image/tiff', tif: 'image/tiff', raw: 'image/x-raw', pdf: 'application/pdf'
+    };
+    return table[ext] || 'application/octet-stream';
+}
+
+function pdocsImportTitle(fileName, text) {
+    let title = String(fileName || '').replace(/\.(md|markdown|txt)$/i, '').trim() || '未命名文档';
+    const heading = String(text || '').match(/^\s*#\s+(.+?)\s*$/m);
+    if (heading && heading[1].trim()) title = heading[1].trim();
+    return title.slice(0, 200);
+}
+
+async function handlePdocsImportBundle(files) {
+    const picked = pdocsFileListToArray(files);
+    if (!picked.length) return;
+
+    showToast('正在读取导入文件…', 'info');
+
+    // ---- 1. 收集文件（.zip 就地展开；不支持时明确让用户改走多选） ----
+    const pool = [];
+    const zips = picked.filter((f) => pdocsFileExt(f.name) === 'zip');
+    const plain = picked.filter((f) => pdocsFileExt(f.name) !== 'zip');
+    for (let i = 0; i < plain.length; i++) pool.push(plain[i]);
+    for (let z = 0; z < zips.length; z++) {
+        try {
+            const entries = await pdocsUnzip(zips[z]);
+            for (let k = 0; k < entries.length; k++) pool.push(entries[k]);
+        } catch (e) {
+            console.error('[pdocs] 读取 .zip 失败:', e);
+            const why = (e && e.message === 'NO_DEFLATE')
+                ? '当前浏览器不支持直接解压 .zip'
+                : '这个 .zip 无法读取（可能是加密 / zip64 / 已损坏）';
+            showToast(why + '。请改用「多选文件」导入：同时选中 .md 与图片。', 'error');
+            return;
+        }
+    }
+
+    const textFiles = pool.filter(pdocsIsTextFile);
+    const imageFiles = pool.filter(pdocsIsImageFile);
+    if (!textFiles.length) {
+        showToast('请同时选择 Markdown 文件', 'warning');
+        return;
+    }
+
+    const mdFile = textFiles[0];
+    let text = '';
+    try {
+        text = await mdFile.text();
+    } catch (e) {
+        console.error('[pdocs] 读取 Markdown 失败:', e);
+        showToast('读取 Markdown 失败：文件可能已损坏或无法读取', 'error');
+        return;
+    }
+
+    // ---- 2. 先建文档（图片必须挂在已存在的文档 id 上） ----
+    const title = pdocsImportTitle(mdFile.name, text);
+    const body = {
+        title: title,
+        content: text,
+        summary: pdocsExtractSummary(text),
+        visibility: 'private',
+        permission_bits: '100000'
+    };
+    if (typeof PDocsState.currentFolderId === 'number' && PDocsState.currentFolderId > 0) {
+        body.folder_id = PDocsState.currentFolderId;
+    }
+
+    const created = await pdocsRequest('/', { method: 'POST', body: JSON.stringify(body) });
+    if (!created || created.code !== 200 || !created.data || !created.data.id) {
+        showToast((created && created.msg) || '导入失败：无法创建文档', 'error');
+        return;
+    }
+    const docId = created.data.id;
+    const version = created.data.version;
+
+    // ---- 3. 逐张上传图片 → basename → 绝对 URL ----
+    const urlByBase = Object.create(null);
+    const failed = [];
+    for (let i = 0; i < imageFiles.length; i++) {
+        const file = imageFiles[i];
+        try {
+            const url = await pdocsImportUploadMedia(docId, file);
+            const base = pdocsRefBasename(file.name);
+            if (base) urlByBase[base] = url;
+        } catch (e) {
+            console.warn('[pdocs] 导入图片失败:', file && file.name, e);
+            failed.push({ name: (file && file.name) || '（未命名）', msg: (e && e.message) || '上传失败' });
+        }
+    }
+
+    // ---- 4. 重写正文里的图片引用 → 写回（带 version，走乐观锁） ----
+    let written = text;
+    let unmatched = [];
+    if (imageFiles.length) {
+        const result = pdocsRewriteImageRefs(text, urlByBase);
+        written = result.content;
+        unmatched = result.unmatched || [];
+        if (written !== text) {
+            const updateBody = {
+                content: written,
+                summary: pdocsExtractSummary(written)
+            };
+            if (typeof version === 'number' && version >= 1) updateBody.version = version;
+            const saved = await pdocsRequest('/' + docId, { method: 'PUT', body: JSON.stringify(updateBody) });
+            if (!saved || saved.code !== 200) {
+                showToast('文档已创建，但正文写回失败：' + ((saved && saved.msg) || '请手动编辑插入图片'), 'error');
+            }
+        }
+    }
+
+    // ---- 5. 结果提示：具体到数量与文件（已上传 / 未匹配 / 失败） ----
+    const uploaded = Object.keys(urlByBase).length;
+    const parts = ['已上传 ' + uploaded + ' 张'];
+    if (unmatched.length) {
+        const head = unmatched.slice(0, 3).join('、');
+        parts.push('未匹配 ' + unmatched.length + ' 张（' + head + (unmatched.length > 3 ? ' 等' : '') + '）');
+    }
+    if (failed.length) {
+        const head = failed.slice(0, 3).map((f) => f.name).join('、');
+        parts.push('失败 ' + failed.length + ' 张（' + head + (failed.length > 3 ? ' 等' : '') + '）');
+    }
+    showToast('已导入「' + title + '」：' + parts.join('；'),
+        (failed.length || unmatched.length) ? 'warning' : 'success');
+
+    // ---- 6. 刷新列表并打开该文档 ----
+    resetPdocsDocsPaging();
+    loadPersonalDocs();
+    openPdocsBrowser(docId);
+}
+
+// =========================================
+// ⭐ 2026-11-15（需求 B3）：个人文档里渲染出的 Markdown 插图 → 灯箱
+//
+// 面板里渲染 Markdown 的地方有三处（浏览视图 #pdocsBrowserContent、编辑器预览
+// #pdocsPreview、EasyMDE 自带预览），后两处都在子模块里。这里把**静态容器**上的
+// 一次性事件委托挂好：容器本身不会被 innerHTML 替换，所以每次重渲染都不用重新绑
+// （与列表容器的取舍同源）。window.ImageLightbox 缺失时静默降级 —— 图片照常显示，
+// 只是点不开（不引入任何兜底弹窗）。
+// =========================================
+function pdocsWireImageZoom() {
+    const boxes = [$('pdocsBrowserContent'), $('pdocsPreview')];
+    boxes.forEach((box) => {
+        if (!box || box.dataset.pdocsImageZoom === '1') return;
+        box.dataset.pdocsImageZoom = '1';
+        // 悬停时补「可点」的视觉线索（渲染路径有三条，集中在委托里做最省事）
+        box.addEventListener('mouseover', (e) => {
+            const img = (e.target && e.target.closest) ? e.target.closest('img') : null;
+            if (!img || !box.contains(img)) return;
+            img.classList.add('doc-zoomable');
+            if (!img.getAttribute('title')) img.title = '点击查看大图 / 复制链接';
+            if (!img.hasAttribute('tabindex')) img.tabIndex = 0;
+            if (!img.hasAttribute('role')) img.setAttribute('role', 'button');
+        });
+        box.addEventListener('click', (e) => {
+            const img = (e.target && e.target.closest) ? e.target.closest('img') : null;
+            if (!img || !box.contains(img)) return;
+            const lb = window.ImageLightbox;
+            if (!lb || typeof lb.open !== 'function') return;
+            const src = img.currentSrc || img.src || img.getAttribute('src');
+            if (!src) return;
+            e.preventDefault();
+            e.stopPropagation();
+            lb.open(src, img.alt || '');
+        });
+        box.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+            const img = e.target;
+            if (!img || img.tagName !== 'IMG') return;
+            const lb = window.ImageLightbox;
+            if (!lb || typeof lb.open !== 'function') return;
+            const src = img.currentSrc || img.src || img.getAttribute('src');
+            if (!src) return;
+            e.preventDefault();
+            lb.open(src, img.alt || '');
+        });
+    });
 }
 
 function showPdocsView(viewName) {
@@ -1238,12 +1681,21 @@ export {
     resetPdocsTrashPaging,
     renderExplorerGrid,
     renderPdocsTrash,
+    // ⭐ 2026-11-15（需求 A1 / B3）：导入「Markdown + 图片」与插图灯箱接线
+    handlePdocsImportBundle,
+    pdocsRewriteImageRefs,
+    pdocsRefBasename,
+    pdocsUnzip,
+    pdocsWireImageZoom,
 };
 
 // ===== 兼容层：挂载初始化函数到 window =====
 //   initPersonalDocs      —— 绑定 + 加载（幂等），任何调用方都可用
 //   initPersonalDocsPanel  —— 静态面板（#panel-docs）每次进入时调用：
 //                             复位到列表视图 + 初始化（见 dashboard.menu.js::STATIC_PANEL_HOOKS）
+// ⭐ 2026-11-15（需求 A1）：导入「Markdown + 图片」的对外入口
+//   （dashboard.html 里由 lead 补的按钮也可以直接调它；模块内已自带接线）
+window.handlePdocsImportBundle = handlePdocsImportBundle;
 window.initPersonalDocs = initPersonalDocs;
 window.initPersonalDocsPanel = initPersonalDocsPanel;
 window.loadPersonalDocs = loadPersonalDocs;

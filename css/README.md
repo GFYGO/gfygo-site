@@ -14,6 +14,8 @@
 - **`css/feature-grid.css`** — 首页功能卡片网格（feature-grid / feature-tile）
 - **`css/legal.css`** — 静态正文页（`privacy.html` / `terms.html` / `about.html`）的排版：`.legal-page` / `.legal-card` / `.legal-meta`
 - **`css/document.css`** — 文档中心页面（目录树、详情、编辑器、修订历史、面包屑、文件夹树、`.doc-*` 全套状态/空态/徽标；2026-10-16 补齐约 270 行）
+- **`css/image-lightbox.css`** — ⭐ 图片灯箱（`.doc-lightbox*`，2026-11-15 第三批）：点文档正文/预览里的图片放大，并给出「Markdown / HTML / 裸 URL」三种可复制的嵌入写法。
+  由 `document.html`、`user/dashboard.html`（个人文档）与 org 页（组文档动态页）按需 `<link>`；样式自带兜底色，不依赖 `core.css` 的变量
 
 ## 页面专用文件
 

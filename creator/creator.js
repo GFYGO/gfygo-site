@@ -4,8 +4,13 @@
  *
  * 一块屏幕里管三件事：
  *   1. 左栏文档树：公共文档（投稿目标）/ 我的草稿 / 最近修订 + 搜索 + 加载更多；
+ *      「我的草稿」按其私有文件夹建树（根节点「未分组」，空文件夹也显示，展开态存 localStorage）；
  *   2. 中栏编辑器：元信息 + Markdown 编辑 + 实时预览 + 修订历史抽屉 + 图片上传；
- *   3. 右栏两块面板：动态页面（user/pages + 已获取 skills）与交流（公开 / 个人通知）。
+ *      可见等级位只能设成 <= 自己的等级位（高于自己的位禁用；文档原本开着的高位保持勾选、原样回传）；
+ *   3. 右栏两块面板：
+ *      · 动态页面（user/pages + 已获取 skills），末尾「🏛 组织功能页」可先选组再跑该组的
+ *        org-func 页面（GET /org/class/<cid>/pages，请求带 X-Org-Class）；页面一打开就把列表收起；
+ *      · 交流：公开 / 我的通知；头部下拉选中具体组时改为内嵌该组 org-func 的 chat 页面。
  *
  * 权限门控（**唯一判据是后端权限节点**）：
  *   * 有 *.create（通配创作）→ 可向公共文档投稿（新建 visibility=public）、修订
@@ -39,15 +44,22 @@
   var NOTIFY_GLOBAL = '/api/v0/notify/global';
   var NOTIFY_PERSONAL = '/api/v0/notify/personal';
   var NOTIFY_READ_ALL = '/api/v0/notify/read-all';
+  var FOLDERS_PATH = '/api/v0/document/folders';
+  // 组类（组织 / 组）接口：与 org/org.js 同一套，请求带 X-Org-Class 头
+  var ORG_CLASSES_PATH = '/api/v0/org/classes';
+  var ORG_CLASS_PATH = '/api/v0/org/class/';
+  //: 交流面板里嵌的 org-func 页面 key（org 端 5 个页面之一，site_info.json 有 func_view.chat 节点）
+  var ORG_CHAT_KEY = 'chat';
 
-  // localStorage：面板宽度 / 面板显隐 / 预览显隐 / 当前来源 / 本机最近编辑过的文档
+  // localStorage：面板宽度 / 面板显隐 / 预览显隐 / 当前来源 / 本机最近编辑过的文档 / 草稿树展开态
   var STORE = {
     left: 'creator.left_width',
     right: 'creator.right_width',
     panels: 'creator.panels_visible',
     preview: 'creator.preview_on',
     tab: 'creator.tree_tab',
-    recent: 'creator.recent_edited'
+    recent: 'creator.recent_edited',
+    folders: 'creator.draft_folders_expanded'
   };
 
   var LEFT_MIN = 200, LEFT_MAX = 460, RIGHT_MIN = 240, RIGHT_MAX = 520;
@@ -73,21 +85,32 @@
     canChangePermissions: false,
     statusDegraded: false,        // creator/status 不可用 → 走本地节点兜底
     statusData: null,
+    myLevel: null,                // 真实等级（/creator/status.level）；null = 还不知道 → 等级位先禁用
     treeTab: 'public',
     query: '',
     docs: [],
     page: 1,
     hasMore: false,
+    // —— 我的草稿的文件夹树（需求 4）——
+    folders: [],                  // GET /document/folders?scope=private 的结果
+    draftTreeOn: false,           // 当前列表是不是「文件夹树」渲染（切平铺时用）
+    treeTruncated: false,         // 私有一棵树的文档超过一页（100）时的提示位
+    // —— 组类（组织 / 组）：org-func 页面与交流面板共用（需求 2 / 3）——
+    orgClasses: [],               // GET /org/classes → data.classes
+    orgClassesLoaded: false,
+    orgClassesError: '',
+    orgClass: null,               // 当前选中的组 {id, name, kind}
+    orgPages: [],                 // 当前组的 org-func 页面清单
+    pagesView: 'list',            // 右上面板当前视图：list | groups | org
+    chatClass: '',                // 交流面板选中的组（'' = 全部组，即通知视图）
+    expandedFolders: null,        // Set<string>：草稿文件夹树的展开态（localStorage 记忆）
     doc: null,                    // 当前打开的文档（详情对象）
     editingId: null,
     version: null,
     dirty: false,
     revisions: [],
     pages: [],
-    pageKey: null,
-    pageStyleEl: null,
-    pageScriptEl: null,
-    pageBlobUrl: null,
+    pageKey: null,                // 当前在 runner 里打开的页面（org 页是 "<cid>:<tab_key>"）
     notifyGlobal: [],
     notifyPersonal: [],
     notifyGlobalError: '',
@@ -341,11 +364,23 @@
     dom.banner.hidden = !show;
   }
 
+  /** 等级兜底：状态接口不可用时读 token 里的 now_permission.level（拿不到就保持 null = 等级位全禁用） */
+  function levelFromToken() {
+    try {
+      var np = typeof window.getNowPermission === 'function' ? window.getNowPermission() : null;
+      var lv = np && np.level;
+      return (typeof lv === 'number' && isFinite(lv)) ? lv : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   async function loadStatus() {
     if (!state.loggedIn) {
       state.canCreate = false;
       state.canEditPublic = false;
       state.canChangePermissions = false;
+      state.myLevel = null;
       renderStatus();
       renderBanner();
       applyGate();
@@ -358,6 +393,8 @@
       state.canCreate = !!d.can_create;
       state.canEditPublic = !!d.can_edit_public;
       state.canChangePermissions = !!d.can_change_permissions;
+      // 真实等级：可见等级位的上限（后端 _enforce_edit_permission_bounds 用同一个 level 兜底）
+      state.myLevel = (typeof d.level === 'number' && isFinite(d.level)) ? d.level : levelFromToken();
       state.statusDegraded = false;
     } else {
       // 接口还没上线 / 后端异常：退回 token 里的权限节点（hasPermission 读 now_permission.nodes）
@@ -365,6 +402,7 @@
       state.canCreate = typeof window.hasPermission === 'function' ? !!window.hasPermission('*.create') : false;
       state.canEditPublic = state.canCreate;
       state.canChangePermissions = state.canCreate;
+      state.myLevel = levelFromToken();
     }
     renderStatus();
     renderBanner();
@@ -391,6 +429,67 @@
     return !!(doc && doc.visibility !== 'public');
   }
 
+  // ============================================================
+  // 4b. 可见等级位：「只能设成不大于自己的等级」（2026-11-15 需求 1）
+  // ------------------------------------------------------------
+  // 三条口径（前后端一致，后端兜底见 services/document/permissions.py:
+  // _enforce_edit_permission_bounds 的 creator 分支）：
+  //   1. 等级未知（/creator/status 还没回来）→ 五个位全部禁用，避免「先点开再回填」；
+  //   2. bit > 自己的等级 → 禁用 + title 提示；**Lv1 恒可选**（有编辑权就能设）；
+  //   3. 已有文档上高于自己等级的位 → **保持勾选**（不静默降级），只是禁用；
+  //      保存时 readBits 原样回传，由后端判断「原本开着的高位保留、原本没开的不许新开」。
+  // ============================================================
+  function myLevelKnown() {
+    return typeof state.myLevel === 'number' && isFinite(state.myLevel);
+  }
+
+  /** 这一位高于我的等级吗（Lv1 恒不算：最低可见等级永远可选） */
+  function bitAboveMyLevel(bit) {
+    if (!myLevelKnown()) return false;
+    return bit >= 2 && bit > state.myLevel;
+  }
+
+  /** 把「想给新文档的所有位」按自己的等级裁一遍（只用于生成默认值，不动已有文档） */
+  function clampBitsToLevel(bits) {
+    var s = String(bits || '');
+    if (!myLevelKnown()) return s;
+    var out = '';
+    for (var i = 0; i < s.length; i++) {
+      var bit = i + 1;
+      out += (s.charAt(i) === '1' && !bitAboveMyLevel(bit)) ? '1' : '0';
+    }
+    return out;
+  }
+
+  /** 把等级位控件刷成「可编辑 / 禁用 / 等级锁定」三态（每个入口都走这里） */
+  function applyBitsBounds(editable) {
+    if (!dom.bits) return;
+    var known = myLevelKnown();
+    dom.bits.title = known
+      ? ('你可以把可见范围设成 Lv1~Lv' + state.myLevel + '（高于自己等级的位不可新开）')
+      : '正在读取你的等级…';
+    Array.prototype.forEach.call(dom.bits.querySelectorAll('input[data-bit]'), function (box) {
+      var bit = parseInt(box.getAttribute('data-bit'), 10);
+      var locked = known && bitAboveMyLevel(bit);
+      box.disabled = !editable || !known || locked;
+      if (!known) {
+        box.title = '正在读取你的等级…';
+      } else if (locked) {
+        box.title = '不能授予高于自己等级的可见范围';
+      } else {
+        box.title = 'Lv' + bit + ' 及以上可见';
+      }
+      // 新文档没有「原本」可言：高于自己等级的位直接不勾（已有文档一律保留勾选，
+      // 由后端判断「原本开着的高位保留、原本没开的不许新开」）。
+      if (locked && !state.editingId) box.checked = false;
+      if (locked) box.setAttribute('data-level-locked', '1');
+      else if (box.getAttribute('data-level-locked') !== undefined) {
+        // 只做「有则删」：老式 DOM 桩没有 removeAttribute 时留一个空标记也无害
+        if (typeof box.removeAttribute === 'function') box.removeAttribute('data-level-locked');
+      }
+    });
+  }
+
   /** 统一把门控结果刷到所有控件上（避免每个入口各写一份判断） */
   function applyGate() {
     var editable = canEditCurrent();
@@ -401,11 +500,7 @@
       dom.content.readOnly = !editable;
       dom.content.setAttribute('aria-readonly', editable ? 'false' : 'true');
     }
-    if (dom.bits) {
-      Array.prototype.forEach.call(dom.bits.querySelectorAll('input[data-bit]'), function (box) {
-        box.disabled = !editable;
-      });
-    }
+    applyBitsBounds(editable);
     if (dom.toolbar) {
       Array.prototype.forEach.call(dom.toolbar.querySelectorAll('button[data-md]'), function (btn) {
         btn.disabled = !editable;
@@ -949,6 +1044,7 @@
 
   function renderTree() {
     if (!dom.treeList) return;
+    state.draftTreeOn = false;
     if (!state.docs.length) {
       treeEmpty(state.query
         ? '没有匹配「' + state.query + '」的文档，换个关键词试试。'
@@ -956,7 +1052,178 @@
       return;
     }
     clearNode(dom.treeList);
+    if (state.treeTab === 'private' && state.query) {
+      dom.treeList.appendChild(el('p', 'creator-tree__hint', '搜索时按平铺结果展示（不显示文件夹层级）。'));
+    }
     state.docs.forEach(function (doc) { dom.treeList.appendChild(renderDocItem(doc)); });
+  }
+
+  // ============================================================
+  // 8b. 我的草稿：文件夹树（2026-11-15 需求 4）
+  // ------------------------------------------------------------
+  // 口径：
+  //   * 文件夹来自 GET /document/folders?scope=private（含 parent_id，可能只有我的）；
+  //   * 文档来自 GET /document/list?scope=private&folder_id=-1（-1 = 不按文件夹过滤，
+  //     该 scope 全部，见 routes/document.py 的 /list 说明）；
+  //   * 根节点叫「未分组」，收 folder_id 为空 / 指向我看不到的文件夹的文档
+  //     （**不静默丢文档**：找不到父文件夹的文档一律落到「未分组」）；
+  //   * 空文件夹也渲染（带计数 0）；展开态存 localStorage（creator.draft_folders_expanded）；
+  //   * 搜索框有输入 → 退回平铺结果（renderTree 里加一句提示），切回其它标签保持原样。
+  // ============================================================
+  function readExpandedFolders() {
+    try {
+      var raw = readStore(STORE.folders);
+      var list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list.map(String) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function persistExpandedFolders() {
+    if (!state.expandedFolders) return;
+    var out = [];
+    state.expandedFolders.forEach(function (id) { out.push(String(id)); });
+    writeStore(STORE.folders, JSON.stringify(out));
+  }
+
+  function folderExpanded(id) {
+    return !!(state.expandedFolders && state.expandedFolders.has(String(id)));
+  }
+
+  function toggleFolder(id) {
+    if (!state.expandedFolders) state.expandedFolders = new Set();
+    var key = String(id);
+    if (state.expandedFolders.has(key)) state.expandedFolders.delete(key);
+    else state.expandedFolders.add(key);
+    persistExpandedFolders();
+    renderDraftTree();
+    // 重渲后把焦点还给同一个箭头（否则键盘用户点一下就被甩到 body 上）
+    var again = dom.treeList && dom.treeList.querySelector
+      ? dom.treeList.querySelector('.creator-folder-node[data-folder-id="' + key + '"] [data-action="toggle"]')
+      : null;
+    if (again && again.focus) again.focus();
+  }
+
+  /** 把 folders + docs 拼成树模型（纯函数，便于读；渲染与判定都在这里一次算完） */
+  function buildDraftTreeModel(folders, docs) {
+    var nodes = {};
+    var order = [];
+    (folders || []).forEach(function (f) {
+      if (!f || f.id === null || f.id === undefined) return;
+      var key = String(f.id);
+      nodes[key] = { key: key, name: f.name || ('文件夹 #' + key), root: false, children: [], docs: [] };
+      order.push(key);
+    });
+    var roots = [];
+    order.forEach(function (key) {
+      var node = nodes[key];
+      var f = null;
+      for (var i = 0; i < folders.length; i++) {
+        if (String(folders[i].id) === key) { f = folders[i]; break; }
+      }
+      var pid = (f && f.parent_id !== null && f.parent_id !== undefined && f.parent_id !== 0)
+        ? String(f.parent_id) : '';
+      var parent = pid && nodes[pid] && pid !== key ? nodes[pid] : null;
+      // 父文件夹不在我的可见清单里 → 当根节点显示（子文件夹不该因为父级不可见而消失）
+      if (parent) parent.children.push(node);
+      else roots.push(node);
+    });
+    var ungrouped = { key: '0', name: '未分组', root: true, children: [], docs: [] };
+    (docs || []).forEach(function (doc) {
+      var fid = (doc && doc.folder_id !== null && doc.folder_id !== undefined && doc.folder_id !== 0)
+        ? String(doc.folder_id) : '';
+      if (fid && nodes[fid]) nodes[fid].docs.push(doc);
+      else ungrouped.docs.push(doc);
+    });
+    return { roots: roots, ungrouped: ungrouped, nodes: nodes };
+  }
+
+  function renderFolderNode(node) {
+    var key = String(node.key);
+    var expanded = !!node.root || folderExpanded(key);
+    var box = el('div', 'creator-folder-node');
+    box.setAttribute('data-folder-id', key);
+    box.setAttribute('data-folder-root', node.root ? '1' : '0');
+
+    var row = el('div', 'creator-folder-node__row');
+    var arrow = el('button', 'creator-folder-node__arrow', node.root ? '·' : (expanded ? '▾' : '▸'));
+    arrow.type = 'button';
+    arrow.setAttribute('data-action', 'toggle');
+    arrow.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    arrow.setAttribute('aria-label', (expanded ? '收起 ' : '展开 ') + node.name);
+    if (node.root) arrow.disabled = true;      // 「未分组」是根，恒展开
+    row.appendChild(arrow);
+    row.appendChild(el('span', 'creator-folder-node__icon', node.root ? '🗂' : '📁'));
+    row.appendChild(el('span', 'creator-folder-node__name', node.name));
+    row.appendChild(el('span', 'creator-folder-node__count', String(node.docs.length)));
+    box.appendChild(row);
+
+    var children = el('div', 'creator-folder-node__children');
+    node.docs.forEach(function (doc) {
+      var item = renderDocItem(doc);
+      item.classList.add('creator-doc--in-folder');
+      children.appendChild(item);
+    });
+    node.children.forEach(function (child) { children.appendChild(renderFolderNode(child)); });
+    if (!expanded) children.hidden = true;
+    box.appendChild(children);
+    return box;
+  }
+
+  function renderDraftTree() {
+    if (!dom.treeList) return;
+    state.draftTreeOn = true;
+    var model = buildDraftTreeModel(state.folders, state.docs);
+    clearNode(dom.treeList);
+    if (!model.roots.length && !state.docs.length) {
+      dom.treeList.appendChild(el('p', 'creator-empty', '你还没有私有草稿，点「＋ 新建草稿」开始写。'));
+      return;
+    }
+    var wrap = el('div', 'creator-folder-tree');
+    wrap.appendChild(renderFolderNode(model.ungrouped));
+    model.roots.forEach(function (node) { wrap.appendChild(renderFolderNode(node)); });
+    dom.treeList.appendChild(wrap);
+    if (state.treeTruncated) {
+      dom.treeList.appendChild(el('p', 'creator-tree__hint',
+        '草稿超过 100 篇：这里只显示前 100 篇，其余请用上方搜索框查找。'));
+    }
+    markActiveDoc(state.editingId);
+  }
+
+  async function loadDraftTree() {
+    if (!state.loggedIn) {
+      treeEmpty('登录后才能看到「我的草稿」。');
+      updateLoadMore();
+      return;
+    }
+    setTreeBusy(true);
+    treeLoading();
+    var results = await Promise.all([
+      apiRequest(FOLDERS_PATH, { params: { scope: 'private' }, silent: true }),
+      apiRequest(LIST_PATH, {
+        params: { scope: 'private', page: 1, size: 100, folder_id: -1 },
+        silent: true
+      })
+    ]);
+    setTreeBusy(false);
+    var fres = results[0];
+    var dres = results[1];
+    if (!fres || fres.code !== 200) { treeError((fres && fres.msg) || '文件夹列表加载失败'); updateLoadMore(); return; }
+    if (!dres || dres.code !== 200 || !dres.data) {
+      treeError((dres && dres.msg) || '草稿列表加载失败');
+      updateLoadMore();
+      return;
+    }
+    var folders = Array.isArray(fres.data) ? fres.data : ((fres.data && fres.data.items) || []);
+    // 只留私有文件夹（接口已按 scope 过滤；这里再挡一次，防止老后端把公共/组文件夹混进来）
+    state.folders = folders.filter(function (f) { return !f || !f.scope || f.scope === 'private'; });
+    state.docs = dres.data.items || [];
+    state.treeTruncated = !!dres.data.has_more;
+    state.hasMore = false;      // 树是「一次拉满」，不接「加载更多」（那个走 folder_id=0 的平铺口径）
+    state.page = 1;
+    renderDraftTree();
+    updateLoadMore();
   }
 
   function renderRecent() {
@@ -1036,8 +1303,15 @@
 
   async function loadTree(reset) {
     if (state.treeTab === 'recent') {
+      state.draftTreeOn = false;
+      state.hasMore = false;
       updateLoadMore();
       renderRecent();
+      return;
+    }
+    // ⭐ 需求 4：「我的草稿」且没有搜索词 → 文件夹树；有搜索词 → 平铺搜索结果（带一句提示）
+    if (state.treeTab === 'private' && !state.query) {
+      await loadDraftTree();
       return;
     }
     if (reset) {
@@ -1260,30 +1534,221 @@
   // ============================================================
   // 12. 右上面板：动态页面（pages/ + 已获取 skills/）
   // ============================================================
+  // 两个「页面运行槽」：右上 runner 与交流面板里的 chat 页各自一份，
+  // 互不干扰（关掉 runner 不能顺手把 chat 页的脚本也拔掉）。
+  var runnerSlot = { styleEl: null, scriptEl: null, blobUrl: null };
+  var chatSlot = { styleEl: null, scriptEl: null, blobUrl: null };
+
+  function releaseSlot(slot) {
+    if (!slot) return;
+    if (slot.styleEl && slot.styleEl.parentNode) slot.styleEl.parentNode.removeChild(slot.styleEl);
+    slot.styleEl = null;
+    if (slot.scriptEl && slot.scriptEl.parentNode) slot.scriptEl.parentNode.removeChild(slot.scriptEl);
+    slot.scriptEl = null;
+    if (slot.blobUrl) {
+      try { URL.revokeObjectURL(slot.blobUrl); } catch (e) { /* 忽略 */ }
+      slot.blobUrl = null;
+    }
+  }
+
+  /** 只释放「样式 + 脚本 + blob」，不动容器内容（聊天区/runner 共用） */
+  function runPageScript(code, key, slot) {
+    if (!code) return;
+    slot = slot || runnerSlot;
+    try {
+      slot.blobUrl = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+    } catch (e) {
+      console.error('[creator] 动态页面脚本 Blob 创建失败:', key, e);
+      return;
+    }
+    var script = document.createElement('script');
+    script.src = slot.blobUrl;
+    script.setAttribute('data-creator-page-script', key);
+    script.addEventListener('load', function () {
+      // 脚本执行完即可释放 URL；元素留着，收起时统一清理
+      try { URL.revokeObjectURL(slot.blobUrl); } catch (e) { /* 忽略 */ }
+      slot.blobUrl = null;
+    });
+    document.body.appendChild(script);
+    slot.scriptEl = script;
+  }
+
+  function highlightPageEntry(key) {
+    if (!dom.pagesList) return;
+    Array.prototype.forEach.call(dom.pagesList.querySelectorAll('[data-page-key]'), function (node) {
+      node.classList.toggle('is-active', !!key && node.getAttribute('data-page-key') === key);
+    });
+  }
+
+  /**
+   * 把一份页面内容（html/css/js）挂进目标容器。
+   *
+   * ⚠️ 与 skill/skill.js 逐字同款：服务端官方页面内容直接写 innerHTML，
+   *    脚本走 Blob URL（CSP 已放行 blob:），样式进 <style>。
+   *    这些内容不是用户输入（用户输入只走 Markdown 预览的 sanitizeHtml 路径）。
+   */
+  function mountPageContent(page, key, target) {
+    target = target || {};
+    var bodyNode = target.body || dom.pageRunnerBody;
+    var slot = target.slot || runnerSlot;
+    if (!bodyNode) return;
+    clearNode(bodyNode);
+    bodyNode.innerHTML = (page && page.html) || '<p class="creator-empty">这个页面没有内容。</p>';
+    if (page && page.css) {
+      var style = document.createElement('style');
+      style.setAttribute('data-creator-page-style', key);
+      style.textContent = page.css;
+      document.head.appendChild(style);
+      slot.styleEl = style;
+    }
+    if (page && page.js) runPageScript(page.js, key, slot);
+    if (!target.body) highlightPageEntry(key);
+  }
+
+  // ------------------------------------------------------------
+  // ⭐ 组类（组织 / 组）身份：与 org/org.js 同一套 X-Org-Class 约定
+  //   * 请求头：后端 app.py 的钩子把 X-Org-Class 解析进 now_permission.class_id；
+  //   * 页面脚本：org-func 的 site.js 从 window.OrgPage.state.activeClass 取组类身份
+  //     （拿不到再回退 URL 的 ?class=）。创作者页不是组织页，所以这里提供一个
+  //     **最小外壳**：只写 activeClass，够页面脚本自己补 X-Org-Class 与 class_id。
+  // ------------------------------------------------------------
+  function orgHeaders(cid) {
+    var headers = {};
+    if (cid) headers['X-Org-Class'] = String(cid);
+    return headers;
+  }
+
+  function setOrgShell(cid) {
+    try {
+      window.OrgPage = window.OrgPage || {};
+      window.OrgPage.state = window.OrgPage.state || {};
+      window.OrgPage.state.activeClass = String(cid || '');
+    } catch (e) { /* 纯增强，失败不影响页面 */ }
+  }
+
+  function clearOrgShell() {
+    // ⚠️ 右上 runner 与交流面板共用同一个 window.OrgPage 外壳：
+    //    另一个面还在跑 org 页面时不清，否则它的后续请求会丢掉组类身份。
+    var runnerOrgOpen = !!(state.pageKey && String(state.pageKey).indexOf(':') > 0);
+    if (runnerOrgOpen || state.chatClass) return;
+    try {
+      if (window.OrgPage && window.OrgPage.state) window.OrgPage.state.activeClass = null;
+    } catch (e) { /* 忽略 */ }
+  }
+
+  function findOrgClass(cid) {
+    for (var i = 0; i < state.orgClasses.length; i++) {
+      if (String(state.orgClasses[i].id) === String(cid)) return state.orgClasses[i];
+    }
+    return null;
+  }
+
+  /** GET /api/v0/org/classes（我的组类平铺清单：组织在前、其下的组在后） */
+  async function loadOrgClasses() {
+    if (!state.loggedIn) {
+      state.orgClasses = [];
+      state.orgClassesLoaded = true;
+      state.orgClassesError = '';
+      renderChatGroupOptions();
+      return state.orgClasses;
+    }
+    var res = await apiRequest(ORG_CLASSES_PATH, { silent: true });
+    if (!res || res.code !== 200 || !res.data) {
+      state.orgClasses = [];
+      state.orgClassesError = (res && res.msg) || '组 / 组织列表加载失败';
+    } else {
+      var list = res.data.classes;
+      state.orgClasses = Array.isArray(list) ? list : [];
+      state.orgClassesError = '';
+    }
+    state.orgClassesLoaded = true;
+    renderChatGroupOptions();
+    return state.orgClasses;
+  }
+
+  // ------------------- 列表里的小零件（空态 / 提示 / 返回） -------------------
+  function pagesEmpty(message) {
+    if (dom.pagesList) dom.pagesList.appendChild(el('p', 'creator-empty', message));
+  }
+
+  function pagesHint(message) {
+    if (dom.pagesList) dom.pagesList.appendChild(el('p', 'creator-pages__hint', message));
+  }
+
+  function pagesBack(label, target) {
+    var btn = el('button', 'creator-btn creator-btn--ghost creator-btn--sm creator-pages__back', label);
+    btn.type = 'button';
+    btn.setAttribute('data-pages-back', target);
+    if (dom.pagesList) dom.pagesList.appendChild(btn);
+    return btn;
+  }
+
+  function pagesErrorBox(message, retry) {
+    if (!dom.pagesList) return;
+    var box = el('div', 'creator-error');
+    box.appendChild(el('p', '', message));
+    var btn = el('button', 'creator-btn creator-btn--ghost creator-btn--sm', '重试');
+    btn.type = 'button';
+    btn.addEventListener('click', retry);
+    box.appendChild(btn);
+    dom.pagesList.appendChild(box);
+  }
+
+  // ------------------- 列表渲染 -------------------
+  /** 一个 dashboard / 技能端页面条目 */
+  function renderPageItem(item) {
+    var key = item.tab_key || item.key || '';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'creator-page';
+    btn.setAttribute('role', 'listitem');
+    btn.setAttribute('data-page-key', key);
+    btn.appendChild(el('span', 'creator-page__icon', item.icon || '📄'));
+    var main = el('span', 'creator-page__main');
+    var name = el('span', 'creator-page__name', item.label || key || '未命名页面');
+    if (item.is_skill) name.appendChild(el('span', 'creator-page__tag', ' (skill)'));
+    main.appendChild(name);
+    if (item.description) main.appendChild(el('span', 'creator-page__tag', item.description));
+    btn.appendChild(main);
+    btn.addEventListener('click', function () { openPage(item); });
+    return btn;
+  }
+
+  /**
+   * 需求 2 的入口：列表末尾的「🏛 组织功能页」。
+   * 点它 → 选组 → 该组的 org-func 页面清单 → 点条目用同一套 Blob 机制运行。
+   *
+   * ⚠️ 组选择为什么是**面板内的轻量视图**而不是弹窗：window.Modal 只提供
+   *    confirm / prompt / alert（见 js/modal.js），没有「任意内容对话框」；
+   *    为了一个选择列表去调它的私有方法 _createModal 不值得（跨版本容易坏）。
+   */
+  function renderOrgEntry() {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'creator-page creator-page--org';
+    btn.setAttribute('role', 'listitem');
+    btn.setAttribute('data-org-entry', '1');
+    btn.appendChild(el('span', 'creator-page__icon', '🏛'));
+    var main = el('span', 'creator-page__main');
+    main.appendChild(el('span', 'creator-page__name', '组织功能页'));
+    main.appendChild(el('span', 'creator-page__tag', '浏览我加入的组 / 组织下发的功能页'));
+    btn.appendChild(main);
+    btn.addEventListener('click', showOrgClassPicker);
+    return btn;
+  }
+
   function renderPages(items, emptyText) {
     if (!dom.pagesList) return;
+    state.pagesView = 'list';
     clearNode(dom.pagesList);
     if (!items.length) {
       dom.pagesList.appendChild(el('p', 'creator-empty', emptyText || '暂无可用页面'));
-      return;
+    } else {
+      items.forEach(function (item) { dom.pagesList.appendChild(renderPageItem(item)); });
     }
-    items.forEach(function (item) {
-      var key = item.tab_key || item.key || '';
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'creator-page';
-      btn.setAttribute('role', 'listitem');
-      btn.setAttribute('data-page-key', key);
-      btn.appendChild(el('span', 'creator-page__icon', item.icon || '📄'));
-      var main = el('span', 'creator-page__main');
-      var name = el('span', 'creator-page__name', item.label || key || '未命名页面');
-      if (item.is_skill) name.appendChild(el('span', 'creator-page__tag', ' (skill)'));
-      main.appendChild(name);
-      if (item.description) main.appendChild(el('span', 'creator-page__tag', item.description));
-      btn.appendChild(main);
-      btn.addEventListener('click', function () { openPage(item); });
-      dom.pagesList.appendChild(btn);
-    });
+    // ⚠️ 入口**恒在末尾**（空态 / 加载失败也保留）：组织功能页与 dashboard 页面是两套来源，
+    //    前者取不到不该把后者一起藏掉。
+    dom.pagesList.appendChild(renderOrgEntry());
   }
 
   async function loadPages() {
@@ -1303,37 +1768,158 @@
     renderPages(items, items.length ? '' : '当前账号没有可用的动态页面');
   }
 
-  function clearPageRunner() {
-    if (dom.pageRunnerBody) clearNode(dom.pageRunnerBody);
-    if (state.pageStyleEl && state.pageStyleEl.parentNode) state.pageStyleEl.parentNode.removeChild(state.pageStyleEl);
-    state.pageStyleEl = null;
-    if (state.pageScriptEl && state.pageScriptEl.parentNode) state.pageScriptEl.parentNode.removeChild(state.pageScriptEl);
-    state.pageScriptEl = null;
-    if (state.pageBlobUrl) {
-      try { URL.revokeObjectURL(state.pageBlobUrl); } catch (e) { /* 忽略 */ }
-      state.pageBlobUrl = null;
-    }
-    state.pageKey = null;
-  }
-
-  function runPageScript(code, key) {
-    if (!code) return;
-    try {
-      state.pageBlobUrl = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
-    } catch (e) {
-      console.error('[creator] 动态页面脚本 Blob 创建失败:', key, e);
+  // ------------------- 需求 2：组选择 → org-func 页面清单 → 运行 -------------------
+  function showOrgClassPicker() {
+    if (!dom.pagesList) return;
+    state.pagesView = 'groups';
+    clearNode(dom.pagesList);
+    pagesBack('← 返回页面列表', 'list');
+    pagesHint('选择一个组 / 组织，查看它下发的功能页（与「组织」页里的功能按钮是同一批页面）');
+    if (!state.loggedIn) { pagesEmpty('登录后才能浏览组织功能页。'); return; }
+    if (!state.orgClassesLoaded && !state.orgClassesError) {
+      dom.pagesList.appendChild(el('p', 'creator-loading', '正在加载组列表…'));
+      loadOrgClasses().then(function () {
+        if (state.pagesView === 'groups') showOrgClassPicker();
+      });
       return;
     }
-    var script = document.createElement('script');
-    script.src = state.pageBlobUrl;
-    script.setAttribute('data-creator-page-script', key);
-    script.addEventListener('load', function () {
-      // 脚本执行完即可释放 URL；元素留着，收起时统一清理
-      try { URL.revokeObjectURL(state.pageBlobUrl); } catch (e) { /* 忽略 */ }
-      state.pageBlobUrl = null;
+    if (state.orgClassesError) {
+      pagesErrorBox(state.orgClassesError, function () {
+        state.orgClassesError = '';
+        state.orgClassesLoaded = false;
+        showOrgClassPicker();
+      });
+      return;
+    }
+    if (!state.orgClasses.length) {
+      pagesEmpty('你还没有加入任何组或组织。可以到「组织」页用「＋ 加入」加入或申请加入。');
+      return;
+    }
+    state.orgClasses.forEach(function (cls) {
+      var id = String(cls.id || '');
+      if (!id) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'creator-page creator-page--group';
+      btn.setAttribute('role', 'listitem');
+      btn.setAttribute('data-org-class', id);
+      btn.appendChild(el('span', 'creator-page__icon', cls.kind === 'org' ? '🏢' : '👥'));
+      var main = el('span', 'creator-page__main');
+      main.appendChild(el('span', 'creator-page__name', cls.name || id));
+      main.appendChild(el('span', 'creator-page__tag',
+        '@' + id + (cls.kind === 'org' ? ' · 组织' : ' · 组') + (cls.role ? ' · ' + cls.role : '')));
+      btn.appendChild(main);
+      btn.addEventListener('click', function () { openOrgClassPages(cls); });
+      dom.pagesList.appendChild(btn);
     });
-    document.body.appendChild(script);
-    state.pageScriptEl = script;
+  }
+
+  function renderOrgListHead(cls) {
+    if (!dom.pagesList) return;
+    var cid = String(cls.id || '');
+    var head = el('p', 'creator-pages__group', '🏛 ' + (cls.name || cid) + ' · @' + cid);
+    dom.pagesList.appendChild(head);
+  }
+
+  async function openOrgClassPages(cls) {
+    var cid = String((cls && cls.id) || '');
+    if (!cid || !dom.pagesList) return;
+    state.pagesView = 'org';
+    state.orgClass = cls;
+    clearNode(dom.pagesList);
+    pagesBack('← 返回组列表', 'groups');
+    renderOrgListHead(cls);
+    dom.pagesList.appendChild(el('p', 'creator-loading', '正在加载功能页…'));
+
+    var res = await apiRequest(ORG_CLASS_PATH + encodeURIComponent(cid) + '/pages',
+      { headers: orgHeaders(cid), silent: true });
+    // ⭐ 身份守卫：响应回来时已经切走（返回 / 换组）→ 整段丢弃
+    if (state.pagesView !== 'org' || !state.orgClass
+        || String(state.orgClass.id) !== cid) return;
+
+    clearNode(dom.pagesList);
+    pagesBack('← 返回组列表', 'groups');
+    renderOrgListHead(cls);
+    if (!res || res.code !== 200 || !res.data) {
+      pagesErrorBox((res && res.msg) || '功能页清单加载失败（可能是没有权限）',
+        function () { openOrgClassPages(cls); });
+      return;
+    }
+    var pages = Array.isArray(res.data.pages) ? res.data.pages : [];
+    state.orgPages = pages;
+    if (!pages.length) {
+      pagesEmpty(res.data.can_view === false
+        ? '你在本组 / 本组织没有功能可见度（func_view），因此功能页被收起了。请让 owner 在「组管理」里配一条 func_view 规则。'
+        : '这个组 / 组织还没有可用的功能页（后端 org-func/ 目录里没有给它下发页面）。');
+      return;
+    }
+    pages.forEach(function (item) {
+      var tabKey = String(item.tab_key || item.key || '');
+      if (!tabKey) return;
+      var key = cid + ':' + tabKey;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'creator-page creator-page--org-page';
+      btn.setAttribute('role', 'listitem');
+      btn.setAttribute('data-page-key', key);
+      btn.setAttribute('data-org-page', tabKey);
+      btn.appendChild(el('span', 'creator-page__icon', item.icon || '📄'));
+      var main = el('span', 'creator-page__main');
+      main.appendChild(el('span', 'creator-page__name', item.label || tabKey));
+      main.appendChild(el('span', 'creator-page__tag',
+        (item.description || ('org-func · ' + tabKey)) + ' · ' + (cls.name || cid)));
+      btn.appendChild(main);
+      btn.addEventListener('click', function () { openOrgPage(cls, item); });
+      dom.pagesList.appendChild(btn);
+    });
+  }
+
+  function orgPageErrorText(res, tabKey) {
+    var code = (res && res.code) || 0;
+    var msg = (res && res.msg) || '';
+    var tail = msg ? '（' + msg + '）' : '';
+    if (code === 403) {
+      return '没有权限打开这个页面' + tail + '：功能页可见度由本组 / 本组织的 func_view.' + tabKey + ' 规则决定。';
+    }
+    if (code === 404) return '这个页面不存在或已下线' + tail + '。';
+    return msg || '页面加载失败（可能是没有访问权限）。';
+  }
+
+  async function openOrgPage(cls, item) {
+    if (!dom.pageRunner || !dom.pageRunnerBody) return;
+    var cid = String((cls && cls.id) || '');
+    var tabKey = String((item && (item.tab_key || item.key)) || '');
+    if (!cid || !tabKey) return;
+    var key = cid + ':' + tabKey;
+
+    clearPageRunner();
+    showRunner((item.icon || '🧩') + ' ' + (item.label || tabKey) + ' · @' + cid, key);
+    dom.pageRunnerBody.appendChild(el('p', 'creator-loading', '正在加载页面…'));
+
+    var res = await apiRequest(ORG_CLASS_PATH + encodeURIComponent(cid)
+      + '/pages/' + encodeURIComponent(tabKey), { headers: orgHeaders(cid), silent: true });
+    if (!res || res.code !== 200 || !res.data) {
+      clearNode(dom.pageRunnerBody);
+      dom.pageRunnerBody.appendChild(el('p', 'creator-empty', orgPageErrorText(res, tabKey)));
+      return;
+    }
+    // org-func 的 site.js 靠 window.OrgPage.state.activeClass 取组类身份
+    setOrgShell(cid);
+    mountPageContent(res.data, key);
+  }
+
+  function showRunner(title, key) {
+    state.pageKey = key || null;
+    if (dom.pageRunnerTitle) dom.pageRunnerTitle.textContent = title || '页面';
+    if (dom.pageRunner) dom.pageRunner.hidden = false;
+    // ⭐ 需求 2：任何页面在 runner 里打开后，列表被收起（✕ 关闭时恢复）
+    if (dom.pagesList) dom.pagesList.hidden = true;
+  }
+
+  function clearPageRunner() {
+    if (dom.pageRunnerBody) clearNode(dom.pageRunnerBody);
+    releaseSlot(runnerSlot);
+    state.pageKey = null;
   }
 
   async function openPage(item) {
@@ -1342,8 +1928,7 @@
     if (!key) return;
 
     clearPageRunner();
-    dom.pageRunner.hidden = false;
-    if (dom.pageRunnerTitle) dom.pageRunnerTitle.textContent = (item.icon || '🧩') + ' ' + (item.label || key);
+    showRunner((item.icon || '🧩') + ' ' + (item.label || key), key);
     var loading = el('p', 'creator-loading', '正在加载页面…');
     dom.pageRunnerBody.appendChild(loading);
 
@@ -1359,36 +1944,18 @@
       return;
     }
 
-    var page = res.data;
-    clearPageRunner();
-    state.pageKey = key;
-
-    // ⚠️ 与 skill/skill.js 逐字同款：服务端官方页面内容直接写 innerHTML，
-    //    脚本走 Blob URL（CSP 已放行 blob:），样式进 <style>。
-    //    这些内容不是用户输入（用户输入只走 Markdown 预览的 sanitizeHtml 路径）。
-    dom.pageRunnerBody.innerHTML = page.html || '<p class="creator-empty">这个页面没有内容。</p>';
-    if (page.css) {
-      var style = document.createElement('style');
-      style.setAttribute('data-creator-page-style', key);
-      style.textContent = page.css;
-      document.head.appendChild(style);
-      state.pageStyleEl = style;
-    }
-    runPageScript(page.js, key);
-
-    Array.prototype.forEach.call(dom.pagesList ? dom.pagesList.querySelectorAll('[data-page-key]') : [], function (node) {
-      node.classList.toggle('is-active', node.getAttribute('data-page-key') === key);
-    });
+    // dashboard 页面不是 org 页面：别把上一次的组类身份留在 window 上
+    clearOrgShell();
+    mountPageContent(res.data, key);
   }
 
   function closePageRunner() {
     clearPageRunner();
     if (dom.pageRunner) dom.pageRunner.hidden = true;
-    if (dom.pagesList) {
-      Array.prototype.forEach.call(dom.pagesList.querySelectorAll('[data-page-key]'), function (node) {
-        node.classList.remove('is-active');
-      });
-    }
+    // ⭐ 需求 2：✕ 关闭 → 列表恢复、脚本/样式已清（clearPageRunner 里 releaseSlot）
+    if (dom.pagesList) dom.pagesList.hidden = false;
+    clearOrgShell();
+    highlightPageEntry(null);
   }
 
   // ============================================================
@@ -1486,6 +2053,109 @@
     }
     toast('已全部标记为已读', 'success');
     loadNotifications();
+  }
+
+  // ------------------------------------------------------------
+  // ⭐ 需求 3：交流面板的组下拉
+  //   * 「全部组」（value=''）= 现状：公开通知 + 我的通知；
+  //   * 选中具体组 = 在面板内跑该组 org-func 的 chat 页面
+  //     （GET /org/class/<cid>/pages/chat，请求带 X-Org-Class；html/css/js 走同一套 Blob 机制）。
+  //   该组没有 chat 页 / 没权限 → 明确提示，绝不留空白。
+  // ------------------------------------------------------------
+  /** 把组类填进下拉（第一项恒为「全部组」；刷新列表不重置用户的选择） */
+  function renderChatGroupOptions() {
+    if (!dom.chatGroup) return;
+    var keep = dom.chatGroup.value || '';
+    clearNode(dom.chatGroup);
+    var all = document.createElement('option');
+    all.value = '';
+    all.textContent = '全部组';
+    dom.chatGroup.appendChild(all);
+    state.orgClasses.forEach(function (cls) {
+      var id = String(cls.id || '');
+      if (!id) return;
+      var opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = (cls.name || id) + (cls.kind === 'org' ? '（组织）' : '');
+      dom.chatGroup.appendChild(opt);
+    });
+    dom.chatGroup.value = keep;
+    // 选中的组已经不在清单里（被移出组 / 组被删）→ 回到「全部组」的通知视图
+    if (dom.chatGroup.value !== keep) {
+      dom.chatGroup.value = '';
+      closeChatView();
+    }
+  }
+
+  function showChatView(on) {
+    if (dom.notifyView) dom.notifyView.hidden = !!on;
+    if (dom.chatPane) dom.chatPane.hidden = !on;
+  }
+
+  function clearChatPane() {
+    if (dom.chatBody) clearNode(dom.chatBody);
+    releaseSlot(chatSlot);
+  }
+
+  /** 回到通知视图（下拉归位、chat 的样式/脚本/Blob 全清） */
+  function closeChatView() {
+    state.chatClass = '';
+    clearChatPane();
+    showChatView(false);
+    if (dom.chatGroup) dom.chatGroup.value = '';
+    clearOrgShell();
+    if (dom.chatGroupName) dom.chatGroupName.textContent = '';
+  }
+
+  function chatPageErrorText(res) {
+    var code = (res && res.code) || 0;
+    var msg = (res && res.msg) || '';
+    var tail = msg ? '（' + msg + '）' : '';
+    if (code === 403) {
+      return '你在本组 / 本组织没有「交流」页面的访问权限（func_view.' + ORG_CHAT_KEY + '）' + tail + '。'
+        + '可以请组 owner 在「组管理」里给对应角色配一条 func_view 规则。';
+    }
+    if (code === 404) {
+      return '这个组还没有「交流」页面（org-func/' + ORG_CHAT_KEY + ' 未启用或已下线）' + tail + '。';
+    }
+    return msg || '「交流」页面加载失败';
+  }
+
+  async function openChatPage(cid) {
+    if (!cid || !dom.chatBody) return;
+    cid = String(cid);
+    var cls = findOrgClass(cid);
+    state.chatClass = cid;
+    clearChatPane();
+    showChatView(true);
+    if (dom.chatGroupName) {
+      dom.chatGroupName.textContent = (cls ? (cls.name || cid) + ' · ' : '') + '@' + cid;
+    }
+    dom.chatBody.appendChild(el('p', 'creator-loading', '正在加载「交流」页面…'));
+
+    var res = await apiRequest(ORG_CLASS_PATH + encodeURIComponent(cid) + '/pages/' + ORG_CHAT_KEY,
+      { headers: orgHeaders(cid), silent: true });
+    // 期间切走了（换组 / 返回）→ 整段丢弃，避免把 A 组的聊天画到 B 组
+    if (state.chatClass !== cid) return;
+    if (!res || res.code !== 200 || !res.data) {
+      clearNode(dom.chatBody);
+      dom.chatBody.appendChild(el('p', 'creator-empty', chatPageErrorText(res)));
+      return;
+    }
+    // 页面脚本要的组类身份（它自己会补 X-Org-Class 与 class_id）
+    setOrgShell(cid);
+    mountPageContent(res.data, cid + ':' + ORG_CHAT_KEY, { body: dom.chatBody, slot: chatSlot });
+  }
+
+  function onChatGroupChange() {
+    var cid = (dom.chatGroup && dom.chatGroup.value) || '';
+    if (!cid) { closeChatView(); return; }
+    if (!state.loggedIn) {
+      toast('登录后才能查看组内交流', 'warning');
+      if (dom.chatGroup) dom.chatGroup.value = '';
+      return;
+    }
+    openChatPage(cid);
   }
 
   // ============================================================
@@ -1639,6 +2309,7 @@
         loadTree(true);
         loadPages();
         loadNotifications();
+        loadOrgClasses();
       });
     }
   }
@@ -1668,6 +2339,13 @@
 
     if (dom.treeList) {
       dom.treeList.addEventListener('click', function (event) {
+        // ⭐ 需求 4：文件夹节点的展开 / 收起（状态存 localStorage）
+        var arrow = event.target && event.target.closest ? event.target.closest('[data-action="toggle"]') : null;
+        if (arrow) {
+          var host = arrow.closest('[data-folder-id]');
+          if (host) toggleFolder(host.getAttribute('data-folder-id'));
+          return;
+        }
         var node = event.target && event.target.closest ? event.target.closest('[data-doc-id]') : null;
         if (!node) return;
         var id = node.getAttribute('data-doc-id');
@@ -1721,8 +2399,10 @@
           return;
         }
         if (dom.visibility.value === 'public' && !state.editingId) {
-          // 新投稿默认让所有等级可看（默认位 '100001' 只放行 Lv1，投稿场景通常不合适）
-          writeBits('111111');
+          // 新投稿默认让「我能授予的」所有等级可看（默认位 '100001' 只放行 Lv1，投稿场景不合适）；
+          // 但不能顺手把高于自己等级的位打开（等级未知时 clampBitsToLevel 原样返回，
+          // 随后 applyGate 会把这些位禁掉 —— 后端同样只拒绝「新开」高位）。
+          writeBits(clampBitsToLevel('111111'));
         }
         markDirty();
         applyGate();
@@ -1791,8 +2471,40 @@
 
   function bindDock() {
     if (dom.readAllBtn) dom.readAllBtn.addEventListener('click', markAllRead);
-    if (dom.pagesRefresh) dom.pagesRefresh.addEventListener('click', loadPages);
+    if (dom.pagesRefresh) {
+      dom.pagesRefresh.addEventListener('click', function () {
+        loadPages();
+        // 组清单也刷一次（刚加入的组不必重开页面就能看到）
+        state.orgClassesLoaded = false;
+        state.orgClassesError = '';
+        loadOrgClasses();
+      });
+    }
     if (dom.pageRunnerClose) dom.pageRunnerClose.addEventListener('click', closePageRunner);
+
+    // 需求 2：组选择 / 组功能页清单里的「← 返回」
+    if (dom.pagesList) {
+      dom.pagesList.addEventListener('click', function (event) {
+        var back = event.target && event.target.closest ? event.target.closest('[data-pages-back]') : null;
+        if (!back) return;
+        var target = back.getAttribute('data-pages-back');
+        if (target === 'groups') {
+          showOrgClassPicker();
+          return;
+        }
+        state.pagesView = 'list';
+        state.orgClass = null;
+        renderPages(state.pages, state.pages.length ? '' : '当前账号没有可用的动态页面');
+      });
+    }
+
+    // 需求 3：交流面板的组下拉 + 「← 返回通知」
+    if (dom.chatGroup) dom.chatGroup.addEventListener('change', onChatGroupChange);
+    if (dom.chatBackBtn) {
+      dom.chatBackBtn.addEventListener('click', function () {
+        closeChatView();
+      });
+    }
   }
 
   // ============================================================
@@ -1842,13 +2554,21 @@
     dom.pageRunnerClose = $('creatorPageRunnerClose');
     dom.notifyGlobal = $('creatorNotifyGlobal');
     dom.notifyPersonal = $('creatorNotifyPersonal');
+    dom.notifyView = $('creatorNotifyView');
     dom.readAllBtn = $('creatorReadAllBtn');
+    dom.chatGroup = $('creatorChatGroup');
+    dom.chatPane = $('creatorChatPane');
+    dom.chatBody = $('creatorChatBody');
+    dom.chatBackBtn = $('creatorChatBackBtn');
+    dom.chatGroupName = $('creatorChatGroupName');
     dom.imageInput = $('creatorImageInput');
   }
 
   function init() {
     cacheDom();
     state.loggedIn = isLoggedIn();
+    // 草稿文件夹树的展开态（localStorage 里可能没有 / 可能是坏 JSON，读失败就当空）
+    state.expandedFolders = new Set(readExpandedFolders());
 
     bindTopbar();
     bindTree();
@@ -1867,7 +2587,9 @@
     loadStatus();
     loadTree(true);
     loadPages();
+    loadOrgClasses();      // 交流面板的组下拉 + 组织功能页的组清单共用这一份
     loadNotifications();
+    showChatView(false);    // 默认停在「全部组」= 通知视图
 
     ensureMarkedLoaded().then(function (ok) {
       if (ok) renderPreview();

@@ -15,20 +15,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="dns-prefetch" href="//back.gwl.net.cn">
     <title>个人主页 | GWL</title>
-    <link rel="stylesheet" href="./../css/core.css?v=20261115a">
-    <link rel="stylesheet" href="./../css/styles.css?v=20261115a">
-    <link rel="stylesheet" href="./../css/components.css?v=20261115a">
+    <link rel="stylesheet" href="./../css/core.css?v=20261115b">
+    <link rel="stylesheet" href="./../css/styles.css?v=20261115b">
+    <link rel="stylesheet" href="./../css/components.css?v=20261115b">
     <!-- 第三方工具页复用首页的 feature-grid / feature-tile 观感 -->
-    <link rel="stylesheet" href="./../css/feature-grid.css?v=20261115a">
-    <link rel="stylesheet" href="./dashboard.css?v=20261115a">
+    <link rel="stylesheet" href="./../css/feature-grid.css?v=20261115b">
+    <link rel="stylesheet" href="./../css/image-lightbox.css?v=20261115b">
+  <link rel="stylesheet" href="./dashboard.css?v=20261115b">
     <!--
       ⚠️ dashboard-profile.css 是「个人主页（#panel-home）」的唯一样式来源
       （profile-banner / profile-avatar-large / profile-cards / card / calendar-* / checkin-btn）。
       该文件此前**从未被任何 HTML 引用**（孤儿文件）→ 个人主页长期是无样式的裸 DOM。
       删除或重命名它之前，先确认 #panel-home 的结构是否仍在使用。
     -->
-    <link rel="stylesheet" href="./dashboard-profile.css?v=20261115a">
-    <link rel="stylesheet" href="./dashboard-admin.css?v=20261115a">
+    <link rel="stylesheet" href="./dashboard-profile.css?v=20261115b">
+    <link rel="stylesheet" href="./dashboard-admin.css?v=20261115b">
     <!-- ⭐ P2-8（2026-10-21 审查）：EasyMDE 的 CSS/JS 改为懒加载（dashboard.pdocs.js::ensureEasyMDELoaded） -->
     <link rel="icon" href="./../favicon.png" type="image/png">
 </head>
@@ -356,8 +357,9 @@
                                     <button class="pdocs-btn pdocs-btn--secondary" id="pdocsImportBtn" type="button">📥 导入</button>
                                     <div class="pdocs-dropdown__menu" id="pdocsImportMenu">
                                         <button class="pdocs-dropdown__item" id="pdocsImportMdBtn" type="button">📄 导入 .md 文件</button>
+                                        <button class="pdocs-dropdown__item" id="pdocsImportImagesBtn" type="button">🖼 导入 Markdown + 图片</button>
                                         <div class="pdocs-dropdown__divider"></div>
-                                        <div class="pdocs-dropdown__hint">将 Markdown 文档导入为私有文档，格式支持：.md / .markdown</div>
+                                        <div class="pdocs-dropdown__hint">将 Markdown 文档导入为私有文档，格式支持：.md / .markdown。<br>「+ 图片」会一次多选 Markdown 与本地图片，图片上传到站内后按文件名重写正文里的图片引用。</div>
                                     </div>
                                 </div>
                                 <!-- ⭐ 2026-10-18：批量编辑入口。点击后才进入多选模式，
@@ -371,6 +373,11 @@
                             </div>
                         </div>
                         <input type="file" id="pdocsImportFileInput" accept=".md,.markdown,text/markdown,text/plain" style="display:none;">
+                        <!-- ⭐ 2026-11-15（第三批）：导入 Markdown 时一并导入本地图片（多选）。
+                             accept 与后端白名单对齐：svg/jpg/jpeg/png/gif/tiff/raw/webp/pdf/apng。 -->
+                        <input type="file" id="pdocsImportImagesInput" multiple
+                               accept=".md,.markdown,.txt,.zip,.svg,.jpg,.jpeg,.png,.gif,.tif,.tiff,.raw,.webp,.pdf,.apng,image/*,text/markdown,application/zip"
+                               style="display:none;">
                         <div class="pdocs-explorer-grid" id="pdocsListContainer">
                             <p class="loading-text">加载中...</p>
                         </div>
@@ -589,6 +596,7 @@
                                 <a href="./../org/index.html">组织</a>
                                 <a href="./../discover/index.html">发现</a>
                                 <a href="./../register.html">注册</a>
+                                <a href="../creator/index.html">创作者</a>
                                 <a href="mailto:gfygo_@outlook.com">反馈邮箱</a>
                                 <a href="https://github.com/GFYGO/gfygo-site/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>
                             </div>
@@ -649,24 +657,26 @@
     </div>
 
     <!-- 共享脚本：普通 <script> 加载，暴露到 window -->
-    <script src="./../js/config.js?v=20261115a"></script>
-    <script src="./../js/sanitize.js?v=20261115a"></script>
-    <script src="./../js/utils.js?v=20261115a"></script>
-    <script src="./../js/toast.js?v=20261115a"></script>
-    <script src="./../js/theme.js?v=20261115a"></script>
-    <script src="./../js/modal.js?v=20261115a"></script>
+    <script src="./../js/config.js?v=20261115b"></script>
+    <script src="./../js/sanitize.js?v=20261115b"></script>
+    <script src="./../js/utils.js?v=20261115b"></script>
+    <script src="./../js/toast.js?v=20261115b"></script>
+    <script src="./../js/theme.js?v=20261115b"></script>
+    <script src="./../js/modal.js?v=20261115b"></script>
     <!-- Dashboard 模块：ES Module 加载 -->
-    <script type="module" src="./dashboard.permission.js?v=20261115a"></script>
-    <script type="module" src="./dashboard.auth.js?v=20261115a"></script>
-    <script type="module" src="./dashboard.checkin.js?v=20261115a"></script>
-    <script type="module" src="./dashboard.deletion.js?v=20261115a"></script>
-    <script type="module" src="./dashboard.toolview.js?v=20261115a"></script>
-    <script type="module" src="./dashboard.menu.js?v=20261115a"></script>
-    <script type="module" src="./dashboard.notifications.js?v=20261115a"></script>
-    <script type="module" src="./dashboard.workspace.js?v=20261115a"></script>
-    <script type="module" src="./dashboard.tools.js?v=20261115a"></script>
-    <script type="module" src="./dashboard.pdocs.js?v=20261115a"></script>
-    <script type="module" src="./dashboard.profile.js?v=20261115a"></script>
-    <script type="module" src="./dashboard.js?v=20261115a"></script>
+    <script src="./../js/avatar-menu.js?v=20261115b"></script>
+  <script src="./../js/image-lightbox.js?v=20261115b"></script>
+    <script type="module" src="./dashboard.permission.js?v=20261115b"></script>
+    <script type="module" src="./dashboard.auth.js?v=20261115b"></script>
+    <script type="module" src="./dashboard.checkin.js?v=20261115b"></script>
+    <script type="module" src="./dashboard.deletion.js?v=20261115b"></script>
+    <script type="module" src="./dashboard.toolview.js?v=20261115b"></script>
+    <script type="module" src="./dashboard.menu.js?v=20261115b"></script>
+    <script type="module" src="./dashboard.notifications.js?v=20261115b"></script>
+    <script type="module" src="./dashboard.workspace.js?v=20261115b"></script>
+    <script type="module" src="./dashboard.tools.js?v=20261115b"></script>
+    <script type="module" src="./dashboard.pdocs.js?v=20261115b"></script>
+    <script type="module" src="./dashboard.profile.js?v=20261115b"></script>
+    <script type="module" src="./dashboard.js?v=20261115b"></script>
 </body>
 </html>

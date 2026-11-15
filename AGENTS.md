@@ -10,7 +10,7 @@
 | 形态 | 手写 HTML / CSS / 原生 JS；**无框架、无构建、无 npm**；浏览器直接加载 |
 | 托管 | **GitHub Pages**（公开仓库 `GFYGO/gfygo-site`，CNAME = `gwl.net.cn`） |
 | 与后端 | **两个互不嵌套的独立仓库**；接口基址硬编码在 `js/config.js` → `https://back.gwl.net.cn` |
-| 发布面 | 主站 **11 页**（`index` / `login` / `register` / `document` / `u` / `forgot` / `reset` / `404` ＋ ⭐ `privacy` / `terms` / `about`）＋ `user/dashboard.html` ＋ `org/index.html` ＋ `discover/` 11 页 ＋ `model/*` 6 页 ＋ ⭐ `create-tool.html` ＋ ⭐ `creator/index.html`（2026-11-15 创作者工作台）= **32 个 HTML**（⚠️ `model/test.*` **仍会发布**，见 `file-wiki/09` §2） |
+| 发布面 | 主站 **11 页**（`index` / `login` / `register` / `document` / `u` / `forgot` / `reset` / `404` ＋ ⭐ `privacy` / `terms` / `about`）＋ `user/dashboard.html` ＋ `org/index.html` ＋ `discover/` 11 页 ＋ `model/*` 6 页 ＋ ⭐ `create-tool.html` ＋ ⭐ `creator/index.html`（2026-11-15 创作者工作台）= **33 个 HTML**（⚠️ `model/test.*` **仍会发布**，见 `file-wiki/09` §2） |
 | 加载约定 | 共享层普通 `<script>`（非 ES module）；dashboard 用 ES module 装配；动态页面脚本由**后端下发**（Blob 注入，不在本仓库） |
 | 交付 | push `origin main` → GitHub Actions 自动发 Pages；⚠️ 改前端资源**必须提升 `?v=` 版本号**（2026-10-25 起全站统一批次号，用 `tools/bump-versions.mjs`） |
 
@@ -18,7 +18,7 @@
 
 | 文档 | 是什么 | 何时读（建议节） |
 |---|---|---|
-| `css/README.md`（本仓库） | 18 个 CSS 的加载关系（已按实际 `<link>` 重写） | 改样式 / 查「哪个 CSS 被谁加载」 |
+| `css/README.md`（本仓库） | 20 个 CSS 的加载关系（已按实际 `<link>` 重写） | 改样式 / 查「哪个 CSS 被谁加载」 |
 | `../file-wiki/09-frontend-overview.md` | ⭐ 前端全局：发布面 / 加载顺序 / CSP / 版本号（统一批次号） | **碰前端任何东西前先读**；§2 发布面、§5 安全、§6 版本号 |
 | `../file-wiki/12-frontend-dashboard.md` | ⭐ 仪表盘（全前端最复杂） | 改 `user/dashboard.*` 时 |
 | `../file-wiki/13-frontend-org.md` | 组织页 + `permission-picker` | 改 `org/` 时 |
@@ -52,9 +52,12 @@
    `window.showToast`（定义在 `js/`；被全站加载，改它们要提升**所有**相关页面的版本号）。
 5. **渲染转义**：一律 `escapeHtml` 或 `textContent`；不要把后端字符串直接塞 `innerHTML`。
 6. **token 在 `localStorage`**（`AuthGuard` 管理）；登录态判断与 401 跳转走共享层，不要各页重复实现。
-7. ⭐ **右上角用户菜单（2026-11-15）**：`js/index.js::renderAuthStatus` 渲染头像下拉面板（资料 / 快捷入口 / 通知 / 主题 / 退出），
-   样式在 `css/core.css`。改它时**必须保留**既有契约：`.user-info` / `img.user-avatar` / `a.username` / `#logoutBtn`、
+7. ⭐ **右上角用户菜单（2026-11-15）**：面板实现**只有一份** —— `js/avatar-menu.js`（`window.AvatarMenu = { build, bind, open, close, toggle, teardown, isOpen }`），
+   样式在 `css/core.css` 的 `.user-menu*`。两个消费者：主站 `js/index.js::renderAuthStatus`、仪表盘 `user/dashboard.auth.js::renderTopNavAuth`；
+   **页面想用面板就必须先加载 `js/avatar-menu.js`（普通 `<script>`，必须排在 `js/index.js` / 仪表盘 module 之前）**。
+   改它时**必须保留**既有契约：`.user-info` / `img.user-avatar` / `a.username` / `#logoutBtn`、
    隐藏导航 login/register、`renderPermissionButtons`、`__currentUserPermissionLevel`；面板数据只用 textContent。
+   回归：`node tools/test-avatar-menu.mjs`（两消费者 + 缺模块降级）。
 8. ⭐ **CSP 分工**：`document.html` 不需要 `blob:`；`skill/index.html` 与 `creator/index.html` 需要 `script-src blob:`
    （动态页面脚本用 Blob 注入）。统一 CSP 时不要一刀切去掉 `blob:`。
 9. ⚠️ **`model/test.html` / `model/test.js` 仍会发布**（workflow 没有排除；`model/index.html` 有纯点击可达的入口）
@@ -64,9 +67,9 @@
 
 ```powershell
 cd ..   # 回到工作区根 D:\HP(system)\Documents\GitHub\GFYGO
-node tools/test-dashboard-pages.mjs     # 149 项：仪表盘加载契约 + 动态页脚本编译 + 设置页 API Key + 全站静态契约（dns-prefetch / 通知 live region / 死 CSS）
+node tools/test-dashboard-pages.mjs     # 150 项：仪表盘加载契约 + 动态页脚本编译 + 设置页 API Key + 全站静态契约（dns-prefetch / 通知 live region / 死 CSS）
 node tools/test-dashboard-home.mjs      # 62 项：从 dashboard.html 解析真实 DOM 全流程装配
-node tools/test-org-page.mjs            # 146 项：组织页（含「＋ 加入」卡片 / join-info 自助加入 / 页脚 4 列契约（快速链接组 8 = 6 快捷 + 2 反馈 / 关于 3 / 整体右对齐）/ 切换组织 disclosure 与 Esc 焦点）
+node tools/test-org-page.mjs            # 146 项：组织页（含「＋ 加入」卡片 / join-info 自助加入 / 页脚 4 列契约（快速链接组 9 = 7 快捷 + 2 反馈，含创作者 / 关于 3 / 整体右对齐）/ 切换组织 disclosure 与 Esc 焦点）
 node tools/test-superadmin-page.mjs     # 23 项：超管页（动作名与页面后端 ROUTES 对齐）
 node tools/test-permission-switch.mjs   # 55 项：权限视角切换
 node tools/test-turnstile-auth.mjs      # 49 项：Turnstile 认证链
@@ -75,28 +78,30 @@ node tools/test-user-profile-page.mjs   # 22 项：u.html 公开主页
 node tools/test-pdocs-bulk.mjs          # 59 项：个人文档批量 UI 契约 + P2-8 拆模块（懒加载 / 模块图冒烟）
 node tools/test-dashboard-workspace.mjs # 70 项：工作台瀑布流 / 第三方工具嵌入 / 通知已读 / 超管提醒
 node tools/test-document-folders.mjs    # 21 项：文件夹树展开持久化 + 组根文件夹展示名
-node tools/test-tool-create.mjs        # 34 项：创作工具页契约 / 页脚替换 / 安全底线
+node tools/test-tool-create.mjs        # 38 项：创作工具页契约 / 页脚替换 / 安全底线
 node tools/test-dashboard-tools.mjs   # 30 项：左栏工具项 + tool_ 分支 + ToolView
 node tools/test-tool-blocks.mjs       # 19 项：块渲染器 DOM 契约
 node tools/test-sanitize-tool.mjs     # 20 项：工具 HTML/CSS 净化策略
+node tools/test-avatar-menu.mjs       # 25 项：头像下拉面板（主站 + 仪表盘两个消费者 + 缺模块降级）
+node tools/test-creator-page.mjs      # 113 项：创作者工作台（四面板 / org-func / 交流组下拉 / 草稿树 / 等级位上限）
 ```
 
 ⚠️ 本机**没有浏览器自动化**（沙箱起不了无头浏览器）——视觉类问题只能人工在浏览器验证；
-`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，15 套合计 **1031 项**）。
+`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，**17 套**全绿；2026-11-15 第二批新增 `test-avatar-menu` 25 项 / `test-creator-page` 113 项）。
 
 ⭐ **缓存版本号统一用脚本维护**（2026-10-25 起）：`node tools/bump-versions.mjs --list` 看现状、
 `--verify` 查漂移、`20261101a --all` 一次全站统一、`<ver> js/modal.js` 只升某个文件。
-当前约定：**全站同一批次版本号**（⭐ 2026-11-15 统一为 **`20261115a`**，创作者页面 + 头像下拉面板那一批；`user/dashboard.menu.js` 的 `BUILD_VERSION` 必须同步），不再逐文件各自为政。
+当前约定：**全站同一批次版本号**（⭐ 2026-11-15 第一、二批为 `20261115a`，第三批升到 **`20261115b`**：头像模块化 / 创作者四项 / 审核台 / 导入图片 / 图片灯箱；`user/dashboard.menu.js` 的 `BUILD_VERSION` 必须同步），不再逐文件各自为政。
 
 ## 5. 目录速览（细节按需查 `file-wiki` 对应篇）
 
 | 目录 | 一句话 | 导航篇 |
 |---|---|---|
-| 根 `*.html` + `js/` | 主站 11 页（含隐私政策 / 服务条款 / 关于我们）+ 18 个共享/页面脚本（config / sanitize / theme / toast / modal / utils / turnstile-widget / index / login / register / forgot / reset / document / user-profile / create-tool / discover / discover-own-site / ⭐ discover-tool） | `11`、`10` |
+| 根 `*.html` + `js/` | 主站 11 页（含隐私政策 / 服务条款 / 关于我们）+ 20 个共享/页面脚本（config / sanitize / theme / toast / modal / utils / turnstile-widget / ⭐ avatar-menu / ⭐ image-lightbox / index / login / register / forgot / reset / document / user-profile / create-tool / discover / discover-own-site / discover-tool） | `11`、`10` |
 | `user/` | 仪表盘：`dashboard.html` + **15 个** `user/*.js`（14 个 `dashboard.*`，其中 `pdocs.editor` / `pdocs.bulk` 由 `dashboard.pdocs.js` 按视图动态 import + `permission-picker.js`）+ 6 个 CSS | `12` |
 | `org/` | 组织页：`index.html` / `org.css` / `org.js`（侧栏「我加入的组」标题旁有 ⭐ **「＋ 加入」** 卡片：public 自助加入 / 邀请码 / 单次链接 / 我的申请 / 我收到的邀请） | `13` ＋ `site-back/memory/05-permission.md` §5.6 |
 | `discover/` | 发现页 11 个普通静态页（2026-10-02 新增） | `11` §7 |
-| `css/` | 10 个 `css/*.css`（含 `legal.css`）+ `README.md`（加载关系权威；全站 CSS 共 19 个，2026-11-15 新增 `creator/creator.css`） | `14` |
+| `css/` | 11 个 `css/*.css`（含 `legal.css` / `image-lightbox.css`）+ `README.md`（加载关系权威；全站 CSS 共 20 个，2026-11-15 新增 `creator/creator.css` 与 `image-lightbox.css`） | `14` |
 | `creator/` | ⭐ **创作者工作台**（2026-11-15）：`index.html` / `creator.css` / `creator.js`；四面板（文档树 / 编辑器+预览 / 动态页面 / 交流），受 `*.create` 节点门控 | 本文 §5、`../doc/网站功能/2026-11-15-创作者与有状态JWT.md` |
 | `model/` | Model 原型页（⚠️ `test.*` 仍发布） | `09` §2 |
 | `.github/workflows/static.yml` | Pages 发布 workflow（改排除规则前先读 `09` §2） | `09` |
