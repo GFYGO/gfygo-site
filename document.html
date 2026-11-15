@@ -7,14 +7,14 @@
   <link rel="dns-prefetch" href="//back.gwl.net.cn">
   <meta name="description" content="GWL 文档中心：浏览公共文档、按标签与文件夹筛选、查看修订历史并导出 Markdown。">
   <title>文档 | GWL</title>
-  <link rel="stylesheet" href="./css/core.css?v=20261101b">
-  <link rel="stylesheet" href="./css/styles.css?v=20261101b">
-  <link rel="stylesheet" href="./css/document.css?v=20261101b">
+  <link rel="stylesheet" href="./css/core.css?v=20261115a">
+  <link rel="stylesheet" href="./css/styles.css?v=20261115a">
+  <link rel="stylesheet" href="./css/document.css?v=20261115a">
   <!-- ⭐ P1-2（2026-10-15 审查）：本页 .feature-grid / .feature-tile 的唯一来源是
        feature-grid.css（首页也用它），此前本页没加载 → 主页「文档列表」卡片网格
        与两个外链入口都是裸链接。见 css/README.md 的加载关系表。 -->
-  <link rel="stylesheet" href="./css/feature-grid.css?v=20261101b">
-  <link rel="stylesheet" href="./css/components.css?v=20261101b">
+  <link rel="stylesheet" href="./css/feature-grid.css?v=20261115a">
+  <link rel="stylesheet" href="./css/components.css?v=20261115a">
   <link rel="icon" href="./favicon.png" type="image/png">
 </head>
 <body>
@@ -27,6 +27,7 @@
       <a href="./org/index.html">组织</a>
       <a href="./discover/index.html">发现</a>
       <a href="./skill/index.html">技能</a>
+      <a href="./creator/index.html">创作者</a>
       <a href="./login.html">登录</a>
       <a href="./register.html">注册</a>
     </nav>
@@ -102,26 +103,10 @@
           <p class="home-section__desc">这里是 GWL Works Lab 的文档中心，按分类浏览或使用侧边栏搜索。</p>
         </section>
 
-        <!-- 外链入口（保留原有"学习资料"的 B 站视频链接） -->
-        <section class="home-section home-section--alt">
-          <h2 class="home-section__title">🎬 学习资料</h2>
-          <div class="feature-grid" id="extLinksGrid">
-            <a class="feature-tile" href="https://www.bilibili.com/video/BV1g34y1j7e5/" target="_blank" rel="noopener noreferrer">
-              <div class="feature-tile__img">📺</div>
-              <div class="feature-tile__content">
-                <div class="feature-tile__title">学习视频</div>
-                <div class="feature-tile__desc">查看完整的学习视频与讲解</div>
-              </div>
-            </a>
-            <a class="feature-tile" href="#/doc/welcome-gwl">
-              <div class="feature-tile__img">👋</div>
-              <div class="feature-tile__content">
-                <div class="feature-tile__title">新手指引</div>
-                <div class="feature-tile__desc">5 分钟了解如何使用本文档系统</div>
-              </div>
-            </a>
-          </div>
-        </section>
+        <!-- ⭐ 2026-11-15：整块「🎬 学习资料」（原 `#viewHome > section.home-section.home-section--alt`）
+             已按所有者要求**删除** —— 首页不再堆外链入口，文档列表直接跟在标题下。
+             ⚠️ 若将来要恢复：这里原来的两个入口是 B 站视频（BV1g34y1j7e5）与「新手指引」
+             （#/doc/welcome-gwl），且依赖 css/feature-grid.css 的 .feature-grid 样式。 -->
 
         <!-- 文档列表：卡片由 document.js 根据后端 list 渲染 -->
         <section class="home-section">
@@ -293,12 +278,12 @@
 
   <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
-  <script src="./js/config.js?v=20261101b"></script>
-  <script src="./js/sanitize.js?v=20261101b"></script>
-  <script src="./js/theme.js?v=20261101b"></script>
-  <script src="./js/toast.js?v=20261101b"></script>
-  <script src="./js/modal.js?v=20261101b"></script>
-  <script src="./js/index.js?v=20261101b"></script>
-  <script src="./js/document.js?v=20261101b"></script>
+  <script src="./js/config.js?v=20261115a"></script>
+  <script src="./js/sanitize.js?v=20261115a"></script>
+  <script src="./js/theme.js?v=20261115a"></script>
+  <script src="./js/toast.js?v=20261115a"></script>
+  <script src="./js/modal.js?v=20261115a"></script>
+  <script src="./js/index.js?v=20261115a"></script>
+  <script src="./js/document.js?v=20261115a"></script>
 </body>
 </html>

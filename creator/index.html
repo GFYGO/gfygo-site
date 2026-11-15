@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <!--
+    CSP 与 document.html / skill/index.html 同源同口径，**唯一的额外项是 blob:**
+    （script-src / media-src）：本页右上的「动态页面」面板要把服务端下发的 js 用
+    Blob URL + <script src=blob:> 执行（与 skill/skill.js 同一套做法）。
+    ⚠️ 仍然**不放行** 'unsafe-eval'：动态页面脚本由服务端写，本站页面代码里不写 eval。
+  -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; media-src 'self' blob:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="dns-prefetch" href="//back.gwl.net.cn">
+  <meta name="description" content="GWL 创作者工作台：在一块屏幕上管理公共文档与私有草稿——文档树、Markdown 编辑与实时预览、修订历史、图片上传、动态页面与站内交流。">
+  <title>创作者工作台 | GWL</title>
+  <link rel="stylesheet" href="../css/core.css?v=20261115a">
+  <link rel="stylesheet" href="../css/styles.css?v=20261115a">
+  <link rel="stylesheet" href="../css/components.css?v=20261115a">
+  <link rel="stylesheet" href="./creator.css?v=20261115a">
+  <link rel="icon" href="../favicon.png?v=20261115a" type="image/png">
+</head>
+<body>
+  <!--
+    创作者工作台（多面板）：
+      · 顶部条：权限状态 + 保存 / 提交 / 预览 / 面板开关 / 权限规则；
+      · 左栏文档树：公共文档（投稿目标）/ 我的草稿 / 最近修订 + 搜索 + 加载更多；
+      · 中栏编辑器：元信息 + Markdown 文本域 + 实时预览（marked@12 + sanitizeHtml）+ 修订历史抽屉；
+      · 右上动态页面面板：GET /api/v0/user/pages 列表 → 打开时注入 html/css/js；
+      · 右下交流面板：GET /api/v0/notify/global + /personal，POST /read-all 一键已读。
+
+    ⚠️ 本页不写内联脚本、不写内联 on*=（CSP 会拦）；所有事件在 creator.js 里绑定。
+    ⚠️ 后端字符串一律走 textContent / escapeHtml 落 DOM（见 creator.js 顶部说明）。
+    ⚠️ 资源引用刻意不带缓存版本参数：批次号由发布流程统一处理（lead 统一 bump）。
+  -->
+  <header class="header">
+    <div class="header__logo">GWL Works Lab</div>
+    <button class="header__toggle" id="menuToggle" aria-label="切换菜单">☰</button>
+    <nav class="header__nav" id="headerNav">
+      <a href="../index.html">首页</a>
+      <a href="../document.html">文档</a>
+      <a href="../org/index.html">组织</a>
+      <a href="../discover/index.html">发现</a>
+      <a href="../skill/index.html">技能</a>
+      <a href="./index.html" class="is-active" aria-current="page">创作者</a>
+      <a href="../login.html">登录</a>
+      <a href="../register.html">注册</a>
+    </nav>
+    <div class="header__actions">
+      <div id="auth-container"></div>
+      <div class="permission-buttons" id="permissionButtons"></div>
+    </div>
+  </header>
+
+  <div id="global-notifications-container" class="notification-toast" role="log" aria-label="站点通知" aria-live="polite"></div>
+
+  <main class="creator-app">
+    <!-- 顶部条：权限状态 + 全局动作 -->
+    <div class="creator-topbar" role="toolbar" aria-label="创作工具栏">
+      <div class="creator-topbar__left">
+        <h1 class="creator-topbar__title">创作者工作台</h1>
+        <p class="creator-status" id="creatorStatus" role="status" aria-live="polite">正在读取创作权限…</p>
+      </div>
+      <div class="creator-topbar__actions">
+        <button type="button" class="creator-btn" id="creatorNewBtn">＋ 新建草稿</button>
+        <button type="button" class="creator-btn creator-btn--primary" id="creatorSaveBtn">💾 保存</button>
+        <button type="button" class="creator-btn" id="creatorSubmitBtn">📤 提交公共文档</button>
+        <button type="button" class="creator-btn" id="creatorPermsBtn">🔐 权限规则</button>
+        <button type="button" class="creator-btn" id="creatorPreviewBtn" aria-pressed="true" title="显示 / 隐藏实时预览">👁 预览</button>
+        <button type="button" class="creator-btn" id="creatorPanelsBtn" aria-pressed="true" title="显示 / 隐藏右侧面板">🧩 面板</button>
+        <button type="button" class="creator-btn" id="creatorRevisionsBtn">🕘 修订历史</button>
+      </div>
+    </div>
+
+    <!-- 门控提示条：只读模式 / 未登录 / 降级，由 creator.js 填充（textContent + a） -->
+    <div class="creator-banner" id="creatorBanner" role="status" hidden></div>
+
+    <!-- 三栏工作区：左文档树 · 中编辑器 · 右面板；两条分隔条可拖拽 -->
+    <div class="creator-workspace" id="creatorWorkspace">
+      <aside class="creator-tree" id="creatorTree" aria-label="文档树">
+        <div class="creator-tree__head">
+          <span class="creator-tree__title">文档树</span>
+          <button type="button" class="creator-icon-btn" id="creatorRefreshBtn" aria-label="刷新文档树" title="刷新">⟳</button>
+        </div>
+        <div class="creator-tree__tabs" id="creatorTreeTabs" role="tablist" aria-label="文档来源">
+          <button type="button" class="creator-tab is-active" role="tab" aria-selected="true" data-tree-tab="public">公共文档</button>
+          <button type="button" class="creator-tab" role="tab" aria-selected="false" data-tree-tab="private">我的草稿</button>
+          <button type="button" class="creator-tab" role="tab" aria-selected="false" data-tree-tab="recent">最近修订</button>
+        </div>
+        <div class="creator-tree__search">
+          <input type="search" id="creatorSearchInput" class="creator-input creator-input--sm" placeholder="🔍 搜索标题（全部可见文档）" aria-label="搜索文档标题" autocomplete="off">
+        </div>
+        <div class="creator-tree__list" id="creatorTreeList" role="list" aria-busy="false">
+          <p class="creator-empty">正在加载文档…</p>
+        </div>
+        <div class="creator-tree__more" id="creatorLoadMoreWrap" hidden>
+          <button type="button" class="creator-btn creator-btn--ghost" id="creatorLoadMoreBtn">加载更多</button>
+        </div>
+      </aside>
+
+      <div class="creator-splitter" id="creatorSplitLeft" role="separator" aria-orientation="vertical" aria-label="调整文档树宽度" aria-valuemin="200" aria-valuemax="460" aria-valuenow="280" tabindex="0"></div>
+
+      <section class="creator-editor" id="creatorEditor" aria-label="编辑器">
+        <div class="creator-meta">
+          <label class="creator-field creator-field--grow" for="creatorTitle">
+            <span>标题</span>
+            <input type="text" id="creatorTitle" class="creator-input" maxlength="200" placeholder="给文档起一个标题" autocomplete="off">
+          </label>
+          <label class="creator-field" for="creatorIcon">
+            <span>图标</span>
+            <input type="text" id="creatorIcon" class="creator-input creator-input--icon" maxlength="8" placeholder="📄" autocomplete="off">
+          </label>
+          <label class="creator-field creator-field--grow" for="creatorSummary">
+            <span>摘要</span>
+            <input type="text" id="creatorSummary" class="creator-input" maxlength="500" placeholder="一句话说明这篇文档（可选）" autocomplete="off">
+          </label>
+          <label class="creator-field" for="creatorVisibility">
+            <span>可见性</span>
+            <select id="creatorVisibility" class="creator-input">
+              <option value="private">🔒 私有草稿</option>
+              <option value="public">🌐 公共文档</option>
+              <!-- 组文档不在本页新建：从树里打开组文档时会选中这一项并整体只读 -->
+              <option value="group" disabled>👥 组文档（仅查看）</option>
+            </select>
+          </label>
+          <label class="creator-field" for="creatorFolder">
+            <span>文件夹 ID</span>
+            <input type="number" id="creatorFolder" class="creator-input creator-input--num" min="0" step="1" value="0">
+          </label>
+          <div class="creator-field creator-field--bits">
+            <span>可见等级</span>
+            <div class="creator-bits" id="creatorBits">
+              <label><input type="checkbox" data-bit="1" checked>Lv1</label>
+              <label><input type="checkbox" data-bit="2">Lv2</label>
+              <label><input type="checkbox" data-bit="3">Lv3</label>
+              <label><input type="checkbox" data-bit="4">Lv4</label>
+              <label><input type="checkbox" data-bit="5">Lv5</label>
+              <label class="creator-bits__fixed" title="第 6 位是超管兜底位，恒为 1（不可改）"><input type="checkbox" checked disabled>超管</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="creator-toolbar" role="toolbar" aria-label="Markdown 工具栏">
+          <button type="button" class="creator-tool" data-md="h2" title="插入二级标题">H2</button>
+          <button type="button" class="creator-tool" data-md="bold" title="加粗选区"><strong>B</strong></button>
+          <button type="button" class="creator-tool" data-md="list" title="无序列表">≡</button>
+          <button type="button" class="creator-tool" data-md="code" title="代码块 / 行内代码">&lt;/&gt;</button>
+          <button type="button" class="creator-tool" data-md="image" title="插入图片（上传到当前文档）">🖼 图片</button>
+          <span class="creator-toolbar__hint" id="creatorEditorHint">未打开文档</span>
+        </div>
+
+        <div class="creator-panes" id="creatorPanes">
+          <textarea id="creatorContent" class="creator-content" spellcheck="false" aria-label="Markdown 正文" placeholder="在这里写 Markdown…（支持 # 标题、**加粗**、- 列表、代码块与图片）"></textarea>
+          <div class="creator-preview" id="creatorPreviewWrap" aria-label="实时预览">
+            <p class="creator-preview__note" id="creatorPreviewNote" hidden></p>
+            <article class="creator-preview__body" id="creatorPreview">
+              <p class="creator-empty">左侧输入的 Markdown 会实时渲染在这里。</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <div class="creator-splitter" id="creatorSplitRight" role="separator" aria-orientation="vertical" aria-label="调整侧边面板宽度" aria-valuemin="240" aria-valuemax="520" aria-valuenow="340" tabindex="0"></div>
+
+      <aside class="creator-dock" id="creatorDock" aria-label="侧边面板">
+        <!-- 右上：动态页面（dashboard 端页面 + 已获取技能） -->
+        <section class="creator-panel" aria-label="动态页面">
+          <div class="creator-panel__head">
+            <h2 class="creator-panel__title">🧩 动态页面</h2>
+            <button type="button" class="creator-icon-btn" id="creatorPagesRefresh" aria-label="刷新动态页面列表" title="刷新">⟳</button>
+          </div>
+          <div class="creator-panel__body">
+            <div class="creator-pages" id="creatorPagesList" role="list">
+              <p class="creator-empty">正在加载…</p>
+            </div>
+            <div class="creator-runner" id="creatorPageRunner" hidden>
+              <div class="creator-runner__bar">
+                <strong class="creator-runner__title" id="creatorPageRunnerTitle">页面</strong>
+                <button type="button" class="creator-icon-btn" id="creatorPageRunnerClose" aria-label="收起动态页面">✕</button>
+              </div>
+              <div class="creator-runner__body" id="creatorPageRunnerBody"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 右下：交流（公开通知 + 我的通知） -->
+        <section class="creator-panel" aria-label="交流">
+          <div class="creator-panel__head">
+            <h2 class="creator-panel__title">💬 交流</h2>
+            <button type="button" class="creator-btn creator-btn--ghost creator-btn--sm" id="creatorReadAllBtn">全部已读</button>
+          </div>
+          <div class="creator-panel__body">
+            <h3 class="creator-notify__sub">公开通知</h3>
+            <div class="creator-notify" id="creatorNotifyGlobal"><p class="creator-empty">正在加载…</p></div>
+            <h3 class="creator-notify__sub">我的通知</h3>
+            <div class="creator-notify" id="creatorNotifyPersonal"><p class="creator-empty">登录后可见</p></div>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <!-- 修订历史抽屉（点开按钮才拉取，避免每次开文档都多两次请求） -->
+  <div class="creator-drawer" id="creatorRevisionsDrawer" hidden>
+    <div class="creator-drawer__overlay" data-drawer-close="revisions"></div>
+    <div class="creator-drawer__panel" role="dialog" aria-modal="true" aria-labelledby="creatorRevisionsTitle">
+      <div class="creator-drawer__head">
+        <h2 class="creator-drawer__title" id="creatorRevisionsTitle">🕘 修订历史</h2>
+        <button type="button" class="creator-icon-btn" data-drawer-close="revisions" aria-label="关闭修订历史">✕</button>
+      </div>
+      <p class="creator-drawer__tip">「查看」只把那一版正文渲染到预览区；「恢复」会新增一条修订（可逆）。</p>
+      <ol class="creator-revs" id="creatorRevisionsList"></ol>
+      <p class="creator-empty" id="creatorRevisionsEmpty" hidden>这篇文档还没有修订记录。</p>
+    </div>
+  </div>
+
+  <!-- 权限规则抽屉（每行一条规则串：<对象id>.<级别>.<类别>.<权限>.<状态>） -->
+  <div class="creator-drawer" id="creatorPermsDrawer" hidden>
+    <div class="creator-drawer__overlay" data-drawer-close="perms"></div>
+    <div class="creator-drawer__panel" role="dialog" aria-modal="true" aria-labelledby="creatorPermsTitle">
+      <div class="creator-drawer__head">
+        <h2 class="creator-drawer__title" id="creatorPermsTitle">🔐 内容权限规则</h2>
+        <button type="button" class="creator-icon-btn" data-drawer-close="perms" aria-label="关闭权限规则">✕</button>
+      </div>
+      <p class="creator-drawer__tip">每行一条：&lt;对象id&gt;.&lt;级别&gt;.&lt;类别&gt;.&lt;权限&gt;.&lt;状态&gt;，字段可用 *。保存 = 全量替换。</p>
+      <textarea id="creatorPermsInput" class="creator-perms-input" rows="8" spellcheck="false" aria-label="权限规则，每行一条" placeholder="42.*.*.*.deny&#10;*.*.doc.public.view.allow"></textarea>
+      <div class="creator-drawer__foot">
+        <button type="button" class="creator-btn creator-btn--ghost" data-drawer-close="perms">取消</button>
+        <button type="button" class="creator-btn creator-btn--primary" id="creatorPermsSave">保存规则</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 图片选择（accept 覆盖后端支持的格式；canvas 压不动的格式见 creator.js） -->
+  <input type="file" id="creatorImageInput" hidden accept=".svg,.jpg,.jpeg,.png,.gif,.tif,.tiff,.raw,.webp,.pdf,.apng,image/*">
+
+  <footer class="footer">
+    <div class="footer__container">
+      <div class="footer__top">
+        <div class="footer__brand">
+          <h3 class="footer__logo">GWL Works Lab</h3>
+          <p class="footer__slogan">探索学习的无限可能</p>
+        </div>
+        <div class="footer__links">
+          <div class="footer__links-group footer__links-group--quick">
+            <h4>快速链接</h4>
+            <a href="../index.html">首页</a>
+            <a href="../document.html">文档</a>
+            <a href="../create-tool.html">创作工具</a>
+            <a href="../org/index.html">组织</a>
+            <a href="../discover/index.html">发现</a>
+            <a href="../skill/index.html">技能</a>
+            <a href="mailto:gfygo_@outlook.com">反馈邮箱</a>
+            <a href="https://github.com/GFYGO/gfygo-site/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>
+          </div>
+          <div class="footer__links-group">
+            <h4>关于</h4>
+            <a href="/about.html">关于我们</a>
+            <a href="/privacy.html">隐私政策</a>
+            <a href="/terms.html">服务条款</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer__bottom">
+        <p>&copy; 2026 GFYGO. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
+
+  <!-- 脚本顺序固定：config → utils → sanitize → theme → toast → modal → index → 本页 -->
+  <script src="../js/config.js?v=20261115a"></script>
+  <script src="../js/utils.js?v=20261115a"></script>
+  <script src="../js/sanitize.js?v=20261115a"></script>
+  <script src="../js/theme.js?v=20261115a"></script>
+  <script src="../js/toast.js?v=20261115a"></script>
+  <script src="../js/modal.js?v=20261115a"></script>
+  <script src="../js/index.js?v=20261115a"></script>
+  <script src="./creator.js?v=20261115a"></script>
+</body>
+</html>

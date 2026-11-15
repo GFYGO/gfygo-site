@@ -194,6 +194,16 @@
   background: transparent;
 }
 
+/* 「Lv0 / 免登录」：唯一一种未登录也能打开的技能。
+   用虚线边框 + 加粗把它和「已获取」区分开（两者都是主色描边）。 */
+.skill-badge--open {
+  border-style: dashed;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: transparent;
+  font-weight: 600;
+}
+
 .skill-card__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
 
 .skill-btn {
@@ -215,6 +225,18 @@
   border-color: var(--color-border);
 }
 .skill-btn--ghost:hover { background: var(--color-bg-secondary); border-color: var(--color-primary); }
+
+/* 删除（仅超管）：危险动作用描边红，hover 才填实 —— 不抢「打开」的视觉权重 */
+.skill-btn--danger {
+  background: transparent;
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+.skill-btn--danger:hover {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: #fff;
+}
 
 /* ---------- 空态 ---------- */
 .skill-empty {

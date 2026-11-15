@@ -22,6 +22,7 @@
   同时提供 `login.html` 上「忘记密码？」链接的 `.login-forgot-link`
 - **`css/register.css`** — 注册页专属样式
 - **`org/org.css`** — 组织页（`org/index.html`）唯一样式来源
+- **`creator/creator.css`** — ⭐ 创作者工作台（`creator/index.html`，2026-11-15 新增）：四面板布局 / 可拖拽分隔条 / 编辑器与预览 / 修订抽屉 / 窄屏堆叠，全部走 `core.css` 的设计令牌
 - **`model/styles.css`** — Model 原型页面专属样式（`profile-layout`）⚠️ 全仓**无静态 `<link>`、也无脚本注入**（见文末证据）
 
 ## Dashboard 文件（都在 `user/` 目录下）
@@ -48,6 +49,8 @@ register.html         → css/core.css + css/styles.css + css/login.css + css/re
 forgot.html           → css/core.css + css/styles.css + css/login.css + css/forgot.css + css/components.css
 reset.html            → css/core.css + css/styles.css + css/login.css + css/forgot.css + css/components.css
 document.html         → css/core.css + css/styles.css + css/document.css + css/feature-grid.css + css/components.css
+creator/index.html    → css/core.css + css/styles.css + css/components.css + creator/creator.css
+skill/index.html      → css/core.css + css/styles.css + css/components.css + skill/skill.css
 404.html              → css/core.css + css/styles.css + css/components.css
 user/dashboard.html   → css/core.css + css/styles.css + css/components.css + css/feature-grid.css
                         + user/dashboard.css + user/dashboard-profile.css + user/dashboard-admin.css
@@ -97,6 +100,8 @@ model/debug.html      → 无外部 CSS 依赖，样式全部内联在 <style> �
 | `css/` | `core.css`、`styles.css`、`components.css`、`feature-grid.css`、`document.css`、`login.css`、`forgot.css`、`register.css` | 8 |
 | `user/` | `dashboard.css`、`dashboard-admin.css`、`dashboard-perms.css`、`dashboard-profile.css`、`dashboard-workspace.css`、`permission-picker.css` | 6 |
 | `org/` | `org.css` | 1 |
+| `creator/` | `creator.css`（2026-11-15 新增） | 1 |
+| `skill/` | `skill.css` | 1 |
 | `model/` | `styles.css` | 1 |
 
 ## 复核命令

@@ -206,3 +206,272 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 a { text-decoration: none; color: inherit; transition: color 0.2s ease; }
+
+/* =========================================
+   ⭐ 2026-11-15：右上角用户菜单（头像下拉面板）
+   =========================================
+   为什么放在 core.css：面板由 js/index.js::renderAuthStatus 生成、全站顶栏都会用到，
+   而 core.css 是唯一「所有页面必加载」的样式表（styles.css / 页面级 CSS 都按页加载），
+   放在这里才能保证「有顶栏就有面板」，也不会被页面级 CSS 的加载顺序影响。
+
+   定位约定：桌面端以 auth-container 为面板的定位根（position: relative），
+   面板 position: absolute + top: 100% —— 一定是「贴着头像向下展开」，
+   不用 JS 算坐标，窗口缩放 / 滚动都自动跟随。
+   ⚠️ 窄屏（≤768px）例外：那时 auth-container 并不在视口右缘，以它为基准会从左溢出，
+      所以在媒体查询里把定位根换成 header（见文件末尾那段），保证左右都不出视口。
+   ========================================= */
+
+#auth-container {
+  position: relative;
+}
+
+.user-menu-trigger {
+  cursor: pointer;
+}
+
+.user-avatar.user-menu-trigger[aria-expanded="true"] {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-bg-hover);
+}
+
+.username.user-menu-trigger[aria-expanded="true"] {
+  color: var(--color-primary);
+}
+
+.user-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  /* 高于 header 的 100 与移动端折叠导航的 99，避免面板被导航叠住 */
+  z-index: 120;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - var(--header-height) - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+  text-align: left;
+  background: var(--color-bg-white);
+  color: var(--color-text-main);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.user-menu--open {
+  display: block;
+}
+
+/* ---- ① 资料区 ---- */
+.user-menu__profile {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 4px 4px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.user-menu__avatar {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+}
+
+.user-menu__identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.user-menu__name {
+  font-size: 0.98rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.user-menu__handle,
+.user-menu__meta {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* ---- 各区段通用 ---- */
+.user-menu__section {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.user-menu__section:last-of-type {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.user-menu__section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px 4px;
+}
+
+.user-menu__title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.user-menu__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-danger, #b91c1c);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.user-menu__badge[hidden] {
+  display: none;
+}
+
+.user-menu__action {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.user-menu__action:hover {
+  background: var(--color-bg-hover);
+}
+
+.user-menu__action:disabled {
+  color: var(--color-text-muted);
+  opacity: 0.6;
+  cursor: default;
+  background: none;
+}
+
+.user-menu__item {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-main);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.user-menu__item:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-primary);
+}
+
+.user-menu__hint {
+  padding: 4px 10px 6px;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+/* ---- ③ 通知 ---- */
+.user-menu__notices {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-menu__notice {
+  display: flex;
+  gap: 8px;
+  padding: 6px 10px 6px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.user-menu__notice--unread {
+  background: var(--color-bg-secondary);
+}
+
+.user-menu__dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--color-danger, #b91c1c);
+}
+
+.user-menu__notice-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.user-menu__notice-title {
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.user-menu__notice--unread .user-menu__notice-title {
+  font-weight: 700;
+}
+
+.user-menu__notice-time {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+/* ---- ④ 主题 / ⑤ 退出 ---- */
+.user-menu__theme {
+  color: var(--color-text-muted);
+}
+
+.user-menu__logout {
+  color: var(--color-danger, #b91c1c);
+}
+
+.user-menu__logout:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-danger, #b91c1c);
+}
+
+@media (max-width: 768px) {
+  /* 窄屏改用 header 当定位根：手机上 #auth-container 并不在视口右缘（前面还有 logo 和
+     ☰ 按钮，管理员还有权限切换按钮），以它为基准面板会从**左边**溢出视口。
+     这里把它的 position 还原成 static，面板的包含块就变成 .header（position: sticky），
+     再贴视口右缘 16px —— 左右都不可能超出视口。 */
+  #auth-container {
+    position: static;
+  }
+
+  .user-menu {
+    top: calc(100% + 8px);
+    right: 16px;
+    width: min(320px, calc(100vw - 32px));
+    max-height: calc(100vh - var(--header-height) - 16px);
+  }
+
+  .user-menu__item {
+    /* 触屏加大点击区，避免 8px 内边距太窄误触 */
+    padding: 10px;
+  }
+}

@@ -7,20 +7,24 @@
   <link rel="dns-prefetch" href="//back.gwl.net.cn">
   <meta name="description" content="GWL 技能广场：获取官方提供的技能（动态页面），在技能页或仪表盘里直接使用。">
   <title>技能 | GWL</title>
-  <link rel="stylesheet" href="../css/core.css?v=20261101d">
-  <link rel="stylesheet" href="../css/styles.css?v=20261101d">
-  <link rel="stylesheet" href="../css/components.css?v=20261101d">
-  <link rel="stylesheet" href="./skill.css?v=20261101d">
-  <link rel="icon" href="../favicon.png?v=20261101d" type="image/png">
+  <link rel="stylesheet" href="../css/core.css?v=20261115a">
+  <link rel="stylesheet" href="../css/styles.css?v=20261115a">
+  <link rel="stylesheet" href="../css/components.css?v=20261115a">
+  <link rel="stylesheet" href="./skill.css?v=20261115a">
+  <link rel="icon" href="../favicon.png?v=20261115a" type="image/png">
 </head>
 <body data-skill-page="catalog">
   <!--
     技能广场：技能本质是**服务器官方提供的动态页面**（site-back/skills/<tab_key>/），
     与仪表盘里的 pages/、组织页里的 org-func/ 同一套目录契约，只是端不同。
     目录（本站）：GET /api/v0/skills → { items, acquired_count, can_manage }
-    获取：POST /api/v0/skills/<tab_key>/acquire   取消：DELETE 同一路径
+                 （optional JWT：未登录也返回全部已上架技能，每项带 anonymous_ok）
+    获取：POST /api/v0/skills/<tab_key>/acquire   取消：DELETE 同一路径（需登录）
     内容：GET /api/v0/skills/<tab_key> → { html, css, js, api_base }
+          （未登录只能取 anonymous_ok 的 Lv0 技能，其余 401「请先登录」）
+    删除：DELETE /api/v0/skills/<tab_key> body {purge:bool}（仅超管；默认下架）
     页面内不写内联脚本、不写内联事件（CSP 会拦）；脚本由 js/skill.js 统一挂事件。
+    删除按钮的两段确认用共享的 js/modal.js（Modal.confirm），故本页必须加载它。
   -->
   <header class="header">
     <div class="header__logo">GWL Works Lab</div>
@@ -48,6 +52,7 @@
       <p class="skill-hero__desc">
         技能是<strong>官方提供的小工具页</strong>：由超级管理员维护在服务器上，你点「获取」之后就能在这里打开，
         也会出现在仪表盘侧边栏（带 <code>(skill)</code> 小字）。获取不复制内容，官方更新一次，所有人立刻用上新版。
+        标着 <strong>Lv0 / 免登录</strong> 的技能无需登录即可直接打开试用。
       </p>
       <div class="skill-hero__actions">
         <a class="skill-link-btn" href="../user/dashboard.html">去仪表盘使用</a>
@@ -121,13 +126,14 @@
 
   <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
-  <!-- 脚本顺序固定：config → utils → sanitize → theme → toast → index → 本页 -->
-  <script src="../js/config.js?v=20261101d"></script>
-  <script src="../js/utils.js?v=20261101d"></script>
-  <script src="../js/sanitize.js?v=20261101d"></script>
-  <script src="../js/theme.js?v=20261101d"></script>
-  <script src="../js/toast.js?v=20261101d"></script>
-  <script src="../js/index.js?v=20261101d"></script>
-  <script src="./skill.js?v=20261101d"></script>
+  <!-- 脚本顺序固定：config → utils → sanitize → theme → toast → modal → index → 本页 -->
+  <script src="../js/config.js?v=20261115a"></script>
+  <script src="../js/utils.js?v=20261115a"></script>
+  <script src="../js/sanitize.js?v=20261115a"></script>
+  <script src="../js/theme.js?v=20261115a"></script>
+  <script src="../js/toast.js?v=20261115a"></script>
+  <script src="../js/modal.js?v=20261115a"></script>
+  <script src="../js/index.js?v=20261115a"></script>
+  <script src="./skill.js?v=20261115a"></script>
 </body>
 </html>

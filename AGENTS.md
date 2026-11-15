@@ -10,7 +10,7 @@
 | 形态 | 手写 HTML / CSS / 原生 JS；**无框架、无构建、无 npm**；浏览器直接加载 |
 | 托管 | **GitHub Pages**（公开仓库 `GFYGO/gfygo-site`，CNAME = `gwl.net.cn`） |
 | 与后端 | **两个互不嵌套的独立仓库**；接口基址硬编码在 `js/config.js` → `https://back.gwl.net.cn` |
-| 发布面 | 主站 **11 页**（`index` / `login` / `register` / `document` / `u` / `forgot` / `reset` / `404` ＋ ⭐ `privacy` / `terms` / `about`）＋ `user/dashboard.html` ＋ `org/index.html` ＋ `discover/` 11 页 ＋ `model/*` 6 页 ＋ ⭐ `create-tool.html` = **31 个 HTML**（⚠️ `model/test.*` **仍会发布**，见 `file-wiki/09` §2） |
+| 发布面 | 主站 **11 页**（`index` / `login` / `register` / `document` / `u` / `forgot` / `reset` / `404` ＋ ⭐ `privacy` / `terms` / `about`）＋ `user/dashboard.html` ＋ `org/index.html` ＋ `discover/` 11 页 ＋ `model/*` 6 页 ＋ ⭐ `create-tool.html` ＋ ⭐ `creator/index.html`（2026-11-15 创作者工作台）= **32 个 HTML**（⚠️ `model/test.*` **仍会发布**，见 `file-wiki/09` §2） |
 | 加载约定 | 共享层普通 `<script>`（非 ES module）；dashboard 用 ES module 装配；动态页面脚本由**后端下发**（Blob 注入，不在本仓库） |
 | 交付 | push `origin main` → GitHub Actions 自动发 Pages；⚠️ 改前端资源**必须提升 `?v=` 版本号**（2026-10-25 起全站统一批次号，用 `tools/bump-versions.mjs`） |
 
@@ -52,7 +52,12 @@
    `window.showToast`（定义在 `js/`；被全站加载，改它们要提升**所有**相关页面的版本号）。
 5. **渲染转义**：一律 `escapeHtml` 或 `textContent`；不要把后端字符串直接塞 `innerHTML`。
 6. **token 在 `localStorage`**（`AuthGuard` 管理）；登录态判断与 401 跳转走共享层，不要各页重复实现。
-7. ⚠️ **`model/test.html` / `model/test.js` 仍会发布**（workflow 没有排除；`model/index.html` 有纯点击可达的入口）
+7. ⭐ **右上角用户菜单（2026-11-15）**：`js/index.js::renderAuthStatus` 渲染头像下拉面板（资料 / 快捷入口 / 通知 / 主题 / 退出），
+   样式在 `css/core.css`。改它时**必须保留**既有契约：`.user-info` / `img.user-avatar` / `a.username` / `#logoutBtn`、
+   隐藏导航 login/register、`renderPermissionButtons`、`__currentUserPermissionLevel`；面板数据只用 textContent。
+8. ⭐ **CSP 分工**：`document.html` 不需要 `blob:`；`skill/index.html` 与 `creator/index.html` 需要 `script-src blob:`
+   （动态页面脚本用 Blob 注入）。统一 CSP 时不要一刀切去掉 `blob:`。
+9. ⚠️ **`model/test.html` / `model/test.js` 仍会发布**（workflow 没有排除；`model/index.html` 有纯点击可达的入口）
    —— 不要把它们当作「已下线」或安全边界（后端鉴权仍完整）；结论出处：`file-wiki/09` §2/§5。
 
 ## 4. 常用验证命令（**在工作区根目录跑**；`tools/` 由根仓库（本地 git）版本化）
@@ -81,7 +86,7 @@ node tools/test-sanitize-tool.mjs     # 20 项：工具 HTML/CSS 净化策略
 
 ⭐ **缓存版本号统一用脚本维护**（2026-10-25 起）：`node tools/bump-versions.mjs --list` 看现状、
 `--verify` 查漂移、`20261101a --all` 一次全站统一、`<ver> js/modal.js` 只升某个文件。
-当前约定：**全站同一批次版本号**（2026-11-01 统一为 `20261101a`，页脚 4 列 + 反馈列那一批），不再逐文件各自为政。
+当前约定：**全站同一批次版本号**（⭐ 2026-11-15 统一为 **`20261115a`**，创作者页面 + 头像下拉面板那一批；`user/dashboard.menu.js` 的 `BUILD_VERSION` 必须同步），不再逐文件各自为政。
 
 ## 5. 目录速览（细节按需查 `file-wiki` 对应篇）
 
@@ -91,6 +96,7 @@ node tools/test-sanitize-tool.mjs     # 20 项：工具 HTML/CSS 净化策略
 | `user/` | 仪表盘：`dashboard.html` + **15 个** `user/*.js`（14 个 `dashboard.*`，其中 `pdocs.editor` / `pdocs.bulk` 由 `dashboard.pdocs.js` 按视图动态 import + `permission-picker.js`）+ 6 个 CSS | `12` |
 | `org/` | 组织页：`index.html` / `org.css` / `org.js`（侧栏「我加入的组」标题旁有 ⭐ **「＋ 加入」** 卡片：public 自助加入 / 邀请码 / 单次链接 / 我的申请 / 我收到的邀请） | `13` ＋ `site-back/memory/05-permission.md` §5.6 |
 | `discover/` | 发现页 11 个普通静态页（2026-10-02 新增） | `11` §7 |
-| `css/` | 10 个 `css/*.css`（含 `legal.css`）+ `README.md`（加载关系权威；全站 CSS 共 18 个） | `14` |
+| `css/` | 10 个 `css/*.css`（含 `legal.css`）+ `README.md`（加载关系权威；全站 CSS 共 19 个，2026-11-15 新增 `creator/creator.css`） | `14` |
+| `creator/` | ⭐ **创作者工作台**（2026-11-15）：`index.html` / `creator.css` / `creator.js`；四面板（文档树 / 编辑器+预览 / 动态页面 / 交流），受 `*.create` 节点门控 | 本文 §5、`../doc/网站功能/2026-11-15-创作者与有状态JWT.md` |
 | `model/` | Model 原型页（⚠️ `test.*` 仍发布） | `09` §2 |
 | `.github/workflows/static.yml` | Pages 发布 workflow（改排除规则前先读 `09` §2） | `09` |
