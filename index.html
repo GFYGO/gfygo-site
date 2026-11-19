@@ -5,20 +5,19 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://back.gwl.net.cn https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="dns-prefetch" href="//back.gwl.net.cn">
-  <!-- ⭐ P2（2026-10-15 审查）：全站此前 0 个 description / OG / canonical -->
-  <meta name="description" content="GWL Works Lab —— 个人向学习平台与文档系统：多级权限的公共 / 组 / 私有文档库、组织与组协作、公开内容发现。">
+  <meta name="description" content="GWL Works Lab —— 个人学习平台：常用数学工具一站直达，背单词等学习技能开箱即用，支持 Markdown、文件夹与多级权限的简单文档，以及公开内容发现。">
   <link rel="canonical" href="https://gwl.net.cn/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="GWL Works Lab">
-  <meta property="og:title" content="GWL Works Lab">
-  <meta property="og:description" content="多级权限的文档系统与学习平台：公共 / 组 / 私有文档、组织协作与公开内容发现。">
+  <meta property="og:title" content="GWL Works Lab · 学习、工具与文档">
+  <meta property="og:description" content="常用数学工具、背单词、简单易用的 Markdown 文档与公开分享，都收在同一个学习工作台里。">
   <meta property="og:url" content="https://gwl.net.cn/">
   <meta name="twitter:card" content="summary">
-  <title>个人学习平台 | GWL</title>
-  <link rel="stylesheet" href="./css/core.css?v=20261115c">
-  <link rel="stylesheet" href="./css/styles.css?v=20261115c">
-  <link rel="stylesheet" href="./css/components.css?v=20261115c">
-  <link rel="stylesheet" href="./css/feature-grid.css?v=20261115c">
+  <title>GWL Works Lab · 学习、工具与文档</title>
+  <link rel="stylesheet" href="./css/core.css?v=20261120a">
+  <link rel="stylesheet" href="./css/styles.css?v=20261120a">
+  <link rel="stylesheet" href="./css/components.css?v=20261120a">
+  <link rel="stylesheet" href="./css/home.css?v=20261120a">
   <link rel="icon" href="./favicon.png" type="image/png">
 </head>
 <body>
@@ -50,41 +49,332 @@
   <!-- 全局通知容器（在 header 下方，fixed 定位） -->
   <div id="global-notifications-container" class="notification-toast" role="log" aria-label="站点通知" aria-live="polite"></div>
 
-  <!-- Homepage Sections -->
-  <main>
-    <section class="home-section">
-      <h1 class="home-section__title">GWL</h1>
-      <p class="home-section__desc">欢迎来到 GWL Works Lab。这是一个由个人独立搭建的小站，旨在辅助高中知识学习与探索现代信息技术。这里汇集了各类实用工具与资源，希望能在课业之余为你提供一个动手实践、自由探索的空间。学习不必总是枯燥的，愿这些小小的工具能点燃你的好奇心，让求知本身变得更有趣、更有成就感。</p>
+  <main class="home-landing">
+    <!-- ============================================================
+         1. Hero
+         ============================================================ -->
+    <section class="hp-hero" aria-labelledby="hero-title">
+      <div class="hp-wrap hp-hero__inner">
+        <div class="hp-hero__copy">
+          <span class="hp-eyebrow">
+            <span class="hp-eyebrow__dot" aria-hidden="true"></span>
+            GWL Works Lab · 个人学习平台
+          </span>
+          <h1 class="hp-hero__title" id="hero-title">学习、工具与文档，<br>都在<em>一个工作台</em>里。</h1>
+          <p class="hp-hero__desc">一个由个人独立搭建的小站：把常用数学工具、记背单词、简单文档与公开分享收进同一处。无需安装，打开浏览器就能用；课业之余，也留一块自由探索的地方。</p>
+
+          <div class="hp-actions">
+            <a class="hp-btn hp-btn--primary" href="./register.html">免费注册 <span aria-hidden="true">→</span></a>
+            <a class="hp-btn hp-btn--ghost" href="./user/dashboard.html">进入工作台</a>
+          </div>
+
+          <div class="hp-stats">
+            <div class="hp-stat"><strong>8 个</strong><span>第三方工具一站直达</span></div>
+            <div class="hp-stat"><strong>4 种</strong><span>词库来源自由组合</span></div>
+            <div class="hp-stat"><strong>1–5 级</strong><span>文档可见范围可控</span></div>
+          </div>
+        </div>
+
+        <div class="hp-hero__visual">
+          <span class="hp-float hp-float--a">
+            <span aria-hidden="true">🔧</span>
+            <span><b>8 个第三方工具</b>站内嵌入打开</span>
+          </span>
+          <figure class="hp-frame">
+            <div class="hp-frame__bar" aria-hidden="true">
+              <span class="hp-frame__dots"><i></i><i></i><i></i></span>
+              <span class="hp-frame__url">gwl.net.cn/user/dashboard.html</span>
+            </div>
+            <img src="./images/home/hero-workspace.png" width="2240" height="1328" alt="GWL Works Lab 工作台：快捷入口、未读通知、常用工具与最近文档" fetchpriority="high">
+          </figure>
+          <span class="hp-float hp-float--b">
+            <span aria-hidden="true">✅</span>
+            <span><b>自动保存</b>Markdown · 实时预览</span>
+          </span>
+        </div>
+      </div>
     </section>
 
-    <section class="home-section home-section--alt">
-      <h2 class="home-section__title">核心功能</h2>
+    <!-- ============================================================
+         2. 网络实用工具集合
+         ============================================================ -->
+    <section class="hp-section hp-section--edge" id="tools" aria-labelledby="tools-title">
+      <div class="hp-wrap">
+        <div class="hp-head">
+          <span class="hp-kicker">01 · 网络实用工具集合</span>
+          <h2 id="tools-title">常用的数学工具，收进站里直接打开</h2>
+          <p>Desmos 与 GeoGebra 这些每天都在用的工具，不必再翻收藏夹。点开卡片即可在站内嵌入使用，画图、计算、记笔记都不离开当前页面；第三方登录状态由对方站点自己保存，本站不读取、不代存。</p>
+        </div>
 
-      <div class="feature-grid">
-        <a class="feature-tile" href="./document.html">
-          <div class="feature-tile__img">📚</div>
-          <div class="feature-tile__content">
-            <div class="feature-tile__title">学习文档</div>
-            <div class="feature-tile__desc">查看完整的学习文档与API接口说明</div>
+        <div class="hp-tools">
+          <div>
+            <div class="hp-tool-grid">
+              <a class="hp-tool" href="./user/dashboard.html?tab=tools">
+                <span class="hp-tool__icon" aria-hidden="true">🧮</span>
+                <div class="hp-tool__body">
+                  <h3>Desmos 函数</h3>
+                  <p>函数图像、不等式与参数曲线，输入表达式即刻成图。</p>
+                </div>
+                <span class="hp-tool__arrow" aria-hidden="true">→</span>
+              </a>
+
+              <a class="hp-tool" href="./user/dashboard.html?tab=tools">
+                <span class="hp-tool__icon" aria-hidden="true">📐</span>
+                <div class="hp-tool__body">
+                  <h3>GeoGebra 计算器套件</h3>
+                  <p>代数、几何、3D 与概率，常用计算器一次配齐。</p>
+                </div>
+                <span class="hp-tool__arrow" aria-hidden="true">→</span>
+              </a>
+
+              <a class="hp-tool" href="./user/dashboard.html?tab=tools">
+                <span class="hp-tool__icon" aria-hidden="true">📓</span>
+                <div class="hp-tool__body">
+                  <h3>GeoGebra 笔记</h3>
+                  <p>边写边算，图文混排的数学笔记本，适合整理解题过程。</p>
+                </div>
+                <span class="hp-tool__arrow" aria-hidden="true">→</span>
+              </a>
+
+              <a class="hp-tool" href="./user/dashboard.html?tab=tools">
+                <span class="hp-tool__icon" aria-hidden="true">✏️</span>
+                <div class="hp-tool__body">
+                  <h3>Desmos 笔记 Beta</h3>
+                  <p>把计算过程整理成可分享的笔记，复盘时更清楚。</p>
+                </div>
+                <span class="hp-tool__arrow" aria-hidden="true">→</span>
+              </a>
+            </div>
+            <p class="hp-note">登录后在「第三方工具」页内嵌入打开；若站点禁止嵌入，也可以在新标签页打开。</p>
           </div>
-        </a>
 
-        <a class="feature-tile" href="https://www.bilibili.com/video/BV1GJ411x7h7" target="_blank" rel="noopener noreferrer">
-          <div class="feature-tile__img">📺</div>
-          <div class="feature-tile__content">
-            <div class="feature-tile__title">学习视频</div>
-            <div class="feature-tile__desc">在 B 站观看完整学习视频与讲解</div>
+          <figure class="hp-media">
+            <div class="hp-frame">
+              <div class="hp-frame__bar" aria-hidden="true">
+                <span class="hp-frame__dots"><i></i><i></i><i></i></span>
+                <span class="hp-frame__url">gwl.net.cn · 第三方工具 · Desmos</span>
+              </div>
+              <img src="./images/home/third-party-desmos.png" width="2240" height="1328" alt="在站内嵌入打开的 Desmos 函数工具，左侧为表达式列表，右侧为实时函数图像" loading="lazy">
+            </div>
+            <figcaption class="hp-media__caption">站内嵌入的 Desmos：左侧表达式，右侧实时函数图像。</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         3. 网站学习工具（背单词）
+         ============================================================ -->
+    <section class="hp-section hp-section--tint" id="learning" aria-labelledby="learning-title">
+      <div class="hp-wrap">
+        <div class="hp-head">
+          <span class="hp-kicker">02 · 网站学习工具</span>
+          <h2 id="learning-title">背单词，也可以是一套完整的小工具</h2>
+          <p>以站内「背单词」技能为例：跟读与考单词两种模式，支持服务器词库，也能直接选「我的 / 组 / 公共文档」里的任意一篇。朗读速度、循环播放、展示字段都能按自己的节奏调。</p>
+        </div>
+
+        <div class="hp-learn">
+          <figure class="hp-media">
+            <div class="hp-frame">
+              <div class="hp-frame__bar" aria-hidden="true">
+                <span class="hp-frame__dots"><i></i><i></i><i></i></span>
+                <span class="hp-frame__url">gwl.net.cn · 技能 · 背单词</span>
+              </div>
+              <img src="./images/home/skill-word-drill.png" width="2239" height="1332" alt="背单词技能：跟读模式展示单词 harmony，可切换跟读与考单词、选择词库与朗读速度" loading="lazy">
+            </div>
+            <figcaption class="hp-media__caption">跟读模式当前展示「harmony」，右侧可切换上一个 / 下一个。</figcaption>
+          </figure>
+
+          <div>
+            <div class="hp-features">
+              <div class="hp-feature">
+                <span class="hp-feature__icon" aria-hidden="true">🎧</span>
+                <div>
+                  <h3>跟读 / 考单词</h3>
+                  <p>逐词朗读，可录音对比；考单词按勾选的字段出题，没勾的等「显示答案」再揭晓。</p>
+                </div>
+              </div>
+
+              <div class="hp-feature">
+                <span class="hp-feature__icon" aria-hidden="true">🗂️</span>
+                <div>
+                  <h3>词库自由组合</h3>
+                  <p>服务器自带词库，也可以从我的、组、公共文档里挑一篇，每行「英文:中文」即可。</p>
+                </div>
+              </div>
+
+              <div class="hp-feature">
+                <span class="hp-feature__icon" aria-hidden="true">🎚️</span>
+                <div>
+                  <h3>展示与语速可调</h3>
+                  <p>英文、中文、音标、词性、朗读按需勾选；朗读速度从 0.65× 起调，还有乱序模式。</p>
+                </div>
+              </div>
+
+              <div class="hp-feature">
+                <span class="hp-feature__icon" aria-hidden="true">💾</span>
+                <div>
+                  <h3>进度自动记录</h3>
+                  <p>循环跟读会自动逐个播放，下次打开从上次的位置继续；也可以随时重置进度。</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="hp-chips" aria-label="背单词功能标签">
+              <span class="hp-chip">跟读模式</span>
+              <span class="hp-chip">考单词</span>
+              <span class="hp-chip">循环播放</span>
+              <span class="hp-chip">录音对比</span>
+              <span class="hp-chip">词库导入</span>
+            </div>
+
+            <div class="hp-cta-row">
+              <a class="hp-btn hp-btn--primary" href="./skill/index.html">去技能广场看看 <span aria-hidden="true">→</span></a>
+              <a class="hp-text-link" href="./document.html">用文档当词库 →</a>
+            </div>
           </div>
-        </a>
+        </div>
+      </div>
+    </section>
 
-        <!-- ⭐ P2（2026-10-15 审查）：这是**无链接占位**，但 .feature-tile 自带
-             cursor:pointer + hover 上浮（css/feature-grid.css）→ 看起来可点。
-             加 --soon 修饰类把它降级成"说明卡"。 -->
-        <div class="feature-tile feature-tile--soon" aria-disabled="true">
-          <div class="feature-tile__img">🚧</div>
-          <div class="feature-tile__content">
-            <div class="feature-tile__title">更多功能</div>
-            <div class="feature-tile__desc">正在开发中，敬请期待</div>
+    <!-- ============================================================
+         4. 简单易用文档
+         ============================================================ -->
+    <section class="hp-section" id="docs" aria-labelledby="docs-title">
+      <div class="hp-wrap">
+        <div class="hp-head">
+          <span class="hp-kicker">03 · 简单易用文档</span>
+          <h2 id="docs-title">写文档，不用先学一套复杂系统</h2>
+          <p>Markdown 编辑、实时预览、文件夹归档、批量整理与回收站，都做成了看得懂的按钮。公共 / 组 / 私有三个根目录配合 1–5 级权限，谁能看、谁能改，一目了然。</p>
+        </div>
+
+        <div class="hp-docs">
+          <div>
+            <div class="hp-features">
+              <div class="hp-feature">
+                <span class="hp-feature__icon" aria-hidden="true">✍️</span>
+                <div>
+                  <h3>Markdown + 实时预览</h3>
+                  <p>左边写、右边看，标题、列表、表格、代码块与公式都能用。</p>
+                </div>
+              </div>
+
+              <div class="hp-feature">
+                <span class="hp-feature__icon" aria-hidden="true">🗂️</span>
+                <div>
+                  <h3>文件夹与批量操作</h3>
+                  <p>新建文件夹归档，多选后批量编辑；误删的文档进回收站，还能找回。</p>
+                </div>
+              </div>
+
+              <div class="hp-feature">
+                <span class="hp-feature__icon" aria-hidden="true">📥</span>
+                <div>
+                  <h3>导入 Markdown 与图片</h3>
+                  <p>多选导入 Markdown 和图片，正文里的图片引用会自动重写。</p>
+                </div>
+              </div>
+
+              <div class="hp-feature">
+                <span class="hp-feature__icon" aria-hidden="true">🔐</span>
+                <div>
+                  <h3>三级目录 + 多级权限</h3>
+                  <p>公共、组、私有各管各的，按 1–5 级控制可见范围，分享给谁由你决定。</p>
+                </div>
+              </div>
+
+              <div class="hp-feature">
+                <span class="hp-feature__icon" aria-hidden="true">🕘</span>
+                <div>
+                  <h3>修订历史与导出</h3>
+                  <p>改错了能回看、能恢复；单篇或整包导出，数据始终在自己手里。</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="hp-cta-row">
+              <a class="hp-btn hp-btn--primary" href="./document.html">打开文档中心 <span aria-hidden="true">→</span></a>
+              <a class="hp-text-link" href="./user/dashboard.html?tab=docs">进入个人文档 →</a>
+            </div>
+          </div>
+
+          <div class="hp-demo" role="img" aria-label="个人文档界面示意：左侧是按日期排列的文档卡片，右侧是 Markdown 编辑与实时预览">
+            <div class="hp-demo__bar">
+              <span class="hp-demo__crumb">📁 个人文档 <span>/</span> 学习 <span>/</span> <b>英语 · 笔记</b></span>
+              <span class="hp-demo__new">＋ 新建文档</span>
+            </div>
+            <div class="hp-demo__body">
+              <div class="hp-demo__files">
+                <div class="hp-file"><span>📄</span><b>2026-11-04</b>1 天前</div>
+                <div class="hp-file"><span>📄</span><b>2026-11-03</b>2 天前</div>
+                <div class="hp-file"><span>📄</span><b>2026-11-02</b>3 天前</div>
+                <div class="hp-file"><span>📄</span><b>2026-10-30</b>6 天前</div>
+                <div class="hp-file"><span>📄</span><b>2026-10-28</b>9 天前</div>
+                <div class="hp-file"><span>📄</span><b>2026-10-27</b>10 天前</div>
+              </div>
+              <div class="hp-demo__paper">
+                <div class="hp-demo__paper-top"><i aria-hidden="true"></i> Markdown · 编辑区 · 已保存</div>
+                <h3>英语 Unit 6 · 单元笔记</h3>
+                <pre class="hp-demo__text"># Unit 6
+harmony  融洽相处，和谐
+rhythm   节奏；韵律
+
+- 定语从句：who / which
+- 重点：**关系副词**</pre>
+                <div class="hp-demo__tags"><span># 英语</span><span># 单词</span><span>私有</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         5. 使用展示
+         ============================================================ -->
+    <section class="hp-section hp-section--tint hp-section--edge" id="showcase" aria-labelledby="showcase-title">
+      <div class="hp-wrap">
+        <div class="hp-head hp-head--center">
+          <span class="hp-kicker">04 · 使用展示</span>
+          <h2 id="showcase-title">从个人文档，到创作者工作台</h2>
+          <p>同一套界面，既能管理自己的学习资料，也能写文档、排版、发布到公共文档库。下面是站内的真实截图。</p>
+        </div>
+
+        <div class="hp-showcase">
+          <figure class="hp-shot">
+            <div class="hp-shot__head">
+              <h3>个人文档 · 按日期归档</h3>
+              <span class="hp-shot__tag">个人文档</span>
+            </div>
+            <img src="./images/home/docs-personal.png" width="2240" height="1328" alt="个人文档页面：按日期排列的文档卡片，工具栏可新建文件夹、新建文档、导入、批量编辑、打开回收站与导出" loading="lazy">
+            <figcaption>文件夹、批量编辑、导入、回收站与导出都收在工具栏里；列表按最近修改排序，也能继续加载更多。</figcaption>
+          </figure>
+
+          <figure class="hp-shot">
+            <div class="hp-shot__head">
+              <h3>创作者工作台 · 三栏编辑</h3>
+              <span class="hp-shot__tag">创作者</span>
+            </div>
+            <img src="./images/home/creator-workbench.png" width="2240" height="1400" alt="创作者工作台：左侧文档树，中间 Markdown 编辑器与预览，右侧动态页面、交流与通知面板" loading="lazy">
+            <figcaption>标题、图标、摘要、可见等级一次填完；动态页面、交流与修订历史都在同一屏里完成。</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         6. 底部行动区
+         ============================================================ -->
+    <section class="hp-cta" aria-labelledby="cta-title">
+      <div class="hp-wrap">
+        <div class="hp-cta__card">
+          <div class="hp-cta__copy">
+            <h2 id="cta-title">把它当成你的下一块学习桌面</h2>
+            <p>注册只需要一个邮箱。写文档、背单词、用工具，都可以从今天开始；也欢迎去发现广场逛逛别人公开的内容。</p>
+          </div>
+          <div class="hp-cta__actions">
+            <a class="hp-btn hp-btn--primary" href="./register.html">免费注册</a>
+            <a class="hp-btn hp-btn--ghost" href="./login.html">已有账号，登录</a>
           </div>
         </div>
       </div>
@@ -133,10 +423,10 @@
   <!-- 主题切换悬浮按钮 -->
   <button id="theme-selector" class="theme-switcher" aria-label="切换主题"></button>
 
-  <script src="./js/config.js?v=20261115c"></script>
-  <script src="./js/theme.js?v=20261115c"></script>
-  <script src="./js/toast.js?v=20261115c"></script>
-  <script src="./js/avatar-menu.js?v=20261115c"></script>
-  <script src="./js/index.js?v=20261115c"></script>
+  <script src="./js/config.js?v=20261120a"></script>
+  <script src="./js/theme.js?v=20261120a"></script>
+  <script src="./js/toast.js?v=20261120a"></script>
+  <script src="./js/avatar-menu.js?v=20261120a"></script>
+  <script src="./js/index.js?v=20261120a"></script>
 </body>
 </html>

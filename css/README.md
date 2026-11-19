@@ -11,7 +11,8 @@
 
 - **`css/styles.css`** — Header、Footer、首页 sections、登录表单、Theme Switcher、Header User Info、响应式布局
 - **`css/components.css`** — Toast 通知、Modal 弹窗、全局通知弹窗（notification-toast）、权限等级切换按钮组
-- **`css/feature-grid.css`** — 首页功能卡片网格（feature-grid / feature-tile）
+- **`css/feature-grid.css`** — 功能卡片网格（feature-grid / feature-tile）；首页于 2026-11-20 改版后不再加载，现仅 `document.html` 与 `user/dashboard.html` 使用
+- **`css/home.css`** — ⭐ 首页落地页专属（2026-11-20）：Hero、工具卡、学习工具、文档示意、使用展示与底部行动区；全部规则收在 `.home-landing` 下
 - **`css/legal.css`** — 静态正文页（`privacy.html` / `terms.html` / `about.html`）的排版：`.legal-page` / `.legal-card` / `.legal-meta`
 - **`css/document.css`** — 文档中心页面（目录树、详情、编辑器、修订历史、面包屑、文件夹树、`.doc-*` 全套状态/空态/徽标；2026-10-16 补齐约 270 行）
 - **`css/image-lightbox.css`** — ⭐ 图片灯箱（`.doc-lightbox*`，2026-11-15 第三批）：点文档正文/预览里的图片放大，并给出「Markdown / HTML / 裸 URL」三种可复制的嵌入写法。
@@ -45,7 +46,7 @@
 按每个 HTML 里实际的 `<link rel="stylesheet">` 逐文件 grep 得到（`?v=` 版本号此处略去）：
 
 ```
-index.html            → css/core.css + css/styles.css + css/components.css + css/feature-grid.css
+index.html            → css/core.css + css/styles.css + css/components.css + css/home.css
 login.html            → css/core.css + css/styles.css + css/login.css + css/forgot.css + css/components.css
 register.html         → css/core.css + css/styles.css + css/login.css + css/register.css + css/components.css
 forgot.html           → css/core.css + css/styles.css + css/login.css + css/forgot.css + css/components.css
@@ -99,7 +100,7 @@ model/debug.html      → 无外部 CSS 依赖，样式全部内联在 <style> �
 
 | 目录 | 文件 | 数量 |
 |---|---|---|
-| `css/` | `core.css`、`styles.css`、`components.css`、`feature-grid.css`、`document.css`、`login.css`、`forgot.css`、`register.css` | 8 |
+| `css/` | `core.css`、`styles.css`、`components.css`、`feature-grid.css`、`home.css`、`document.css`、`login.css`、`forgot.css`、`register.css`、`discover.css`、`legal.css`、`create-tool.css`、`image-lightbox.css` | 13 |
 | `user/` | `dashboard.css`、`dashboard-admin.css`、`dashboard-perms.css`、`dashboard-profile.css`、`dashboard-workspace.css`、`permission-picker.css` | 6 |
 | `org/` | `org.css` | 1 |
 | `creator/` | `creator.css`（2026-11-15 新增） | 1 |

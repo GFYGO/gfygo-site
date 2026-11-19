@@ -83,25 +83,26 @@ node tools/test-dashboard-tools.mjs   # 30 项：左栏工具项 + tool_ 分支 
 node tools/test-tool-blocks.mjs       # 19 项：块渲染器 DOM 契约
 node tools/test-sanitize-tool.mjs     # 20 项：工具 HTML/CSS 净化策略
 node tools/test-avatar-menu.mjs       # 25 项：头像下拉面板（主站 + 仪表盘两个消费者 + 缺模块降级）
+node tools/test-home-page.mjs          # 52 项：首页四板块 / 5 张配图 / CTA / 响应式 / 缓存批次
 node tools/test-creator-page.mjs      # 113 项：创作者工作台（四面板 / org-func / 交流组下拉 / 草稿树 / 等级位上限）
 ```
 
 ⚠️ 本机**没有浏览器自动化**（沙箱起不了无头浏览器）——视觉类问题只能人工在浏览器验证；
-`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，**17 套**全绿；2026-11-15 第二批新增 `test-avatar-menu` 25 项 / `test-creator-page` 113 项）。
+`tools/` 的回归都是 DOM-stub / 静态断言（DOM 桩在 `tools/dom-stub.mjs`，**18 套**全绿；2026-11-15 第二批新增 `test-avatar-menu` 25 项 / `test-creator-page` 113 项；2026-11-20 新增 `test-home-page` 52 项）。
 
 ⭐ **缓存版本号统一用脚本维护**（2026-10-25 起）：`node tools/bump-versions.mjs --list` 看现状、
 `--verify` 查漂移、`20261101a --all` 一次全站统一、`<ver> js/modal.js` 只升某个文件。
-当前约定：**全站同一批次版本号**（⭐ 2026-11-15 第一、二批为 `20261115a`，第三批升到 `20261115b`：头像模块化 / 创作者四项 / 审核台 / 导入图片 / 图片灯箱；⭐ 同日后继批次 **`20261115c`**：数据导出入口调整——「导出全部数据」移进设置、个人文档工具栏改为「导出文件夹」；`user/dashboard.menu.js` 的 `BUILD_VERSION` 必须同步），不再逐文件各自为政。
+当前约定：**全站同一批次版本号**（⭐ 2026-11-15 第一、二批为 `20261115a`，第三批升到 `20261115b`：头像模块化 / 创作者四项 / 审核台 / 导入图片 / 图片灯箱；⭐ 同日后继批次 **`20261115c`**：数据导出入口调整——「导出全部数据」移进设置、个人文档工具栏改为「导出文件夹」；⭐ **2026-11-20 首页改版批次 `20261120a`**：Hero + 工具 / 学习 / 文档 / 展示四板块，新增 `css/home.css` 与 `images/home/` 5 张截图，首页不再加载 `feature-grid.css`（410 处引用 / 33 个 HTML，`--verify` 0 漂移）；`user/dashboard.menu.js` 的 `BUILD_VERSION` 必须同步），不再逐文件各自为政。
 
 ## 5. 目录速览（细节按需查 `file-wiki` 对应篇）
 
 | 目录 | 一句话 | 导航篇 |
 |---|---|---|
-| 根 `*.html` + `js/` | 主站 11 页（含隐私政策 / 服务条款 / 关于我们）+ 20 个共享/页面脚本（config / sanitize / theme / toast / modal / utils / turnstile-widget / ⭐ avatar-menu / ⭐ image-lightbox / index / login / register / forgot / reset / document / user-profile / create-tool / discover / discover-own-site / discover-tool） | `11`、`10` |
+| 根 `*.html` + `js/` + ⭐ `images/home/` | 主站 11 页（含隐私政策 / 服务条款 / 关于我们）+ 20 个共享/页面脚本 + 首页 5 张真实截图（config / sanitize / theme / toast / modal / utils / turnstile-widget / ⭐ avatar-menu / ⭐ image-lightbox / index / login / register / forgot / reset / document / user-profile / create-tool / discover / discover-own-site / discover-tool） | `11`、`10` |
 | `user/` | 仪表盘：`dashboard.html` + **15 个** `user/*.js`（14 个 `dashboard.*`，其中 `pdocs.editor` / `pdocs.bulk` 由 `dashboard.pdocs.js` 按视图动态 import + `permission-picker.js`）+ 6 个 CSS | `12` |
 | `org/` | 组织页：`index.html` / `org.css` / `org.js`（侧栏「我加入的组」标题旁有 ⭐ **「＋ 加入」** 卡片：public 自助加入 / 邀请码 / 单次链接 / 我的申请 / 我收到的邀请） | `13` ＋ `site-back/memory/05-permission.md` §5.6 |
 | `discover/` | 发现页 11 个普通静态页（2026-10-02 新增） | `11` §7 |
-| `css/` | 11 个 `css/*.css`（含 `legal.css` / `image-lightbox.css`）+ `README.md`（加载关系权威；全站 CSS 共 20 个，2026-11-15 新增 `creator/creator.css` 与 `image-lightbox.css`） | `14` |
+| `css/` | 13 个 `css/*.css`（含 `legal.css` / `image-lightbox.css` / ⭐ `home.css`）+ `README.md`（加载关系权威；全站 CSS 共 20 个，2026-11-15 新增 `creator/creator.css` 与 `image-lightbox.css`，2026-11-20 新增首页 `css/home.css`） | `14` |
 | `creator/` | ⭐ **创作者工作台**（2026-11-15）：`index.html` / `creator.css` / `creator.js`；四面板（文档树 / 编辑器+预览 / 动态页面 / 交流），受 `*.create` 节点门控 | 本文 §5、`../doc/网站功能/2026-11-15-创作者与有状态JWT.md` |
 | `model/` | Model 原型页（⚠️ `test.*` 仍发布） | `09` §2 |
 | `.github/workflows/static.yml` | Pages 发布 workflow（改排除规则前先读 `09` §2） | `09` |
